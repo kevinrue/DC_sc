@@ -1,0 +1,283 @@
+---
+title: Quality control
+author:
+  - name: Anna Aulicino
+    email: anna.aulicino@ndm.ox.ac.uk
+    affiliation: MRC,Human Immunology Unit, Weatherall Institute of Molecular
+        Medicine, NIHR Biomedical research centre, University of Oxford,
+        John Radcliffe Hospital, Oxford, UK.
+  - name: Kévin Rue-Albrecht
+    email: kevinrue67@gmail.com
+    affiliation: Department of Medicine, Imperial College London,
+        Hammersmith Campus, Du Cane Road, London, W12 0NN, UK
+date: "`r doc_date()`"
+package: "`r pkg_ver('BiocStyle')`"
+abstract: >
+  Quality control based for all 384 samples, including blanks, bulks and
+  single cells.
+vignette: >
+  %\VignetteIndexEntry{Quality control}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+output: 
+  BiocStyle::pdf_document2:
+    toc_newpage: true
+---
+
+
+# Settings
+
+```{r check, include=FALSE}
+stopifnot(
+    requireNamespace("scater"),
+    requireNamespace("S4Vectors"),
+    requireNamespace("reshape2")
+)
+```
+
+Define of folders where to find and write data[^1]:
+
+[^1]: Paths are relative the location of the vignette file; if code chunks
+are run interactively, paths must be relative to the working directory 
+
+```{r settings}
+# Location of RDS files (Serialized Single Objects) 
+folder.rds <- "../rds"
+# Location of QC files
+folder.qc <- "../qc"
+```
+
+# Pre-process data
+
+Prior to this document, quantitation data for all 384 samples
+(including single cells, blanks and bulks)
+was imported into the _R_ environment as a `SCESet` using the
+`r Biocpkg("scater")` `readKallistoResults` method,
+and pre-processed as follows:
+
+* Phenotype data was imported from a CSV file and attached to the `SCESet`.
+* Transcript-level expression data was aggregated into gene-level
+    expression estimates using the `r Biocpkg("scater")` `getBMFeatureAnnos`
+    and `summariseExprsAcrossFeatures` methods.
+* Gene identifiers were made more intuitive by prepending gene symbol where
+    possible.
+* The resulting `SCESet` was serialised and written to file.
+
+Here, we simply import the pre-processed data:
+
+```{r preprocessed, message=FALSE}
+library(scater)
+sc_DC_gene <- readRDS(file.path(folder.rds, "sc_DC_gene.rds"))
+```
+
+Let us examine a summary of the experimental phenotype data:
+
+```{r expdata}
+expdata <- pData(sc_DC_gene)[,1:7]
+expdata$Lane <- as.factor(expdata$Lane)
+expdata$Identifier.number <- as.character(expdata$Identifier.number)
+summary(expdata)
+```
+
+# Calculate QC metrics
+
+Let us calculate various QC[^2] metrics using control features
+(*i.e.* ERCC spike-in) and samples (*i.e.* blanks, bulks):
+
+[^2]: Quality control.
+
+```{r identifyCtrls}
+idx.ERCC <- which(grepl("ERCC-[[:digit:]]", featureNames(sc_DC_gene)))
+length(idx.ERCC)
+idx.BULK <- which(sc_DC_gene$Status == "BULK")
+length(idx.BULK)
+idx.Blank <- which(sc_DC_gene$Status == "Blank")
+length(idx.Blank)
+sc_DC_gene <- calculateQCMetrics(
+    sc_DC_gene,
+    list(ERCC = idx.ERCC),
+    list(
+        Bulk = idx.BULK,
+        Blank = idx.Blank
+    )
+)
+```
+
+\bioccomment{
+Mitochondrial genes might be used as control features in the future.
+}
+
+# Filter detected features
+
+First, let us discard all genes that are not detected in at least `2/3` of the
+bulk samples (*i.e.* `6` or more of the `9` bulks).
+
+Let us first define the filter rules, and examine the result of their
+evaluation on the `SCESet` object:
+
+```{r filterOnBulks, message=FALSE}
+library(S4Vectors)
+filter.features <- FilterRules(
+    exprs = list(
+        detected = function(x){
+            rowSums(exprs(x[,x$Status == "BULK"]) > 0) >= 6
+        },
+        variance = function(x){
+            apply(exprs(x), 1, function(x) {var(x) > 0})
+        }
+    )
+)
+fm <- evalSeparately(filter.features, sc_DC_gene)
+summary(fm)
+idx.f.detected <- which(eval(filter.features, sc_DC_gene))
+rm(fm)
+```
+
+Approximately a quarter of the genes are detected in at least two thirds
+of the `BULK` samples, and all those genes show non-zero variance
+(the combined rules have the same effect as the `detected` rule alone).
+
+Therefore, let us deactivate the unnecessary `variance` rule,
+before applying the remaining active rule `detected` to subset the `SCESet`:
+
+```{r genesDetectedBulks}
+active(filter.features)["variance"] <- FALSE
+sc_DC_gene <- subsetByFilter(sc_DC_gene, filter.features)
+dim(sc_DC_gene)
+```
+
+# Library complexity
+
+Using the previously filtered `SCESet`,
+let us examine the library complexity across `Status` and `Infection`:
+
+```{r libraryComplexity}
+plot(
+    sc_DC_gene, block1 = "Status", block2 = "Infection",
+    colour_by = "Time", nfeatures = 300, exprs_values = "counts")
+```
+
+First, from a QC perspective, some reassuring observations:
+
+* Blanks show a very low library complexity
+  (few features make up most of the libraries)
+* Bulks show a higher complexity
+* Single cells generally show a complexity comparable to that of the `BULK`
+    control samples
+
+Now, from a biological perspective:
+
+* A small number of single cells (e.g. `exposed:4h:LT2`, `infected:6h:LT2`)
+    show suspiciously low library complexity.
+    Those single cells must be treated as outliers and removed from
+    subsequent analyses.
+* Library complexity seems to decrease with `Time` and `Infection`.
+    This **may** indicate a *polarisation* of single cells toward particular
+    phenotype(s).
+    + `Mock` (*i.e.* `uninfected`) single cells tend show a consistent,
+        relatively high library complexity
+    + Both `LT2` and `D23580` infections show a gradual decrease of library
+        complexity. This observation **might** be more pronounced for `D23580`.
+
+## Filter low-complexity samples
+
+Using the above observation,
+let us define a reasonable cut-off value to identify outliers based on
+library complexity:
+
+```{r lowComplexityCutoff, message=FALSE, echo=FALSE}
+library(reshape2)
+ggplot(
+    melt(
+        pData(sc_DC_gene),
+        id.vars = c("Identifier.number", "Status", "Infection"),
+        measure.vars = c(
+            "pct_counts_top_50_features",
+            "pct_counts_top_200_features"
+        ),
+        variable.name = "top_features",
+        value.name = "pct_counts"
+    ),
+    aes(Identifier.number, pct_counts)
+) +
+    geom_point(aes(colour = Status, shape = Infection)) +
+    facet_grid(top_features ~ .) +
+    geom_hline(yintercept = c(75, 85), colour = "red") +
+    annotate("text", x = 215E3, y = 75+3, label = 75, colour = "red") +
+    annotate("text", x = 215E3, y = 85+3, label = 85, colour = "red")
+```
+
+In light of this information, let us **exclude** samples for which any of the
+following conditions is `TRUE`:
+
+* the top `50` features make up more than `75%` of the library
+* the top `200` features make up more than `85%` of the library
+
+```{r complexityFilterMatrix}
+filter.samples <- FilterRules(
+    exprs = list(
+        top50_75 = function(x){
+            x$pct_counts_top_50_features < 75
+        },
+        top200_85 = function(x){
+            x$pct_counts_top_200_features < 85
+        }
+    )
+)
+fm <- evalSeparately(filter.samples, pData(sc_DC_gene))
+summary(fm)
+rm(fm)
+```
+
+The `top50_75` rule identifies `5` outliers (`379` samples passed the filter):
+
+* the two `Blank` samples
+* the two single cells visually identified in the previous section
+* one more single cell which can be confirmed visually in the previous section:
+    `D23580:6h:exposed`.
+
+The `top200_85` rule is slightly more stringent, and identifies a total of `9`
+samples (`375` samples passed the filter),
+including all `5` samples identified by the `top50_75` rule
+(the combined rules have the same effect as the `top200_85` rule alone).
+
+Let us apply the more stringent `top200_85` rule to the data set:
+
+```{r filterLowComplexity}
+active(filter.samples)["top50_75"] <- FALSE
+idx.s.lowCplx <- which(!eval(filter.samples, pData(sc_DC_gene)))
+sc_DC_gene <- sc_DC_gene[,-idx.s.lowCplx]
+dim(sc_DC_gene)
+```
+
+# Gene expression 
+
+Currently, this plot displays a random set of `6` genes selected
+only on the basis that their name starts with either `CCL`, `CXCL`, or `IL`.
+
+```{r plotExpression}
+plotExpression(
+    sc_DC_gene, rownames(sc_DC_gene)[
+        sample(
+            grep("^((CCL)|(CXCL)|(IL))", rownames(sc_DC_gene)),
+            6
+        )
+        ],
+    x = "Status", exprs_values = "exprs", colour = "Infection"
+) + theme(
+    axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1)
+)
+```
+
+# Session info
+
+Here is the output of `sessionInfo()` on the system on which this
+document was compiled:
+
+```{r sessionInfo, echo=FALSE}
+sessionInfo()
+```
+
+
+[R]: http://r-project.org
+[RStudio]: http://www.rstudio.com/

@@ -1,0 +1,92 @@
+---
+title: Quality control
+author:
+  - name: Kévin Rue-Albrecht
+    email: kevinrue67@gmail.com
+  - name: Anna Aulicino
+    email: anna.aulicino@ndm.ox.ac.uk
+    affiliation: Oxford University
+date: "`r doc_date()`"
+package: "`r pkg_ver('BiocStyle')`"
+abstract: >
+  Quality control based for all 384 samples, including blanks, bulks and
+  single cells.
+vignette: >
+  %\VignetteIndexEntry{Quality control}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+output: 
+  BiocStyle::pdf_document2
+---
+
+# Settings
+
+Define of folders where to find data:
+
+```{r, eval=FALSE}
+# Location of Kallisto quantitation folders
+folder.quant <- "quant"
+# Location of experimental data (e.g., phenotypes)
+folder.expData <- "expData"
+```
+
+and where to write data:
+
+```{r, settingsOut}
+# Location of RDS files (Serialized Single Objects) 
+folder.rds <- "rds"
+# Location of QC files
+folder.qc <- "qc"
+```
+
+# Data pre-processing
+
+Quantitation data imported into the _R_ environment was subsequently:
+
+* transcript-level expression data was aggregated into gene-level estimates
+    (*i.e.* `ensembl_transcript_id` `->` `ensembl_gene_id`)
+* Gene identifiers were made more intuitive by prepending gene symbol were
+    possible
+
+For the sake of time, the code is only presented here, but not run.
+Pre-processed data will be immediately imported in the following section.
+
+## Import
+
+First, _Kallisto_ quantitation folders were detected:
+
+```{r, eval=FALSE}
+kallisto.dirs <- list.files(folder.quant)
+length(kallisto.dirs)
+```
+
+Then, data was imported:
+
+```{r, eval=FALSE}
+sc_DC <- readKallistoResults(
+    samples = gsub("WTCHG_", "", kallisto.dirs),
+    directories = file.path(folder.quant, kallisto.dirs)
+)
+```
+
+
+
+# Import pre-processed data {#Preprocessed}
+
+```{r, include=FALSE}
+sc_DC_gene <- readRDS(file.path(folder.rds, "sc_DC_gene.rds"))
+```
+
+
+# Session info
+
+Here is the output of `sessionInfo()` on the system on which this
+document was compiled:
+
+```{r sessionInfo, echo=FALSE}
+sessionInfo()
+```
+
+
+[R]: http://r-project.org
+[RStudio]: http://www.rstudio.com/
