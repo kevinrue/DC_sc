@@ -31,28 +31,43 @@ output:
 stopifnot(
     requireNamespace("scater"),
     requireNamespace("S4Vectors"),
-    requireNamespace("reshape2")
+    requireNamespace("reshape2"),
+    requireNamespace("knitr")
 )
 ```
 
-Define of folders where to find and write data[^1]:
-
-[^1]: Paths are relative the location of the vignette file; if code chunks
-are run interactively, paths must be relative to the working directory 
+Define of folders where to find and write data:
 
 ```{r settings}
-# Location of RDS files (Serialized Single Objects) 
-folder.rds <- "../rds"
-# Location of QC files
-folder.qc <- "../qc"
+if (interactive()){
+    workdir <- "."
+} else {
+    workdir <- ".."
+}
+folder.rds <- file.path(workdir, "rds")
+folder.qc <- file.path(workdir, "qc")
 ```
+
+\bioccomment{
+Paths are relative the location of the vignette file; if code chunks
+are run interactively, paths must be relative to the working directory 
+}
 
 # Pre-process data
 
 Prior to this document, quantitation data for all 384 samples
-(including single cells, blanks and bulks)
-was imported into the _R_ environment as a `SCESet` using the
-`r Biocpkg("scater")` `readKallistoResults` method,
+(including single cells, blanks and bulks) was obtained using _Kallisto_ 
+as follows:
+
+```
+kallisto quant \
+    --index=$kallistoIdx \
+    --output-dir=$kallistoDir/$cell \
+    $fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
+```
+
+The resulting quantitation data was imported into the _R_ environment as a
+`SCESet` using the `r Biocpkg("scater")` `readKallistoResults` method,
 and pre-processed as follows:
 
 * Phenotype data was imported from a CSV file and attached to the `SCESet`.
@@ -60,7 +75,7 @@ and pre-processed as follows:
     expression estimates using the `r Biocpkg("scater")` `getBMFeatureAnnos`
     and `summariseExprsAcrossFeatures` methods.
 * Gene identifiers were made more intuitive by prepending gene symbol where
-    possible.
+    possible (*e.g.* `ENSG00000277943` to `CCL4_ENSG00000277943`).
 * The resulting `SCESet` was serialised and written to file.
 
 Here, we simply import the pre-processed data:
@@ -81,24 +96,26 @@ summary(expdata)
 
 # Calculate QC metrics
 
-Let us calculate various QC[^2] metrics using control features
-(*i.e.* ERCC spike-in) and samples (*i.e.* blanks, bulks):
+First, let us annotate the `SCESet` with various QC metrics
+using control features (*i.e.* ERCC spike-in)
+and samples (*i.e.* blanks, bulks):
 
-[^2]: Quality control.
-
-```{r identifyCtrls}
-idx.ERCC <- which(grepl("ERCC-[[:digit:]]", featureNames(sc_DC_gene)))
-length(idx.ERCC)
-idx.BULK <- which(sc_DC_gene$Status == "BULK")
-length(idx.BULK)
-idx.Blank <- which(sc_DC_gene$Status == "Blank")
-length(idx.Blank)
-sc_DC_gene <- calculateQCMetrics(
-    sc_DC_gene,
-    list(ERCC = idx.ERCC),
+```{r ctrlFeaturesSamples, message=FALSE}
+library(S4Vectors)
+filter.features.ctrl <- FilterRules(list(
+        ERCC = function(x) grepl("ERCC-[[:digit:]]", featureNames(x))
+))
+filter.samples.ctrl <- FilterRules(list(
+        BULK = function(x) x$Status == "BULK",
+        Blank = function(x) x$Status == "Blank"
+))
+summary(evalSeparately(filter.features.ctrl, sc_DC_gene))
+summary(evalSeparately(filter.samples.ctrl, pData(sc_DC_gene)))
+sc_DC_gene <- calculateQCMetrics(sc_DC_gene,
+    list(ERCC = eval(filter.features.ctrl["ERCC"], sc_DC_gene)),
     list(
-        Bulk = idx.BULK,
-        Blank = idx.Blank
+        Bulk = eval(filter.samples.ctrl["BULK"], pData(sc_DC_gene)),
+        Blank = eval(filter.samples.ctrl["Blank"], pData(sc_DC_gene))
     )
 )
 ```
@@ -107,54 +124,15 @@ sc_DC_gene <- calculateQCMetrics(
 Mitochondrial genes might be used as control features in the future.
 }
 
-# Filter detected features
-
-First, let us discard all genes that are not detected in at least `2/3` of the
-bulk samples (*i.e.* `6` or more of the `9` bulks).
-
-Let us first define the filter rules, and examine the result of their
-evaluation on the `SCESet` object:
-
-```{r filterOnBulks, message=FALSE}
-library(S4Vectors)
-filter.features <- FilterRules(
-    exprs = list(
-        detected = function(x){
-            rowSums(exprs(x[,x$Status == "BULK"]) > 0) >= 6
-        },
-        variance = function(x){
-            apply(exprs(x), 1, function(x) {var(x) > 0})
-        }
-    )
-)
-fm <- evalSeparately(filter.features, sc_DC_gene)
-summary(fm)
-idx.f.detected <- which(eval(filter.features, sc_DC_gene))
-rm(fm)
-```
-
-Approximately a quarter of the genes are detected in at least two thirds
-of the `BULK` samples, and all those genes show non-zero variance
-(the combined rules have the same effect as the `detected` rule alone).
-
-Therefore, let us deactivate the unnecessary `variance` rule,
-before applying the remaining active rule `detected` to subset the `SCESet`:
-
-```{r genesDetectedBulks}
-active(filter.features)["variance"] <- FALSE
-sc_DC_gene <- subsetByFilter(sc_DC_gene, filter.features)
-dim(sc_DC_gene)
-```
-
 # Library complexity
 
-Using the previously filtered `SCESet`,
-let us examine the library complexity across `Status` and `Infection`:
+Let us examine the library complexity across `Status` and `Infection`:
 
-```{r libraryComplexity}
+```{r libraryComplexity, fig.height=7.5}
 plot(
-    sc_DC_gene, block1 = "Status", block2 = "Infection",
-    colour_by = "Time", nfeatures = 300, exprs_values = "counts")
+    sc_DC_gene, block1 = "Infection", block2 = "Status",
+    colour_by = "Time", nfeatures = 300, exprs_values = "counts"
+)
 ```
 
 First, from a QC perspective, some reassuring observations:
@@ -174,80 +152,469 @@ Now, from a biological perspective:
 * Library complexity seems to decrease with `Time` and `Infection`.
     This **may** indicate a *polarisation* of single cells toward particular
     phenotype(s).
-    + `Mock` (*i.e.* `uninfected`) single cells tend show a consistent,
+    + `Mock` (*i.e.* `uninfected`) single cells tend to show a consistent,
         relatively high library complexity
     + Both `LT2` and `D23580` infections show a gradual decrease of library
-        complexity. This observation **might** be more pronounced for `D23580`.
+        complexity over time. This observation **might** be more pronounced
+        for `D23580`.
 
 ## Filter low-complexity samples
 
-Using the above observation,
-let us define a reasonable cut-off value to identify outliers based on
-library complexity:
+As a consequence of the above observation,
+let us define a reasonable cut-off value to exclude outliers based on
+library complexity.
+For instance, let us visualise the percentage of estimated counts accounted
+for by the top `50` and `200` features in each sample against the median
+± `3` standard deviations across all samples.
+We also store the number of standard deviations for each metric, for each
+sample as additional columns in the `phenoData` slot of the `SCESet`[^1]:
 
-```{r lowComplexityCutoff, message=FALSE, echo=FALSE}
-library(reshape2)
-ggplot(
-    melt(
-        pData(sc_DC_gene),
-        id.vars = c("Identifier.number", "Status", "Infection"),
-        measure.vars = c(
-            "pct_counts_top_50_features",
-            "pct_counts_top_200_features"
-        ),
-        variable.name = "top_features",
-        value.name = "pct_counts"
-    ),
-    aes(Identifier.number, pct_counts)
-) +
-    geom_point(aes(colour = Status, shape = Infection)) +
-    facet_grid(top_features ~ .) +
-    geom_hline(yintercept = c(75, 85), colour = "red") +
-    annotate("text", x = 215E3, y = 75+3, label = 75, colour = "red") +
-    annotate("text", x = 215E3, y = 85+3, label = 85, colour = "red")
+[^1]: The verbose `ggplot2` code is hidden for convenience.
+
+```{r calcPctCountSD}
+pct_count_50.med <- median(sc_DC_gene$pct_counts_top_50_features)
+pct_count_50.sd <- sd(sc_DC_gene$pct_counts_top_50_features)
+sc_DC_gene$top_50_n_sd <-
+    (sc_DC_gene$pct_counts_top_50_features - pct_count_50.med) /
+    pct_count_50.sd
+pct_count_200.med <- median(sc_DC_gene$pct_counts_top_200_features)
+pct_count_200.sd <- sd(sc_DC_gene$pct_counts_top_200_features)
+sc_DC_gene$top_200_n_sd <-
+    (sc_DC_gene$pct_counts_top_200_features - pct_count_200.med) /
+    pct_count_200.sd
 ```
 
-In light of this information, let us **exclude** samples for which any of the
-following conditions is `TRUE`:
+```{r pctCountSD, message=FALSE, echo=FALSE}
+library(ggplot2)
+library(reshape2)
+ggplot() +
+    geom_hline( # median
+        aes(yintercept = y),
+        data.frame(
+            top_features = c(
+                "pct_counts_top_50_features",
+                "pct_counts_top_200_features"
+            ),
+            y = c(pct_count_50.med, pct_count_200.med)
+        )
+    ) +
+    geom_hline( # standard deviation cut-offs
+        aes(yintercept = y),
+        data.frame(
+            top_features = c(
+                rep("pct_counts_top_50_features", 2),
+                rep("pct_counts_top_200_features", 2)
+            ),
+            y = c(
+                c(pct_count_50.med, pct_count_50.med) + pct_count_50.sd*c(3,-3),
+                c(pct_count_200.med, pct_count_200.med) + pct_count_200.sd*c(3,-3)
+            )
+        ),
+        colour = "red"
+    ) + 
+    geom_point(
+        aes(
+            x = Identifier.number, y = pct_counts,
+            colour = Status, shape = Infection
+        ),
+        melt(
+            pData(sc_DC_gene),
+            id.vars = c("Identifier.number", "Status", "Infection"),
+            measure.vars = c(
+                "pct_counts_top_50_features",
+                "pct_counts_top_200_features"
+            ),
+            variable.name = "top_features",
+            value.name = "pct_counts"
+        ),
+        alpha = 0.4
+    ) +
+    facet_grid(top_features ~ .)
+```
 
-* the top `50` features make up more than `75%` of the library
-* the top `200` features make up more than `85%` of the library
+In light of this information, let us create filter rules to **exclude**
+samples for which any of the following conditions is `TRUE`:
+
+* the top `50` features make up more than the median value plus `3`
+    standard deviations.
+* the top `200` features make up more than the median value plus `3`
+    standard deviations.
+
+We may then examine more closely the number and nature of those samples:
 
 ```{r complexityFilterMatrix}
-filter.samples <- FilterRules(
-    exprs = list(
-        top50_75 = function(x){
-            x$pct_counts_top_50_features < 75
-        },
-        top200_85 = function(x){
-            x$pct_counts_top_200_features < 85
-        }
-    )
-)
-fm <- evalSeparately(filter.samples, pData(sc_DC_gene))
-summary(fm)
-rm(fm)
+filter.samples <- FilterRules(list(
+    top_50_3_sd = function(x) x$top_50_n_sd < 3,
+    top_200_3_sd = function(x) x$top_200_n_sd < 3
+))
+summary(evalSeparately(filter.samples, pData(sc_DC_gene)))
 ```
 
-The `top50_75` rule identifies `5` outliers (`379` samples passed the filter):
+```{r kableTop50, echo=FALSE}
+library(knitr)
+kable(
+    pData(sc_DC_gene)[
+        !eval(filter.samples["top_50_3_sd"], pData(sc_DC_gene)), 1:7
+    ]
+)
+```
+
+Table: Samples failing the `top_50_3_sd` filter rule.
+
+```{r kableTop200, echo=FALSE}
+kable(
+    pData(sc_DC_gene)[
+        !eval(filter.samples["top_200_3_sd"], pData(sc_DC_gene)), 1:7
+    ]
+)
+```
+
+Table: Samples failing the `top_200_3_sd` filter rule.
+
+The `top_50_3_sd` rule identifies `5` outliers (`379` samples passed the
+filter):
 
 * the two `Blank` samples
 * the two single cells visually identified in the previous section
 * one more single cell which can be confirmed visually in the previous section:
     `D23580:6h:exposed`.
 
-The `top200_85` rule is slightly more stringent, and identifies a total of `9`
-samples (`375` samples passed the filter),
+The `top_200_3_sd` rule is slightly more stringent, and identifies a total of
+`8` samples (`376` samples passed the filter),
 including all `5` samples identified by the `top50_75` rule
-(the combined rules have the same effect as the `top200_85` rule alone).
+(the combined rules have the same effect as the `top_200_3_sd` rule alone).
 
-Let us apply the more stringent `top200_85` rule to the data set:
+# Association of principal components with experimental covariates
 
-```{r filterLowComplexity}
-active(filter.samples)["top50_75"] <- FALSE
-idx.s.lowCplx <- which(!eval(filter.samples, pData(sc_DC_gene)))
-sc_DC_gene <- sc_DC_gene[,-idx.s.lowCplx]
-dim(sc_DC_gene)
+## Expression-based PCA
+
+Using the expression data for the `500` most abundant features,
+let us visualise the three principal components that capture the largest
+variance in the data set:
+
+```{r pcaExpr384}
+sc_DC_gene <- plotPCA(
+    sc_DC_gene, ntop = 500, ncomponents = 3,
+    exprs_values = "exprs", colour_by = "Status", shape_by = "Time",
+    return_SCESet = TRUE
+)
+```
+
+In combination with the figures shown in [Appendix 1](#Appendix1),
+and the following section,
+the above figure highlights that _in the complete data set_:
+
+* `PC1` negatively correlates with `Time`, and separates to some extent
+    `uninfected` cells from `infected` or `exposed`.
+* `PC2` negatively correlates with QC metrics related to the number of
+    detected features
+    (*i.e.* `pct_dropout`, `log10_total_features`, `pct_exprs_top_50_features`).
+    Higher coordinates on `PC2` indicate lower library complexity
+    (*e.g.* `Blank` samples), and lower coordinates indicate high library
+    complexity (*e.g.* `BULK` samples).
+* `PC3` primarily separates `uninfected` cells from those `infected` or
+    `exposed`.
+* Together, `PC1` and `PC3` cluster cells according to `Time` and `Status`,
+    with:
+    + `uninfected` cells in the top-right corner.
+    + `infected` and `exposed` cells at `2h` in the top-left corner.
+    + `infected` and `exposed` cells at `4h` in the middle-left corner.
+    + `infected` and `exposed` cells at `6h` in the bottom-right corner.
+
+```{r pcaImportant384, include=FALSE}
+pc.384.time <- findImportantPCs(sc_DC_gene, "Time")
+pc.384.infection <- findImportantPCs(sc_DC_gene, "Infection")
+pc.384.status <- findImportantPCs(sc_DC_gene, "Status")
+pc.384.pct_dropout <- findImportantPCs(sc_DC_gene, "pct_dropout")
+pc.384.pct_dropout <- pc.384.pct_dropout +
+    geom_point(
+        aes(colour = Status),
+        data.frame(
+            pc.384.pct_dropout$data,
+            Status = pData(sc_DC_gene)[
+                pc.384.pct_dropout$data$Var1,
+                "Status"
+            ]
+        ),
+        inherit.aes = TRUE
+    )
+```
+
+## Plate-level overview
+
+Let us examine the coordinate of each sample on the three principal
+components capturing the largest amount of variance, to emphasise the absence
+of batch effect between the different plates:
+
+```{r PCplates, echo=FALSE, fig.height=12}
+sc_DC_gene$Row <- factor(
+    gsub("^([[:alpha:]])([[:digit:]]+)$", "\\1", sc_DC_gene$Well),
+    LETTERS[8:1] # Facilitates later geom_tile
+)
+sc_DC_gene$Column <- factor(
+    gsub("^([[:alpha:]])([[:digit:]]+)$", "\\2", sc_DC_gene$Well),
+    1:12
+)
+multiplot(
+    ggplot(cbind(pData(sc_DC_gene), reducedDimension(sc_DC_gene))) +
+    geom_tile(aes(x=Column, y=Row, fill=PC1)) +
+    facet_wrap(~ Plate),
+    ggplot(cbind(pData(sc_DC_gene), reducedDimension(sc_DC_gene))) +
+    geom_tile(aes(x=Column, y=Row, fill=PC2)) +
+    facet_wrap(~ Plate),
+    ggplot(cbind(pData(sc_DC_gene), reducedDimension(sc_DC_gene))) +
+    geom_tile(aes(x=Column, y=Row, fill=PC3)) +
+    facet_wrap(~ Plate)
+)
+```
+
+
+## Outlier detection
+
+Let us identify outlier samples using `r Biocpkg("scater")` and
+the `r CRANpkg("mvoutlier")` package and
+common QC metrics that relate to library complexity and feature detection,
+and save the result in the `SCESet`:
+
+```{r outlierDetection, results='hide'}
+sc_DC_gene <- plotPCASCESet(
+        sc_DC_gene, ntop = 500, ncomponents = 3,
+        exprs_values = "exprs", shape_by = "Status",
+        detect_outliers = TRUE, pca_data_input = "pdata",
+        selected_variables = c(
+            "pct_counts_top_100_features",
+            "total_features",
+            "pct_counts_feature_controls",
+            "n_detected_feature_controls",
+            "log10_counts_endogenous_features",
+            "log10_counts_feature_controls"
+        ),
+        return_SCESet = TRUE,
+        draw_plot = FALSE
+    )
+```
+
+In particular, the known properties of `Blank` and `Bulk` samples
+are useful landmarks to identify such outliers in a PCA plot.
+Let us compare the outliers detected to the known `Status`:
+
+```{r outlierPCAPlot, echo=FALSE, fig.height=12}
+sc_DC_gene$top_200_3_sd <- sc_DC_gene$top_200_n_sd > 3
+multiplot(
+    plotPCASCESet(
+        sc_DC_gene, ntop = 500, ncomponents = 3,
+        exprs_values = "exprs", colour_by = "Status", shape_by = "Time",
+        detect_outliers = FALSE, pca_data_input = "pdata",
+        selected_variables = c(
+            "pct_counts_top_100_features",
+            "total_features",
+            "pct_counts_feature_controls",
+            "n_detected_feature_controls",
+            "log10_counts_endogenous_features",
+            "log10_counts_feature_controls"
+        )
+    ),
+    plotPCASCESet(
+        sc_DC_gene, ntop = 500, ncomponents = 3,
+        exprs_values = "exprs", shape_by = "Time",
+        detect_outliers = TRUE, pca_data_input = "pdata",
+        selected_variables = c(
+            "pct_counts_top_100_features",
+            "total_features",
+            "pct_counts_feature_controls",
+            "n_detected_feature_controls",
+            "log10_counts_endogenous_features",
+            "log10_counts_feature_controls"
+        )
+    )
+)
+rm()
+```
+
+Among the resulting principal components, `PC1` strongly correlates with
+metrics that relate to the library complexity, with `BULK` samples
+at the lowest coordinates, and `Blank` at the highest coordinates.
+
+In addition, [Appendix 2](#Appendix2) reveals how the earlier filter rules
+`top_50_3_sd` and `top_200_3_sd` corroborate the most extreme outliers
+detected by the multivariate PCA approach applied in this section.
+
+Let us create a fiter rule to retain samples **not** detected as outliers by
+this PCAapproach:
+
+```{r filterOutlier}
+filter.samples.outliers <- FilterRules(list(
+    notOutlierPCA = function(x) x$outlier == FALSE
+))
+summary(evalSeparately(filter.samples.outliers, pData(sc_DC_gene)))
+```
+
+We may then examine more closely the number and nature of those samples:
+
+```{r kablePcaOutlier, echo=FALSE}
+kable(
+    pData(sc_DC_gene)[
+        !eval(filter.samples.outliers["notOutlierPCA"], pData(sc_DC_gene)), 1:7
+    ]
+)
+```
+
+Table: Samples failing the `notOutlierPCA` filter rule.
+
+# Identify most abundant features
+
+The following figure confirms that ERCC spike-ins are the most abundant
+features detected in the two `Blank` samples, accounting for over `98%` of the
+expression data in those samples.
+Conversely, the most abundant features among the nine `BULK` samples and
+`373` single cells tend to be known associates of immune cells
+(*e.g.* `CD74`, `CCL4`, `ISG15`).
+
+```{r highestExpression, echo=FALSE, out.width='90%', fig.height = 8}
+multiplot(
+    plotQC(
+        sc_DC_gene[,!eval(filter.samples.ctrl["Blank"], pData(sc_DC_gene))],
+        type = "highest-expression", exprs_values = "counts"
+    ), #+ ggtitle("Bulks and single cells")
+    plotQC(
+        sc_DC_gene[,eval(filter.samples.ctrl["Blank"], pData(sc_DC_gene))],
+        type = "highest-expression", exprs_values = "counts"
+    ), #  + ggtitle("Blanks")
+    cols = 2
+)
+```
+
+# Identify robust detected features
+
+## Using bulk samples
+
+Next, to focus on biologically relevant and robust features,
+let us identify all genes that are detected in at least `2/3` of
+the bulk samples (*i.e.* `6` or more of the `9` bulks).
+For reference, let us compare that number to:
+
+* the count of features detected in at least any one sample
+* the count of features detected in at least three `BULK` samples
+* the count of features with non-zero variance
+
+```{r rulesDetected}
+filter.features <- FilterRules(
+    list(
+        detected1sample = function(x){
+            rowSums(exprs(x) > 0) > 0
+        },
+        detected3bulks = function(x){
+            rowSums(exprs(x[,x$Status == "BULK"]) > 0) >= 3
+        },
+        detected6bulks = function(x){
+            rowSums(exprs(x[,x$Status == "BULK"]) > 0) >= 6
+        },
+        variance = function(x){
+            apply(exprs(x), 1, function(x) {var(x) > 0})
+        }
+    )
+)
+summary(evalSeparately(filter.features, sc_DC_gene))
+summary(evalSeparately(
+    c(filter.features, filter.features.ctrl),
+    sc_DC_gene
+))
+```
+
+We observe that:
+
+* Approximately a quarter of the features
+    (including only `10` of the `92` ERCC spike-ins)
+    are detected in at least six of the nine `BULK` samples,
+* All the features that pass the most stringent `detected6bulks` rule
+    show non-zero variance (the combined rules have the same effect as the
+    `detected6bulks` rule alone).
+
+## Using single cells
+
+For comparison, let us examine the number of features detected as a function
+of the number of single cells in which each feature was detected:
+
+```{r featuresDetectedSC, echo=FALSE, out.width="100%"}
+# For each gene, number of cells in which it was detected
+feature_N_cells <- rowSums(
+    exprs(sc_DC_gene[,!sc_DC_gene$is_cell_control])
+)
+# From one cell to all single cells, how many genes are detected at each level
+tmp <- data.frame(
+    N_cells = seq_len(
+        sum(!sc_DC_gene$is_cell_control)
+    )
+)
+tmp$N_features <- sapply(tmp$N_cells, function(x) sum(feature_N_cells >= x))
+ggplot(tmp) +
+    geom_point(aes(x=N_cells, y=N_features), size = 0.5) +
+    scale_y_continuous(limits = c(0, nrow(sc_DC_gene)))
+rm(feature_N_cells, tmp)
+```
+
+
+
+# Filter data set
+
+## Overview of filter rules
+
+### Samples
+
+Let us summarise the result of the active filter rules applied to single
+cells (*i.e.* ignoring `BULK` and `Blank` samples):
+
+```{r heatmapFilterSamples, echo=FALSE}
+tmp <- evalSeparately(
+    c(filter.samples, filter.samples.outliers),
+    pData(sc_DC_gene)[!sc_DC_gene$is_cell_control,]
+)
+summary(tmp)
+tmp <- melt(
+    cbind(
+        Cell = seq_len(nrow(tmp)),
+        as.data.frame(tmp)
+    ),
+    id.vars = "Cell",
+    variable.name = "Filter",
+    value.name = "Pass"
+)
+ggplot(tmp) +
+    geom_tile(aes(x=Filter, y=Cell, fill=Pass))
+rm(tmp)
+```
+
+## Features
+
+\fixme{
+In progress.
+}
+
+Let us summarise the result of the active filter rules applied to features
+excluding the ERCC control features:
+
+```{r filterFeaturesSummary}
+summary(evalSeparately(
+    c(filter.features),
+    sc_DC_gene[!fData(sc_DC_gene)$is_feature_control_ERCC]
+))
+```
+
+## Apply filters
+
+Let us now subset the `SCESet` to retain only
+_single cells_ (*i.e.* no `BULK` or `Blank` control sample)
+and _gene features_ (*i.e.* no ERCC control feature)
+that pass all the outlier filter rules defined above:
+
+```{r filterSCESet}
+sc_DC_filtered <- sc_DC_gene[
+    eval(c(filter.features), sc_DC_gene) &
+        !fData(sc_DC_gene)$is_feature_control,
+    eval(c(filter.samples, filter.samples.outliers), pData(sc_DC_gene)) &
+        !sc_DC_gene$is_cell_control
+]
+dim(sc_DC_filtered)
 ```
 
 # Gene expression 
@@ -257,16 +624,79 @@ only on the basis that their name starts with either `CCL`, `CXCL`, or `IL`.
 
 ```{r plotExpression}
 plotExpression(
-    sc_DC_gene, rownames(sc_DC_gene)[
-        sample(
-            grep("^((CCL)|(CXCL)|(IL))", rownames(sc_DC_gene)),
-            6
-        )
-        ],
+    sc_DC_filtered,
+    rownames(sc_DC_filtered)[sample(
+        grep("^((CCL)|(CXCL)|(IL))", rownames(sc_DC_filtered)),
+        6
+    )],
     x = "Status", exprs_values = "exprs", colour = "Infection"
 ) + theme(
     axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1)
 )
+```
+
+\newpage
+
+# Appendix
+
+## Association of principal components with experimental covariates {#Appendix1}
+
+```{r pcImportantTime, out.width='80%' , fig.width = 8, fig.height = 12}
+pc.384.time
+```
+Most important principal components associated with `Time` phenotype.
+\newpage
+```{r pcImportantStatus, out.width='80%' , fig.width = 8, fig.height = 12}
+pc.384.status
+```
+Most important principal components associated with `Status` phenotype.
+\newpage
+```{r pcImportantInfection, out.width='80%' , fig.width = 8, fig.height = 12}
+pc.384.infection
+```
+Most important principal components associated with `Infection` phenotype.
+\newpage
+
+```{r pcImportantDropout, out.width='80%' , fig.width = 8, fig.height = 10}
+pc.384.pct_dropout
+```
+Most important principal components associated with `pct_dropout` phenotype
+(*i.e.* proportion of features below detection level).
+\newpage
+
+
+## PCA-based detection of outlier samples {#Appendix2}
+
+```{r, echo=FALSE, fig.height=12}
+multiplot(
+    plotPCASCESet(
+        sc_DC_gene, ntop = 500, ncomponents = 3,
+        exprs_values = "exprs", shape_by = "Time",
+        detect_outliers = TRUE, pca_data_input = "pdata",
+        selected_variables = c(
+            "pct_counts_top_100_features",
+            "total_features",
+            "pct_counts_feature_controls",
+            "n_detected_feature_controls",
+            "log10_counts_endogenous_features",
+            "log10_counts_feature_controls"
+        )
+    ),
+    plotPCASCESet(
+        sc_DC_gene, ntop = 500, ncomponents = 3,
+        exprs_values = "exprs", colour_by = "top_200_3_sd", shape_by = "Time",
+        detect_outliers = FALSE, pca_data_input = "pdata",
+        selected_variables = c(
+            "pct_counts_top_100_features",
+            "total_features",
+            "pct_counts_feature_controls",
+            "n_detected_feature_controls",
+            "log10_counts_endogenous_features",
+            "log10_counts_feature_controls"
+        )
+    )
+)
+
 ```
 
 # Session info
