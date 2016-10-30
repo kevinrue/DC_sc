@@ -316,10 +316,10 @@ the above figure highlights that _in the complete data set_:
     `exposed`.
 * Together, `PC1` and `PC3` cluster cells according to `Time` and `Status`,
     with:
-    + `uninfected` cells in the top-right corner.
-    + `infected` and `exposed` cells at `2h` in the top-left corner.
-    + `infected` and `exposed` cells at `4h` in the middle-left corner.
-    + `infected` and `exposed` cells at `6h` in the bottom-right corner.
+    + `uninfected` cells in the top-right area
+    + `infected` and `exposed` cells at `2h` in the top-left area
+    + `infected` and `exposed` cells at `4h` in the middle-left area
+    + `infected` and `exposed` cells at `6h` in the bottom-right area
 
 ```{r pcaImportant384, include=FALSE}
 pc.384.time <- findImportantPCs(sc_DC_gene, "Time")
@@ -343,7 +343,7 @@ pc.384.pct_dropout <- pc.384.pct_dropout +
 ## Plate-level overview
 
 Let us examine the coordinate of each sample on the three principal
-components capturing the largest amount of variance, to emphasise the absence
+components capturing the largest amount of variance, to illustrate the absence
 of batch effect between the different plates:
 
 ```{r PCplates, echo=FALSE, fig.height=12}
@@ -396,7 +396,8 @@ sc_DC_gene <- plotPCASCESet(
 
 In particular, the known properties of `Blank` and `Bulk` samples
 are useful landmarks to identify such outliers in a PCA plot.
-Let us compare the outliers detected to the known `Status`:
+Let us compare the outliers detected to their known `Status` and `Time`
+phenotypes:
 
 ```{r outlierPCAPlot, echo=FALSE, fig.height=12}
 sc_DC_gene$top_200_3_sd <- sc_DC_gene$top_200_n_sd > 3
@@ -440,7 +441,7 @@ In addition, [Appendix 2](#Appendix2) reveals how the earlier filter rules
 detected by the multivariate PCA approach applied in this section.
 
 Let us create a fiter rule to retain samples **not** detected as outliers by
-this PCAapproach:
+this PCA approach:
 
 ```{r filterOutlier}
 filter.samples.outliers <- FilterRules(list(
@@ -470,7 +471,7 @@ Conversely, the most abundant features among the nine `BULK` samples and
 `373` single cells tend to be known associates of immune cells
 (*e.g.* `CD74`, `CCL4`, `ISG15`).
 
-```{r highestExpression, echo=FALSE, out.width='90%', fig.height = 8}
+```{r highestExpression, echo=FALSE, out.width='90%', fig.height = 10}
 multiplot(
     plotQC(
         sc_DC_gene[,!eval(filter.samples.ctrl["Blank"], pData(sc_DC_gene))],
@@ -533,7 +534,7 @@ We observe that:
 ## Using single cells
 
 For comparison, let us examine the number of features detected as a function
-of the number of single cells in which each feature was detected:
+of the number of single cells in which they were detected:
 
 ```{r featuresDetectedSC, echo=FALSE, out.width="100%"}
 # For each gene, number of cells in which it was detected
@@ -552,8 +553,6 @@ ggplot(tmp) +
     scale_y_continuous(limits = c(0, nrow(sc_DC_gene)))
 rm(feature_N_cells, tmp)
 ```
-
-
 
 # Filter data set
 
@@ -580,18 +579,18 @@ tmp <- melt(
     value.name = "Pass"
 )
 ggplot(tmp) +
-    geom_tile(aes(x=Filter, y=Cell, fill=Pass))
+    geom_tile(aes(x=Filter, y=Cell, fill=Pass)) +
+    theme(
+        axis.text.y = element_blank(),
+        axis.ticks.y = element_blank()
+    )
 rm(tmp)
 ```
 
 ## Features
 
-\fixme{
-In progress.
-}
-
-Let us summarise the result of the active filter rules applied to features
-excluding the ERCC control features:
+Let us summarise the result of the active filter rules applied to
+gene features (*i.e.* excluding the ERCC control features):
 
 ```{r filterFeaturesSummary}
 summary(evalSeparately(
@@ -617,18 +616,64 @@ sc_DC_filtered <- sc_DC_gene[
 dim(sc_DC_filtered)
 ```
 
+## Save the updated SCESet to file
+
+```{r saveRDS}
+saveRDS(sc_DC_filtered, file.path(folder.rds, "sc_DC_filtered.rds"))
+```
+
+
+# tSNE
+
+In this section, let us apply the
+[t-Distributed Stochastic Neighbor Embedding](https://lvdmaaten.github.io/tsne)
+technique to visualise the clustering of samples using the high-dimensionality
+data remaining after filtering:
+
+```{r plotTSNE, echo=FALSE, fig.height=12}
+multiplot(
+    plotTSNE(
+        sc_DC_filtered, 
+        ncomponents = 2,
+        colour_by = "Status",
+        shape_by = "Time",
+        rand_seed = 42) +
+        theme(legend.position = "bottom"
+    ),
+    plotTSNE(
+        sc_DC_filtered, 
+        ncomponents = 2,
+        colour_by = "Time",
+        shape_by = "Infection",
+        rand_seed = 42) +
+        theme(legend.position = "bottom"
+    ),
+    plotTSNE(
+        sc_DC_filtered, 
+        ncomponents = 2,
+        colour_by = "Infection",
+        shape_by = "Status",
+        rand_seed = 42) +
+        theme(legend.position = "bottom"
+    )
+)
+
+```
+
+
 # Gene expression 
 
-Currently, this plot displays a random set of `6` genes selected
-only on the basis that their name starts with either `CCL`, `CXCL`, or `IL`.
+Currently, this plot displays a random set of `5` genes selected
+only on the basis that their name starts with either `CCL`, `CXCL`, or `IL`,
+as well as `CD209`, also known as `DC-SIGN`.
 
-```{r plotExpression}
+```{r plotExpression, echo=FALSE, fig.height=9}
 plotExpression(
     sc_DC_filtered,
-    rownames(sc_DC_filtered)[sample(
+    c(rownames(sc_DC_filtered)[sample(
         grep("^((CCL)|(CXCL)|(IL))", rownames(sc_DC_filtered)),
-        6
-    )],
+        5
+    )], "CD209_ENSG00000090659"),
     x = "Status", exprs_values = "exprs", colour = "Infection"
 ) + theme(
     axis.text.x = element_text(angle = 30, hjust = 1, vjust = 1)
@@ -657,7 +702,7 @@ pc.384.infection
 Most important principal components associated with `Infection` phenotype.
 \newpage
 
-```{r pcImportantDropout, out.width='80%' , fig.width = 8, fig.height = 10}
+```{r pcImportantDropout, out.width='80%' , fig.width = 8, fig.height = 12}
 pc.384.pct_dropout
 ```
 Most important principal components associated with `pct_dropout` phenotype
