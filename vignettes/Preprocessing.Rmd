@@ -1,16 +1,21 @@
 ---
 title: Quality control
 author:
-  - name: Kévin Rue-Albrecht
-    email: kevinrue67@gmail.com
   - name: Anna Aulicino
     email: anna.aulicino@ndm.ox.ac.uk
-    affiliation: Oxford University
+    affiliation: MRC,Human Immunology Unit, Weatherall Institute of Molecular
+        Medicine, NIHR Biomedical research centre, University of Oxford,
+        John Radcliffe Hospital, Oxford, UK.
+  - name: Kévin Rue-Albrecht
+    email: kevinrue67@gmail.com
+    affiliation: Department of Medicine, Imperial College London,
+        Hammersmith Campus, Du Cane Road, London, W12 0NN, UK
 date: "`r doc_date()`"
 package: "`r pkg_ver('BiocStyle')`"
 abstract: >
-  Quality control based for all 384 samples, including blanks, bulks and
-  single cells.
+  Preprocessing of _Kallisto_ quantitation data, including aggregation
+  of transcript-level expression data into gene-level estimates, and
+  annotation of gene identifiers with gene symbol annotation.
 vignette: >
   %\VignetteIndexEntry{Quality control}
   %\VignetteEngine{knitr::rmarkdown}
@@ -21,62 +26,182 @@ output:
 
 # Settings
 
-Define of folders where to find data:
-
-```{r, eval=FALSE}
-# Location of Kallisto quantitation folders
-folder.quant <- "quant"
-# Location of experimental data (e.g., phenotypes)
-folder.expData <- "expData"
+```{r check, include=FALSE}
+stopifnot(
+    requireNamespace("scater"),
+    requireNamespace("biomaRt")
+)
 ```
 
-and where to write data:
+Define of folders where to find and write data:
 
-```{r, settingsOut}
-# Location of RDS files (Serialized Single Objects) 
-folder.rds <- "rds"
-# Location of QC files
-folder.qc <- "qc"
+```{r settingsOut}
+if (interactive()){
+    workdir <- "."
+} else {
+    workdir <- ".."
+}
+folder.quant <- file.path(workdir, "quant")
+folder.expData <- file.path(workdir, "expData")
+folder.rds <- file.path(workdir, "rds")
+folder.qc <- file.path(workdir, "qc")
 ```
 
-# Data pre-processing
 
-Quantitation data imported into the _R_ environment was subsequently:
+# Pre-process data
 
-* transcript-level expression data was aggregated into gene-level estimates
-    (*i.e.* `ensembl_transcript_id` `->` `ensembl_gene_id`)
-* Gene identifiers were made more intuitive by prepending gene symbol were
-    possible
+Prior to this document, quantitation data for all 384 samples
+(including single cells, blanks and bulks) was obtained using _Kallisto_ 
+as follows:
 
-For the sake of time, the code is only presented here, but not run.
-Pre-processed data will be immediately imported in the following section.
+```
+kallisto quant \
+    --index=$kallistoIdx \
+    --output-dir=$kallistoDir/$cell \
+    $fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
+```
 
-## Import
 
-First, _Kallisto_ quantitation folders were detected:
+# Import data
 
-```{r, eval=FALSE}
+First, let us detect the _Kallisto_ quantitation folder for all samples:
+
+```{r kallistoDir}
 kallisto.dirs <- list.files(folder.quant)
 length(kallisto.dirs)
 ```
 
-Then, data was imported:
+Now, let us import the quantitation data, using the trimmed folder name
+as a unique identifier for each sample:
 
-```{r, eval=FALSE}
+```{r readKallistoResults, message=FALSE}
+library(scater)
 sc_DC <- readKallistoResults(
     samples = gsub("WTCHG_", "", kallisto.dirs),
     directories = file.path(folder.quant, kallisto.dirs)
 )
+dim(sc_DC)
 ```
 
+Then, let us attach experimental covariates to the `SCESet`, in the `phenoData`
+slot:
 
-
-# Import pre-processed data {#Preprocessed}
-
-```{r, include=FALSE}
-sc_DC_gene <- readRDS(file.path(folder.rds, "sc_DC_gene.rds"))
+```{r expData}
+samplesData <- read.csv(
+    file.path(folder.expData, "samples.csv"),
+    row.names = 1)
+pData(sc_DC) <- cbind(
+    samplesData,
+    pData(sc_DC)
+)
+rm(samplesData)
+varLabels(sc_DC)
 ```
 
+**Note:** To match each row of the CSV file to the corresponding sample in the
+`SCESet`, the first column of the CSV file contains the same unique sample
+identifier supplied to the `readKallistoResults` method in the previous
+code chunk.
+
+# Collapse transcript to genes
+
+The index file supplied to Kallisto was generated from the file
+`Homo_sapiens.GRCh38.cdna.all.fa`, which supplied sequence information
+annotated to versioned Ensembl transcript identifiers of the form
+`ENST00000448914.1`.
+Before gene annotations may be retrieved from the Ensembl Biomart, the
+version identifier `.x` of each transcript must be trimmed:
+
+```{r trimTxId}
+fData(sc_DC)$feature_id <- gsub(
+    "\\.[[:digit:]]$", "", fData(sc_DC)$feature_id
+)
+```
+
+Only then, the `SCESet` may be updated with gene annotations fetched from
+the Ensembl Biomart using the `getBMFeatureAnnos` method (a wrapper around the
+`r Biocpkg("biomaRt")` package):
+
+```{r getBMFeatureAnnos}
+sc_DC <- getBMFeatureAnnos(
+    sc_DC,
+    attributes = c(
+        "ensembl_transcript_id", "ensembl_gene_id", "hgnc_symbol",
+        "chromosome_name", "transcript_biotype", "transcript_start",
+        "transcript_end", "transcript_count"),
+    feature_symbol = "hgnc_symbol",
+    dataset = "hsapiens_gene_ensembl")
+names(fData(sc_DC))
+```
+
+Once the `SCESet` contains gene annotations, transcript-level expression
+estimates produced by _Kallisto_ can be collapsed to gene-level estimates using the `summariseExprsAcrossFeatures` method:
+
+```{r summariseExprsAcrossFeatures}
+sc_DC_gene <- summariseExprsAcrossFeatures(
+    sc_DC, exprs_values="tpm", summarise_by="feature_id")
+names(fData(sc_DC_gene))
+colnames(fData(sc_DC_gene)) <-
+    gsub("exprs_collapsed_to", "ensembl_gene_id", names(fData(sc_DC_gene)))
+rm(sc_DC)
+```
+
+# Add gene symbols to featureNames to make them more intuitive
+
+First, let us fetch from the Ensembl Biomart a mapping table between
+the Ensembl gene identifier used to collapse gene expression, and the
+associated official HGNC gene symbol:
+
+```{r biomartGeneId2GeneSymbol}
+library(biomaRt)
+mart <- useMart(
+    biomart = "ENSEMBL_MART_ENSEMBL",
+    dataset = "hsapiens_gene_ensembl", host = "www.ensembl.org"
+)
+bm.map <- getBM(c("ensembl_gene_id", "hgnc_symbol"), mart = mart)
+rm(mart)
+```
+
+Using the mapping table, let us store the (first) gene symbol associated with
+each gene identifier as an additional column of the `featureData` slot:
+
+```{r storeGeneSymbol}
+fData(sc_DC_gene)$hgnc_symbol <- bm.map[
+    match(fData(sc_DC_gene)$ensembl_gene_id, bm.map$ensembl_gene_id),
+    "hgnc_symbol"
+]
+rm(bm.map)
+```
+
+The downloaded HGNC gene symbols information contain a mixture of `NA` values
+and empty character names `""`. Let us convert empty gene names `""` to
+more consistent and convenient `NA` values:
+
+```{r empty2NA}
+fData(sc_DC_gene)$hgnc_symbol[fData(sc_DC_gene)$hgnc_symbol == ""] <- NA
+```
+
+Now, we may rename features by prepending their gene unique gene identifier
+with their official gene symbol, when available:
+
+```{r updateFeatureNames}
+featureNames(sc_DC_gene) <- ifelse(
+    is.na(fData(sc_DC_gene)$hgnc_symbol),
+    as.character(fData(sc_DC_gene)$ensembl_gene_id),
+    paste(
+        fData(sc_DC_gene)$hgnc_symbol,
+        fData(sc_DC_gene)$ensembl_gene_id,
+        sep = "_"
+    )
+)
+head(fData(sc_DC_gene), n = 3)
+```
+
+# Save the updated SCESet to file
+
+```{r saveRDS}
+saveRDS(sc_DC_gene, file.path(folder.rds, "sc_DC_gene.rds"))
+```
 
 # Session info
 
