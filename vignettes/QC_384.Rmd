@@ -53,7 +53,7 @@ Paths are relative the location of the vignette file; if code chunks
 are run interactively, paths must be relative to the working directory 
 }
 
-# Pre-process data
+# Preprocess data
 
 Prior to this document, quantitation data for all 384 samples
 (including single cells, blanks and bulks) was obtained using _Kallisto_ 
@@ -68,7 +68,7 @@ kallisto quant \
 
 The resulting quantitation data was imported into the _R_ environment as a
 `SCESet` using the `r Biocpkg("scater")` `readKallistoResults` method,
-and pre-processed as follows:
+and preprocessed as follows:
 
 * Phenotype data was imported from a CSV file and attached to the `SCESet`.
 * Transcript-level expression data was aggregated into gene-level
@@ -78,7 +78,7 @@ and pre-processed as follows:
     possible (*e.g.* `ENSG00000277943` to `CCL4_ENSG00000277943`).
 * The resulting `SCESet` was serialised and written to file.
 
-Here, we simply import the pre-processed data:
+Here, we simply import the preprocessed data:
 
 ```{r preprocessed, message=FALSE}
 library(scater)
@@ -96,7 +96,8 @@ summary(expdata)
 
 # Calculate QC metrics
 
-First, let us annotate the `SCESet` with various QC metrics
+First, let us use the `r Biocpkg("scater")` `calculateQCMetrics` method
+to annotate the `SCESet` with various QC metrics
 using control features (*i.e.* ERCC spike-in)
 and samples (*i.e.* blanks, bulks):
 
@@ -126,7 +127,7 @@ Mitochondrial genes might be used as control features in the future.
 
 # Library complexity
 
-Let us examine the library complexity across `Status` and `Infection`:
+Let us examine library complexity across `Status`, `Infection`, and `Time`:
 
 ```{r libraryComplexity, fig.height=7.5}
 plot(
@@ -139,17 +140,18 @@ First, from a QC perspective, some reassuring observations:
 
 * Blanks show a very low library complexity
   (few features make up most of the libraries)
-* Bulks show a higher complexity
-* Single cells generally show a complexity comparable to that of the `BULK`
+* Bulks show a generally higher complexity
+* Single cells generally show a complexity comparable to that of `BULK`
     control samples
 
 Now, from a biological perspective:
 
 * A small number of single cells (e.g. `exposed:4h:LT2`, `infected:6h:LT2`)
     show suspiciously low library complexity.
-    Those single cells must be treated as outliers and removed from
+    Those single cells must henceforth be treated as outliers and removed from
     subsequent analyses.
-* Library complexity seems to decrease with `Time` and `Infection`.
+* Library complexity seems to decrease with `Time` in samples treated with
+    bacteria.
     This **may** indicate a *polarisation* of single cells toward particular
     phenotype(s).
     + `Mock` (*i.e.* `uninfected`) single cells tend to show a consistent,
@@ -161,15 +163,13 @@ Now, from a biological perspective:
 ## Filter low-complexity samples
 
 As a consequence of the above observation,
-let us define a reasonable cut-off value to exclude outliers based on
-library complexity.
-For instance, let us visualise the percentage of estimated counts accounted
-for by the top `50` and `200` features in each sample against the median
+let us define a reasonable, data-driven,
+cut-off value to exclude outliers based on library complexity.
+For instance, let us visualise the percentage of estimated counts attributed to
+the top `50` and `200` features in each sample against the median
 ± `3` standard deviations across all samples.
-We also store the number of standard deviations for each metric, for each
-sample as additional columns in the `phenoData` slot of the `SCESet`[^1]:
-
-[^1]: The verbose `ggplot2` code is hidden for convenience.
+Let us also store the number of standard deviations for each metric, for each
+sample as additional columns in the `phenoData` slot of the `SCESet`:
 
 ```{r calcPctCountSD}
 pct_count_50.med <- median(sc_DC_gene$pct_counts_top_50_features)
@@ -250,6 +250,19 @@ filter.samples <- FilterRules(list(
 summary(evalSeparately(filter.samples, pData(sc_DC_gene)))
 ```
 
+The `top_50_3_sd` rule identifies `5` outliers (`379` samples passed the
+filter):
+
+* the two `Blank` samples
+* the two single cells visually identified in the previous section
+* one more single cell which can be confirmed visually in the previous section:
+    `D23580:6h:exposed`.
+
+The `top_200_3_sd` rule is slightly more stringent, and identifies a total of
+`8` samples (`376` samples passed the filter),
+including all `5` samples identified by the `top50_75` rule
+(the combined rules have the same effect as the `top_200_3_sd` rule alone).
+
 ```{r kableTop50, echo=FALSE}
 library(knitr)
 kable(
@@ -271,19 +284,6 @@ kable(
 
 Table: Samples failing the `top_200_3_sd` filter rule.
 
-The `top_50_3_sd` rule identifies `5` outliers (`379` samples passed the
-filter):
-
-* the two `Blank` samples
-* the two single cells visually identified in the previous section
-* one more single cell which can be confirmed visually in the previous section:
-    `D23580:6h:exposed`.
-
-The `top_200_3_sd` rule is slightly more stringent, and identifies a total of
-`8` samples (`376` samples passed the filter),
-including all `5` samples identified by the `top50_75` rule
-(the combined rules have the same effect as the `top_200_3_sd` rule alone).
-
 # Association of principal components with experimental covariates
 
 ## Expression-based PCA
@@ -302,11 +302,11 @@ sc_DC_gene <- plotPCA(
 
 In combination with the figures shown in [Appendix 1](#Appendix1),
 and the following section,
-the above figure highlights that _in the complete data set_:
+the above figure highlights that, _in the complete data set_:
 
 * `PC1` negatively correlates with `Time`, and separates to some extent
     `uninfected` cells from `infected` or `exposed`.
-* `PC2` negatively correlates with QC metrics related to the number of
+* `PC2` correlates with QC metrics related to the number of
     detected features
     (*i.e.* `pct_dropout`, `log10_total_features`, `pct_exprs_top_50_features`).
     Higher coordinates on `PC2` indicate lower library complexity
@@ -368,15 +368,18 @@ multiplot(
 )
 ```
 
+**Note:** In the top figure, the four blocks that display markedly distinct
+coordinates on `PC1` correspond to `2h`, `4h`, `6h`, and `uninfected`, from
+left to right, respectively.
 
 ## Outlier detection
 
-Let us identify outlier samples using `r Biocpkg("scater")` and
-the `r CRANpkg("mvoutlier")` package and
-common QC metrics that relate to library complexity and feature detection,
+Let us use the `r Biocpkg("scater")` and `r CRANpkg("mvoutlier")` packages to
+identify outlier samples using common QC metrics
+that relate to library complexity and feature detection,
 and save the result in the `SCESet`:
 
-```{r outlierDetection, results='hide'}
+```{r outlierDetection}
 sc_DC_gene <- plotPCASCESet(
         sc_DC_gene, ntop = 500, ncomponents = 3,
         exprs_values = "exprs", shape_by = "Status",
@@ -399,10 +402,8 @@ are useful landmarks to identify such outliers in a PCA plot.
 Let us compare the outliers detected to their known `Status` and `Time`
 phenotypes:
 
-```{r outlierPCAPlot, echo=FALSE, fig.height=12}
-sc_DC_gene$top_200_3_sd <- sc_DC_gene$top_200_n_sd > 3
-multiplot(
-    plotPCASCESet(
+```{r outlierPCAPlot, include=FALSE}
+p.phenos <- plotPCASCESet(
         sc_DC_gene, ntop = 500, ncomponents = 3,
         exprs_values = "exprs", colour_by = "Status", shape_by = "Time",
         detect_outliers = FALSE, pca_data_input = "pdata",
@@ -414,8 +415,8 @@ multiplot(
             "log10_counts_endogenous_features",
             "log10_counts_feature_controls"
         )
-    ),
-    plotPCASCESet(
+    )
+p.outliers <- plotPCASCESet(
         sc_DC_gene, ntop = 500, ncomponents = 3,
         exprs_values = "exprs", shape_by = "Time",
         detect_outliers = TRUE, pca_data_input = "pdata",
@@ -428,8 +429,11 @@ multiplot(
             "log10_counts_feature_controls"
         )
     )
-)
-rm()
+```
+
+
+```{r drawOutlierPCAPlot, echo=FALSE, fig.height=12}
+multiplot(p.phenos,p.outliers)
 ```
 
 Among the resulting principal components, `PC1` strongly correlates with
@@ -703,7 +707,8 @@ Most important principal components associated with `Infection` phenotype.
 \newpage
 
 ```{r pcImportantDropout, out.width='80%' , fig.width = 8, fig.height = 12}
-pc.384.pct_dropout
+pc.384.pct_dropout +
+     theme(legend.position="bottom")
 ```
 Most important principal components associated with `pct_dropout` phenotype
 (*i.e.* proportion of features below detection level).
@@ -713,6 +718,7 @@ Most important principal components associated with `pct_dropout` phenotype
 ## PCA-based detection of outlier samples {#Appendix2}
 
 ```{r, echo=FALSE, fig.height=12}
+sc_DC_gene$top_200_3_sd <- sc_DC_gene$top_200_n_sd > 3
 multiplot(
     plotPCASCESet(
         sc_DC_gene, ntop = 500, ncomponents = 3,
@@ -741,7 +747,7 @@ multiplot(
         )
     )
 )
-
+sc_DC_gene$top_200_3_sd <- NULL
 ```
 
 # Session info
