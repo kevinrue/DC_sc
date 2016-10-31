@@ -32,7 +32,9 @@ stopifnot(
     requireNamespace("scater"),
     requireNamespace("S4Vectors"),
     requireNamespace("reshape2"),
-    requireNamespace("knitr")
+    requireNamespace("knitr"),
+    requireNamespace("dplyr"),
+    requireNamespace("BiocParallel")
 )
 ```
 
@@ -538,24 +540,34 @@ We observe that:
 ## Using single cells
 
 For comparison, let us examine the number of features detected as a function
-of the number of single cells in which they were detected:
+of the number of single cells in which they were detected. Let us also store 
+in an additional column of the `phenoData` slot the count of _single cells_
+in which each feature was detected:
+
+```{r countSCdetected}
+fData(sc_DC_gene)$n_sc_exprs <- rowSums(
+    exprs(sc_DC_gene[,!sc_DC_gene$is_cell_control]) > 0
+)
+```
 
 ```{r featuresDetectedSC, echo=FALSE, out.width="100%"}
-# For each gene, number of cells in which it was detected
-feature_N_cells <- rowSums(
-    exprs(sc_DC_gene[,!sc_DC_gene$is_cell_control])
-)
 # From one cell to all single cells, how many genes are detected at each level
 tmp <- data.frame(
     N_cells = seq_len(
         sum(!sc_DC_gene$is_cell_control)
     )
 )
-tmp$N_features <- sapply(tmp$N_cells, function(x) sum(feature_N_cells >= x))
+tmp$N_features <- sapply(tmp$N_cells, function(x){
+    sum(fData(sc_DC_gene)$n_sc_exprs >= x)
+})
 ggplot(tmp) +
     geom_point(aes(x=N_cells, y=N_features), size = 0.5) +
-    scale_y_continuous(limits = c(0, nrow(sc_DC_gene)))
-rm(feature_N_cells, tmp)
+    scale_y_continuous(limits = c(0, nrow(sc_DC_gene)), labels = scales::comma) +
+    labs(
+        x = "Detection cut-off (cells)",
+        y = "Features detected"
+    )
+rm(tmp)
 ```
 
 # Filter data set
@@ -665,6 +677,154 @@ multiplot(
 ```
 
 
+# Feature detection within experimental groups
+
+Let us examine the number of detected features as a function of the proportion
+of _non-outlier_ single cells in which they were detected, within each
+experimental group.
+First, let us subset the data set to only single cells that passed all
+the outlier detection filters detailed in the previous sections.
+In addition, let us create two subsets:
+
+* one that contains only ERCC spike-in control features
+* one that contains only endogenous gene features
+
+```{r subsetDetectionExpGroup}
+sc_DC.subset.ERCC <- sc_DC_gene[
+    fData(sc_DC_gene)$is_feature_control,
+    eval(c(filter.samples, filter.samples.outliers), pData(sc_DC_gene)) &
+        !sc_DC_gene$is_cell_control
+]
+sc_DC.subset.genes <- sc_DC_gene[
+    !fData(sc_DC_gene)$is_feature_control,
+    eval(c(filter.samples, filter.samples.outliers), pData(sc_DC_gene)) &
+        !sc_DC_gene$is_cell_control
+]
+dim(sc_DC.subset.ERCC)
+dim(sc_DC.subset.genes)
+```
+
+```{r dropLevels, include=FALSE}
+pData(sc_DC.subset.genes) <- droplevels(pData(sc_DC.subset.genes))
+pData(sc_DC.subset.ERCC) <- droplevels(pData(sc_DC.subset.ERCC))
+```
+
+Before going further let us examine how many cells are left
+in each experimental group:
+
+```{r tablePhenoExpGroup}
+print(tt <- table(pData(sc_DC.subset.genes)[,c("Infection","Status","Time")]))
+```
+
+Now, for each experimental group `Infection:Status:Time`, let us obtain and
+visualise the count of features detected against the count of single cells
+they were detected in:
+
+```{r genesCountExpGroup, include=FALSE}
+library(dplyr)
+library(BiocParallel)
+# List of experimental groups
+df <- distinct(pData(sc_DC.subset.genes), Infection, Status, Time)
+# Data points for each experimental group
+dfl <- bplapply(seq_len(nrow(df)), function(r){
+    infection <- df[r,"Infection"]
+    status <- df[r,"Status"]
+    time <- df[r,"Time"]
+    cells <- tt[infection, status, time]
+    n_cells <- seq_len(cells)
+    n_features <- sapply(n_cells, function(x){
+        sum(
+            rowSums(
+                exprs(sc_DC.subset.genes[
+                    ,sc_DC.subset.genes$Infection == infection &
+                        sc_DC.subset.genes$Status == status &
+                        sc_DC.subset.genes$Time == time
+                ]) > 0
+            ) >= x
+        )
+    })
+    return(data.frame(
+        Infection = infection,
+        Status = status,
+        Time = time,
+        Cells = n_cells,
+        Features = n_features
+    ))
+})
+ddfl <- do.call(rbind, dfl)
+rm(dfl)
+```
+
+```{r plotExpGroupGenes, echo=FALSE}
+p.sc_detection_genes <- ggplot(ddfl) +
+    scale_y_continuous(
+        limits = c(0, nrow(sc_DC.subset.genes)),
+        labels = scales::comma
+    ) +
+    labs(
+        x = "Detection cut-off (cells)",
+        y = "Features detected"
+    )
+p.sc_detection_genes +
+    geom_point(aes(x=Cells, y=Features, colour=Status), size = 0.5) +
+    facet_grid(Time ~ Infection) +
+    ggtitle("Endogenous feature")
+rm(ddfl)
+```
+
+And the same approach applied only to ERCC spike-ins:
+
+```{r countExpGroupERCC, include=FALSE}
+# Data points for each experimental group
+dfl <- bplapply(seq_len(nrow(df)), function(r){
+    infection <- df[r,"Infection"]
+    status <- df[r,"Status"]
+    time <- df[r,"Time"]
+    cells <- tt[infection, status, time]
+    n_cells <- seq_len(cells)
+    n_features <- sapply(n_cells, function(x){
+        sum(
+            rowSums(
+                exprs(sc_DC.subset.ERCC[
+                    ,sc_DC.subset.ERCC$Infection == infection &
+                        sc_DC.subset.ERCC$Status == status &
+                        sc_DC.subset.ERCC$Time == time
+                ]) > 0
+            ) >= x
+        )
+    })
+    return(data.frame(
+        Infection = infection,
+        Status = status,
+        Time = time,
+        Cells = n_cells,
+        Features = n_features
+    ))
+})
+ddfl <- do.call(rbind, dfl)
+rm(dfl, df)
+```
+
+```{r plotExpGroupERCC, echo=FALSE}
+p.sc_detection_ERCC <- ggplot(ddfl) +
+    geom_point(aes(x=Cells, y=Features, colour=Status), size = 0.5) +
+    scale_y_continuous(
+        limits = c(0, nrow(sc_DC.subset.ERCC)),
+        labels = scales::comma
+    ) +
+    labs(
+        x = "Detection cut-off (cells)",
+        y = "Features detected"
+    )
+p.sc_detection_ERCC +
+    geom_point(aes(x=Cells, y=Features, colour=Status), size = 0.5) +
+    facet_grid(Time ~ Infection) +
+    ggtitle("ERCC spike-ins")
+rm(ddfl)
+```
+
+See [Appendix3](#Appendix3) for an overview of the nine panels overlaid.
+
 # Gene expression 
 
 Currently, this plot displays a random set of `5` genes selected
@@ -714,10 +874,9 @@ Most important principal components associated with `pct_dropout` phenotype
 (*i.e.* proportion of features below detection level).
 \newpage
 
-
 ## PCA-based detection of outlier samples {#Appendix2}
 
-```{r, echo=FALSE, fig.height=12}
+```{r appendix2, echo=FALSE, fig.height=12}
 sc_DC_gene$top_200_3_sd <- sc_DC_gene$top_200_n_sd > 3
 multiplot(
     plotPCASCESet(
@@ -748,6 +907,21 @@ multiplot(
     )
 )
 sc_DC_gene$top_200_3_sd <- NULL
+```
+
+\newpage
+
+## Overlaid detection of features within experimental groups {#Appendix3}
+
+```{r scDetectionOverlaid}
+multiplot(
+    p.sc_detection_genes +
+        geom_point(aes(x=Cells, y=Features, colour=Status, shape=Time)) +
+        ggtitle("Endogenous feature"),
+    p.sc_detection_ERCC +
+        geom_point(aes(x=Cells, y=Features, colour=Status, shape=Time)) +
+        ggtitle("ERCC spike-ins")
+)
 ```
 
 # Session info
