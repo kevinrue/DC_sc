@@ -823,7 +823,7 @@ p.sc_detection_ERCC +
 rm(ddfl)
 ```
 
-See [Appendix3](#Appendix3) for an overview of the nine panels overlaid.
+See [Appendix 3](#Appendix3) for an overview of the nine panels overlaid.
 
 # Gene expression 
 
@@ -850,7 +850,7 @@ plotExpression(
 
 ## Association of principal components with experimental covariates {#Appendix1}
 
-```{r pcImportantTime, out.width='80%' , fig.width = 8, fig.height = 12}
+```{r pcImportantTime, out.width='80%', fig.width = 8, fig.height = 12}
 pc.384.time
 ```
 Most important principal components associated with `Time` phenotype.
@@ -860,13 +860,13 @@ pc.384.status
 ```
 Most important principal components associated with `Status` phenotype.
 \newpage
-```{r pcImportantInfection, out.width='80%' , fig.width = 8, fig.height = 12}
+```{r pcImportantInfection, out.width='80%', fig.width = 8, fig.height = 12}
 pc.384.infection
 ```
 Most important principal components associated with `Infection` phenotype.
 \newpage
 
-```{r pcImportantDropout, out.width='80%' , fig.width = 8, fig.height = 12}
+```{r pcImportantDropout, out.width='80%', fig.width = 8, fig.height = 12}
 pc.384.pct_dropout +
      theme(legend.position="bottom")
 ```
@@ -913,7 +913,7 @@ sc_DC_gene$top_200_3_sd <- NULL
 
 ## Overlaid detection of features within experimental groups {#Appendix3}
 
-```{r scDetectionOverlaid}
+```{r scDetectionOverlaid, fig.height=11}
 multiplot(
     p.sc_detection_genes +
         geom_point(aes(x=Cells, y=Features, colour=Status, shape=Time)) +
@@ -923,6 +923,8 @@ multiplot(
         ggtitle("ERCC spike-ins")
 )
 ```
+
+\newpage
 
 # Session info
 
