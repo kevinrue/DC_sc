@@ -1,15 +1,6 @@
 ---
 title: "QC"
-author:
-  - name: Anna Aulicino
-    email: anna.aulicino@ndm.ox.ac.uk
-    affiliation: MRC,Human Immunology Unit, Weatherall Institute of Molecular
-        Medicine, NIHR Biomedical research centre, University of Oxford,
-        John Radcliffe Hospital, Oxford, UK.
-  - name: Kévin Rue-Albrecht
-    email: kevinrue67@gmail.com
-    affiliation: Department of Medicine, Imperial College London,
-        Hammersmith Campus, Du Cane Road, London, W12 0NN, UK
+author: Anna Aulicino & Kévin Rue-Albrecht
 date: "01/11/2016"
 output: ioslides_presentation
 ---
@@ -18,18 +9,100 @@ output: ioslides_presentation
 knitr::opts_chunk$set(echo = FALSE)
 ```
 
-## Settings
-
 ```{r check, include=FALSE}
-stopifnot(
-    requireNamespace("scater")#,
-    # requireNamespace("S4Vectors"),
-    # requireNamespace("reshape2"),
-    # requireNamespace("knitr"),
-    # requireNamespace("dplyr"),
-    # requireNamespace("BiocParallel")
-)
+library(scater)
+library(S4Vectors)
 ```
+
+```{r settings, include=FALSE}
+if (interactive()){
+  workdir <- "."
+} else {
+  workdir <- ".."
+}
+folder.rds <- file.path(workdir, "rds")
+folder.qc <- file.path(workdir, "qc")
+```
+
+## Quantify expression
+
+Prior to this document, quantitation data for all 384 samples
+(including single cells, blanks and bulks) was obtained using _Kallisto_ 
+as follows:
+
+```
+kallisto quant \
+    --index=$kallistoIdx \
+    --output-dir=$kallistoDir/$cell \
+    $fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
+```
+
+## Import preprocessed data
+
+The resulting quantitation data was imported into the _R_ environment as a
+`SCESet` using the `scater` `readKallistoResults` method,
+and preprocessed as follows:
+
+* Import quantitation data as a `SCESet` using `readKallistoResults()`
+* Phenotype data was imported from a CSV file and attached to the `SCESet`.
+* Transcript-level expression data was aggregated into gene-level
+  expression estimates using `getBMFeatureAnnos()` and
+  `summariseExprsAcrossFeatures()`
+* Gene identifiers were made more intuitive by prepending gene symbol if
+  available
+* The resulting `SCESet` was serialised and backed up to file.
+
+## Import preprocessed data
+
+```{r preprocessed, echo = TRUE, message=FALSE}
+library(scater)
+sc_DC_gene <- readRDS(file.path(folder.rds, "sc_DC_gene.rds"))
+dim(sc_DC_gene)
+names(assayData(sc_DC_gene))
+```
+
+## Phenotype data
+
+```{r expdata}
+sc_DC_gene$Lane <- as.factor(sc_DC_gene$Lane)
+sc_DC_gene$Identifier.number <- as.character(sc_DC_gene$Identifier.number)
+summary(pData(sc_DC_gene)[,1:7])
+```
+
+## Identify control features and samples
+
+### Features
+
+> - ERCC spike-ins
+> - Mitochondrial genes
+
+### Samples
+
+>- Blanks
+>- Bulks
+
+## Mitochondrial genes
+
+`TODO:` use `biomaRt`
+
+## Identify control features and samples
+
+```{r, echo=TRUE}
+filter.features.ctrl <- FilterRules(list(
+        ERCC = function(x) grepl("ERCC-[[:digit:]]", featureNames(x))
+))
+summary(evalSeparately(filter.features.ctrl, sc_DC_gene))
+filter.samples.ctrl <- FilterRules(list(
+        BULK = function(x) x$Status == "BULK",
+        Blank = function(x) x$Status == "Blank"
+))
+summary(evalSeparately(filter.samples.ctrl, pData(sc_DC_gene)))
+```
+
+## Calculate QC metrics
+
+
+
 
 ## R Markdown
 
