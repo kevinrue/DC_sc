@@ -1,5 +1,6 @@
 # Compiled vignettes
 *.pdf
+*.html
 
 # Data folders
 quant
