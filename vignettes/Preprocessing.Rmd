@@ -1,5 +1,5 @@
 ---
-title: Quality control
+title: Preprocessing
 author:
   - name: Anna Aulicino
     email: anna.aulicino@ndm.ox.ac.uk
