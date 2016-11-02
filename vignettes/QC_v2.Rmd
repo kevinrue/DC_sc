@@ -1,0 +1,169 @@
+---
+title: Quality Control
+author:
+  - name: Anna Aulicino
+    email: anna.aulicino@ndm.ox.ac.uk
+    affiliation: MRC,Human Immunology Unit, Weatherall Institute of Molecular
+        Medicine, NIHR Biomedical research centre, University of Oxford,
+        John Radcliffe Hospital, Oxford, UK.
+  - name: Kévin Rue-Albrecht
+    email: kevinrue67@gmail.com
+    affiliation: Department of Medicine, Imperial College London,
+        Hammersmith Campus, Du Cane Road, London, W12 0NN, UK
+date: "`r doc_date()`"
+package: "`r pkg_ver('BiocStyle')`"
+abstract: >
+  Revised quality control using all 384 samples, including blanks, bulks
+  and single cells.
+vignette: >
+  %\VignetteIndexEntry{Quality Control}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+output: 
+  BiocStyle::pdf_document2:
+    toc_newpage: true
+---
+
+<!--
+The following code chunks set the scene.
+However, they are not directly relevant to the analysis,
+and therefore are hidden from the compiled PDF.
+-->
+
+```{r packages, include=FALSE}
+library(scater)
+library(S4Vectors)
+library(reshape2)
+library(knitr)
+library(dplyr)
+library(BiocParallel)
+library(EnsDb.Hsapiens.v79)
+```
+
+```{r workdir, include=FALSE}
+if (interactive()){
+    workdir <- "."
+} else {
+    workdir <- ".."
+}
+```
+
+```{r paths, include=FALSE}
+folder.rds <- file.path(workdir, "rds")
+folder.qc <- file.path(workdir, "qc")
+```
+
+# Import preprocessed data
+
+Prior to this document, quantitation data for all 384 samples
+(including single cells, blanks and bulks) was obtained using
+[Kallisto](https://pachterlab.github.io/kallisto/)
+as follows:
+
+```
+kallisto quant \
+    --index=$kallistoIdx \
+    --output-dir=$kallistoDir/$cell \
+    --bootstrap-samples=100 \
+    $fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
+```
+
+Subsequently:
+
+* The quantitation data was imported into the _R_ environment as a
+  `SCESet` using the `r Biocpkg("scater")` `readKallistoResults` method,
+* Phenotype data was imported from a CSV file and attached to the `SCESet`,
+* Transcript-level expression data was aggregated into gene-level
+    expression estimates using the `r Biocpkg("scater")` `getBMFeatureAnnos`
+    and `summariseExprsAcrossFeatures` methods.
+* Gene identifiers were made more intuitive by prepending gene symbol where
+    possible (*e.g.* `ENSG00000277943` to `CCL4_ENSG00000277943`).
+* The resulting `SCESet` was serialised and written to file.
+
+Here, we simply import the preprocessed data:
+
+```{r preprocessed, message=FALSE}
+library(scater)
+sc_DC_gene <- readRDS(file.path(folder.rds, "sc_DC_gene.rds"))
+```
+
+Let us examine a summary of the experimental phenotype data:
+
+```{r expdata}
+expdata <- pData(sc_DC_gene)[,1:7]
+expdata$Lane <- as.factor(expdata$Lane)
+expdata$Identifier.number <- as.character(expdata$Identifier.number)
+summary(expdata)
+```
+
+# Calculate QC metrics
+
+## Identify control samples
+
+Using the phenotype data, let us create `FilterRules` that identify
+the control samples, namely `BULK` and `Blank` samples:
+
+```{r controlSamplesRules}
+filter.samples.ctrl <- FilterRules(list(
+    BULK = function(x) x$Status == "BULK",
+    Blank = function(x) x$Status == "Blank"
+))
+summary(evalSeparately(filter.samples.ctrl, pData(sc_DC_gene)))
+```
+
+## Identify control features 
+
+### Identify ERCC spike-in features
+
+ERCC spike-in features can be easily identified from their identifier:
+
+```{r ERCCrules}
+filter.features.ctrl <- FilterRules(list(
+    ERCC = function(x) grepl("ERCC-[[:digit:]]", featureNames(x))
+))
+summary(evalSeparately(filter.features.ctrl, sc_DC_gene))
+```
+
+### Identify mitochondrial genes
+
+```{r}
+filter.features.ctrl <- c(
+  filter.features.ctrl, FilterRules(list(
+    MT = function(x) fData(x)$feature_id %in%
+      genes(EnsDb.Hsapiens.v79, "gene_id", SeqnameFilter("MT", "="))$gene_id
+  ))
+)
+summary(evalSeparately(filter.features.ctrl, sc_DC_gene))
+```
+
+
+### Calculate QC metrics
+
+Once control features and samples were defined in the above sections,
+the `r Biocpkg("scater")` `calculateQCMetrics` method may be used
+to annotate the `SCESet` with various QC metrics:
+
+```{r ctrlFeaturesSamples, message=FALSE}
+sc_DC_gene <- calculateQCMetrics(sc_DC_gene,
+    list(
+      ERCC = eval(filter.features.ctrl["ERCC"], sc_DC_gene),
+      MT = eval(filter.features.ctrl["MT"], sc_DC_gene)),
+    list(
+        Bulk = eval(filter.samples.ctrl["BULK"], pData(sc_DC_gene)),
+        Blank = eval(filter.samples.ctrl["Blank"], pData(sc_DC_gene))
+    )
+)
+```
+
+# Session info
+
+Here is the output of `sessionInfo()` on the system on which this
+document was compiled:
+
+```{r sessionInfo, echo=FALSE}
+sessionInfo()
+```
+
+
+[R]: http://r-project.org
+[RStudio]: http://www.rstudio.com/
