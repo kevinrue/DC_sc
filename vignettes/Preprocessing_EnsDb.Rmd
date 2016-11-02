@@ -1,0 +1,198 @@
+---
+title: Preprocessing
+author:
+  - name: Anna Aulicino
+    email: anna.aulicino@ndm.ox.ac.uk
+    affiliation: MRC,Human Immunology Unit, Weatherall Institute of Molecular
+        Medicine, NIHR Biomedical research centre, University of Oxford,
+        John Radcliffe Hospital, Oxford, UK.
+  - name: Kévin Rue-Albrecht
+    email: kevinrue67@gmail.com
+    affiliation: Department of Medicine, Imperial College London,
+        Hammersmith Campus, Du Cane Road, London, W12 0NN, UK
+date: "`r doc_date()`"
+package: "`r pkg_ver('BiocStyle')`"
+abstract: >
+  Preprocessing of _Kallisto_ quantitation data, including aggregation
+  of transcript-level expression data into gene-level estimates, and
+  annotation of gene identifiers with gene symbol annotation.
+vignette: >
+  %\VignetteIndexEntry{Quality control}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+output: 
+  BiocStyle::pdf_document2
+---
+
+<!--
+The following code chunks set the scene.
+However, they are not directly relevant to the analysis,
+and therefore are hidden from the compiled PDF.
+-->
+
+# Settings
+
+Packages required for this vignette:
+
+```{r packages, include=FALSE}
+library(scater)
+library(EnsDb.Hsapiens.v79)
+```
+
+```{r workdir, include=FALSE}
+if (interactive()){
+    workdir <- "."
+} else {
+    workdir <- ".."
+}
+```
+
+```{r paths, include=FALSE}
+folder.quant <- file.path(workdir, "quant")
+folder.expData <- file.path(workdir, "expData")
+folder.rds <- file.path(workdir, "rds")
+folder.qc <- file.path(workdir, "qc")
+```
+
+# Import data
+
+## Transcript quantitation
+
+Prior to this document, quantitation data for all 384 samples
+(including single cells, blanks and bulks) was obtained using
+[Kallisto](https://pachterlab.github.io/kallisto/) as follows:
+
+```
+kallisto quant \
+    --index=$kallistoIdx \
+    --output-dir=$kallistoDir/$cell \
+    --bootstrap-samples=100 \
+    $fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
+```
+
+Let us import the quantitation data, using the trimmed folder name
+as a unique identifier for each sample:
+
+```{r kallistoDirs, include=FALSE}
+kallisto.dirs <- list.files(folder.quant)
+length(kallisto.dirs)
+```
+
+```{r readKallistoResults, message=FALSE}
+sc_DC <- readKallistoResults(
+    samples = gsub("WTCHG_", "", kallisto.dirs),
+    directories = file.path(folder.quant, kallisto.dirs)
+)
+```
+
+We can examine the resulting `SCESet`, highlighting how the sum of `TPM` values
+totals one million in all samples:
+
+```{r}
+dim(sc_DC)
+summary(colSums(tpm(sc_DC)))
+```
+
+## Phenotypes
+
+Then, let us attach experimental covariates to the `SCESet`, in the `phenoData`
+slot:
+
+```{r expData}
+samplesData <- read.csv(file.path(folder.expData, "samples.csv"),row.names=1)
+pData(sc_DC) <- cbind(samplesData, pData(sc_DC))
+rm(samplesData)
+varLabels(sc_DC)
+```
+
+**Note:** To match each row of the CSV file to the corresponding sample in the
+`SCESet`, the first column of the CSV file contains the same unique sample
+identifier supplied to the `readKallistoResults` method in the previous
+code chunk.
+
+# Collapse transcript to genes
+
+## Trim transcript identifiers
+
+The index file supplied to _Kallisto_ was generated from the file
+`Homo_sapiens.GRCh38.cdna.all.fa`, which supplied sequence information
+annotated to versioned Ensembl transcript identifiers of the form
+`ENST00000448914.1`.
+Before gene annotations may be retrieved from the Ensembl Biomart, the
+version identifier `.x` of each transcript must be trimmed:
+
+```{r trimTxId}
+fData(sc_DC)$feature_id <- gsub("\\.[0-9]+$", "", fData(sc_DC)$feature_id)
+```
+
+## Use `EnsDb` annotation packages
+
+Let us annotate each transcript identifier with the corresponding
+gene identifier and gene name using the `EnsDb.Hsapiens.v79` package[^1]:
+
+[^1]: GRCh38 genome build.
+
+```{r mapIds}
+fData(sc_DC)$ensembl_gene_id <-
+  mapIds(EnsDb.Hsapiens.v79, fData(sc_DC)$feature_id, "GENEID", "TXID")
+fData(sc_DC)$ensembl_gene_id <- ifelse(
+  is.na(fData(sc_DC)$ensembl_gene_id),
+  fData(sc_DC)$feature_id,
+  fData(sc_DC)$ensembl_gene_id
+)
+```
+
+Once the `SCESet` contains gene annotations, transcript-level expression
+estimates produced by _Kallisto_ can be collapsed to gene-level estimates
+using the `summariseExprsAcrossFeatures` method:
+
+```{r summariseExprsAcrossFeatures}
+sc_DC_gene<-summariseExprsAcrossFeatures(sc_DC,summarise_by="ensembl_gene_id")
+names(fData(sc_DC_gene))
+colnames(fData(sc_DC_gene)) <-
+    gsub("exprs_collapsed_to", "feature_id", names(fData(sc_DC_gene)))
+```
+
+# Add gene symbols to featureNames to make them more intuitive
+
+```{r mapGeneSymbols}
+fData(sc_DC_gene)$feature_id <- as.character(fData(sc_DC_gene)$feature_id)
+fData(sc_DC_gene)$gene_name <- mapIds(
+  EnsDb.Hsapiens.v79, fData(sc_DC_gene)$feature_id, "GENENAME", "GENEID"
+)
+```
+
+Now, we may rename features by prepending their gene unique gene identifier
+with their official gene symbol, when available:
+
+```{r updateFeatureNames}
+featureNames(sc_DC_gene) <- ifelse(
+    is.na(fData(sc_DC_gene)$gene_name),
+    as.character(fData(sc_DC_gene)$feature_id),
+    paste(
+        fData(sc_DC_gene)$gene_name,
+        fData(sc_DC_gene)$feature_id,
+        sep = "_"
+    )
+)
+head(fData(sc_DC_gene), n = 3)
+```
+
+# Save the updated SCESet to file
+
+```{r saveRDS}
+saveRDS(sc_DC_gene, file.path(folder.rds, "sc_DC_gene.rds"))
+```
+
+# Session info
+
+Here is the output of `sessionInfo()` on the system on which this
+document was compiled:
+
+```{r sessionInfo, echo=FALSE}
+sessionInfo()
+```
+
+
+[R]: http://r-project.org
+[RStudio]: http://www.rstudio.com/
