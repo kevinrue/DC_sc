@@ -47,7 +47,6 @@ if (interactive()){
     workdir <- ".."
 }
 folder.rds <- file.path(workdir, "rds")
-folder.qc <- file.path(workdir, "qc")
 ```
 
 \bioccomment{
