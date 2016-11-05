@@ -1,0 +1,140 @@
+---
+title: Sleuth
+author:
+  - name: Anna Aulicino
+    email: anna.aulicino@ndm.ox.ac.uk
+    affiliation: MRC,Human Immunology Unit, Weatherall Institute of Molecular
+        Medicine, NIHR Biomedical research centre, University of Oxford,
+        John Radcliffe Hospital, Oxford, UK.
+  - name: Kévin Rue-Albrecht
+    email: kevinrue67@gmail.com
+    affiliation: Department of Medicine, Imperial College London,
+        Hammersmith Campus, Du Cane Road, London, W12 0NN, UK
+date: "`r doc_date()`"
+package: "`r pkg_ver('BiocStyle')`"
+abstract: >
+  Preprocessing of _Kallisto_ quantitation data using _sleuth_.
+vignette: >
+  %\VignetteIndexEntry{Quality control}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+output: 
+  BiocStyle::pdf_document2
+---
+
+<!--
+The following code chunks set the scene.
+However, they are not directly relevant to the analysis,
+and therefore are hidden from the compiled PDF.
+-->
+
+# Pre-processed data
+
+Prior to this document, quantitation data for all 384 samples
+(including single cells, blanks and bulks) was obtained using _Kallisto_ 
+as follows:
+
+```
+kallisto quant \
+    --index=$kallistoIdx \
+    --output-dir=$kallistoDir/$cell \
+    --bootstrap-samples=100 \
+    $fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
+```
+
+# Settings
+
+Packages required for this vignette:
+
+```{r packages, include=FALSE}
+library(sleuth)
+```
+
+```{r workdir, include=FALSE}
+if (interactive()){
+    workdir <- "."
+} else {
+    workdir <- ".."
+}
+```
+
+```{r paths, include=FALSE}
+folder.kallisto <- file.path(workdir, "boot")
+folder.expData <- file.path(workdir, "expData")
+folder.rds <- file.path(workdir, "rds")
+```
+
+# Import data
+
+List the result folders produced by _Kallisto_ (one per sample):
+
+```{r kallistoDirs}
+kallisto.dirs <- dir(folder.kallisto, pattern = "WTCHG")
+length(kallisto.dirs)
+```
+
+Let us derive a unique sample identifier from the folder name of each sample:
+
+```{r sampleIds}
+sampleIDs <- gsub("WTCHG_[[:digit:]]*_", "", kallisto.dirs)
+length(unique(sampleIDs))
+```
+
+Let us load an auxillary table that describes the experimental design:
+
+```{r experimentalDesign}
+samplesData <- read.csv(file.path(folder.expData, "samples.csv"))
+colnames(samplesData)
+```
+
+Now, we must enter the directories into a column in the table describing the
+experiment. This column must be labeled path, otherwise sleuth will throw an
+error.
+
+```{r experimentalPaths}
+samplesData <- dplyr::mutate(
+  samplesData,
+  path = file.path(folder.kallisto, sprintf(
+    "WTCHG_%i_%i", Lane, sample)))
+```
+
+Let us check that the order is correct:
+
+```{r samplesDataShow, results='asis'}
+pander::pandoc.table(head(samplesData))
+```
+
+# 
+
+Let us obtain a table mapping transcipts to gene identifiers:
+
+```{r tx2gene}
+library(EnsDb.Hsapiens.v79)
+columns(EnsDb.Hsapiens.v79)
+tx2gene <- select(
+  EnsDb.Hsapiens.v79, keys(EnsDb.Hsapiens.v79), c("TXID", "GENEID", "ENTREZID"),
+  "GENEID")
+colnames(tx2gene)
+tx2gene$target_id <- tx2gene$TXID
+```
+
+
+```{r sleuthPrep}
+so <- sleuth_prep(
+  samplesData, ~ Infection + Status + Time,
+  target_mapping = tx2gene, aggregation_column = "GENEID")
+```
+
+
+# Session info
+
+Here is the output of `sessionInfo()` on the system on which this
+document was compiled:
+
+```{r sessionInfo, echo=FALSE}
+sessionInfo()
+```
+
+
+[R]: http://r-project.org
+[RStudio]: http://www.rstudio.com/
