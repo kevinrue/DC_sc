@@ -24,31 +24,7 @@ output:
   BiocStyle::pdf_document2
 ---
 
-# Settings
-
-```{r check, include=FALSE}
-stopifnot(
-    requireNamespace("scater"),
-    requireNamespace("biomaRt")
-)
-```
-
-Define of folders where to find and write data:
-
-```{r settingsOut}
-if (interactive()){
-    workdir <- "."
-} else {
-    workdir <- ".."
-}
-folder.quant <- file.path(workdir, "quant")
-folder.expData <- file.path(workdir, "expData")
-folder.rds <- file.path(workdir, "rds")
-folder.qc <- file.path(workdir, "qc")
-```
-
-
-# Pre-process data
+# Pre-processed data
 
 Prior to this document, quantitation data for all 384 samples
 (including single cells, blanks and bulks) was obtained using _Kallisto_ 
@@ -58,16 +34,37 @@ as follows:
 kallisto quant \
     --index=$kallistoIdx \
     --output-dir=$kallistoDir/$cell \
+    --bootstrap-samples=100 \
     $fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
 ```
 
+# Settings
+
+```{r check, include=FALSE}
+library(scater)
+library(biomaRt)
+```
+
+Let us set the working directory to execute the following code chunks:
+
+```{r workdir}
+workdir <- ifelse(interactive(), ".", "..")
+```
+
+Let us set a few paths relevant to the analysis:
+
+```{r paths}
+folder.kallisto <- file.path(workdir, "boot")
+folder.expData <- file.path(workdir, "expData")
+folder.rds <- file.path(workdir, "rds")
+```
 
 # Import data
 
 First, let us detect the _Kallisto_ quantitation folder for all samples:
 
 ```{r kallistoDir}
-kallisto.dirs <- list.files(folder.quant)
+kallisto.dirs <- list.files(folder.kallisto)
 length(kallisto.dirs)
 ```
 
@@ -78,7 +75,7 @@ as a unique identifier for each sample:
 library(scater)
 sc_DC <- readKallistoResults(
     samples = gsub("WTCHG_", "", kallisto.dirs),
-    directories = file.path(folder.quant, kallisto.dirs)
+    directories = file.path(folder.kallisto, kallisto.dirs)
 )
 dim(sc_DC)
 ```
