@@ -1,0 +1,142 @@
+---
+title: Preprocessing
+author:
+  - name: Anna Aulicino
+    email: anna.aulicino@ndm.ox.ac.uk
+    affiliation: MRC,Human Immunology Unit, Weatherall Institute of Molecular
+        Medicine, NIHR Biomedical research centre, University of Oxford,
+        John Radcliffe Hospital, Oxford, UK.
+  - name: Kévin Rue-Albrecht
+    email: kevinrue67@gmail.com
+    affiliation: Department of Medicine, Imperial College London,
+        Hammersmith Campus, Du Cane Road, London, W12 0NN, UK
+date: "`r doc_date()`"
+package: "`r pkg_ver('BiocStyle')`"
+abstract: >
+  Preprocessing of _Kallisto_ quantitation data using the `tximport`
+  package, including aggregation of transcript-level expression data into
+  gene-level estimates. 
+vignette: >
+  %\VignetteIndexEntry{Quality control}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+output: 
+  BiocStyle::pdf_document2
+---
+
+# Pre-processed data
+
+Prior to this document, quantitation data for all 384 samples
+(including single cells, blanks and bulks) was obtained using _Kallisto_ 
+as follows:
+
+```
+kallisto quant \
+    --index=$kallistoIdx \
+    --output-dir=$kallistoDir/$cell \
+    --bootstrap-samples=100 \
+    $fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
+```
+
+# Settings
+
+Packages required for this vignette:
+
+```{r packages, message=FALSE}
+library(tximport)
+library(readr)
+library(EnsDb.Hsapiens.v79)
+```
+
+Let us set the working directory to execute the following code chunks:
+
+```{r workdir}
+workdir <- ifelse(interactive(), ".", "..")
+```
+
+Let us set a few paths relevant to the analysis:
+
+```{r paths}
+folder.kallisto <- file.path(workdir, "boot")
+folder.expData <- file.path(workdir, "expData")
+folder.rds <- file.path(workdir, "rds")
+```
+
+Create folders as necessary:
+
+```{r}
+if (!dir.exists(folder.rds)){
+  dir.create(folder.rds)
+}
+```
+
+# Import transcript-level estimates
+
+## Phenotypes
+
+Let us load an auxillary table that describes the experimental design:
+
+```{r samplesData}
+samplesData <- read.csv(file.path(folder.expData, "samples.csv"))
+colnames(samplesData)
+```
+
+Now, let create a vector of filenames using the phenotype information:
+
+```{r files}
+files <- file.path(
+  folder.kallisto, sprintf(
+    "WTCHG_%i_%i", samplesData$Lane, samplesData$sample
+  ),
+  "abundance.tsv"
+)
+names(files) <- samplesData$sample
+all(file.exists(files))
+```
+
+## Table mapping transcripts to gene identifiers
+
+```{r tx2gene}
+edb <- EnsDb.Hsapiens.v79
+k <- keys(edb, keytype = "GENEID")
+df <- select(edb, keys = k, keytype = "GENEID", columns = "TXNAME")
+tx2gene <- df[, 2:1]  # tx ID, then gene ID
+```
+
+Let us also add the spike-in features in this mapping table:
+
+```{r addERCC}
+erccIds <- scan(file.path(folder.expData, "ERCC.txt"), "character")
+tx2gene <- rbind(tx2gene, data.frame(TXNAME = erccIds, GENEID = erccIds))
+```
+
+## Import expression levels aggregated by gene identifier
+
+```{r tximport, message=FALSE, results='asis'}
+txi <- tximport(
+  files, type = "kallisto", tx2gene = tx2gene, reader = read_tsv,
+  ignoreTxVersion = TRUE
+)
+names(txi)
+pander::pandoc.table(txi$counts[1:5,1:4])
+```
+
+# Save the resulting Large List
+
+```{r saveRds}
+saveRDS(txi, file.path(folder.rds, "txi.rds"))
+```
+
+
+# Session info
+
+Here is the output of `sessionInfo()` on the system on which this
+document was compiled:
+
+```{r sessionInfo, echo=FALSE}
+sessionInfo()
+```
+
+
+[R]: http://r-project.org
+[RStudio]: http://www.rstudio.com/
