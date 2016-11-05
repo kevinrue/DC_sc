@@ -24,11 +24,23 @@ output:
     toc_newpage: true
 ---
 
-<!--
-The following code chunks set the scene.
-However, they are not directly relevant to the analysis,
-and therefore are hidden from the compiled PDF.
--->
+# Pre-processed data
+
+Prior to this document, quantitation data for all 384 samples
+(including single cells, blanks and bulks) was obtained using _Kallisto_ 
+as follows:
+
+```
+kallisto quant \
+    --index=$kallistoIdx \
+    --output-dir=$kallistoDir/$cell \
+    --bootstrap-samples=100 \
+    $fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
+```
+
+# Settings
+
+Packages required for this vignette:
 
 ```{r packages, include=FALSE}
 library(scater)
@@ -40,17 +52,16 @@ library(BiocParallel)
 library(EnsDb.Hsapiens.v79)
 ```
 
-```{r workdir, include=FALSE}
-if (interactive()){
-    workdir <- "."
-} else {
-    workdir <- ".."
-}
+Let us set the working directory to execute the following code chunks:
+
+```{r workdir}
+workdir <- ifelse(interactive(), ".", "..")
 ```
+
+Let us set a few paths relevant to the analysis:
 
 ```{r paths, include=FALSE}
 folder.rds <- file.path(workdir, "rds")
-folder.qc <- file.path(workdir, "qc")
 ```
 
 # Import preprocessed data
@@ -74,8 +85,8 @@ Subsequently:
   `SCESet` using the `r Biocpkg("scater")` `readKallistoResults` method,
 * Phenotype data was imported from a CSV file and attached to the `SCESet`,
 * Transcript-level expression data was aggregated into gene-level
-    expression estimates using the `r Biocpkg("scater")` `getBMFeatureAnnos`
-    and `summariseExprsAcrossFeatures` methods.
+    expression estimates using the `r Biocpkg("EnsDb.Hsapiens.v79")` package
+    and `r Biocpkg("scater")` `summariseExprsAcrossFeatures` method.
 * Gene identifiers were made more intuitive by prepending gene symbol where
     possible (*e.g.* `ENSG00000277943` to `CCL4_ENSG00000277943`).
 * The resulting `SCESet` was serialised and written to file.
@@ -84,7 +95,7 @@ Here, we simply import the preprocessed data:
 
 ```{r preprocessed, message=FALSE}
 library(scater)
-sc_DC_gene <- readRDS(file.path(folder.rds, "sc_DC_gene.rds"))
+sc_DC_gene <- readRDS(file.path(folder.rds, "sc_DC_EnsDb.rds"))
 ```
 
 Let us examine a summary of the experimental phenotype data:
@@ -154,6 +165,8 @@ sc_DC_gene <- calculateQCMetrics(sc_DC_gene,
     )
 )
 ```
+
+
 
 # Session info
 
