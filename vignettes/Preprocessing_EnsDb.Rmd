@@ -24,43 +24,11 @@ output:
   BiocStyle::pdf_document2
 ---
 
-<!--
-The following code chunks set the scene.
-However, they are not directly relevant to the analysis,
-and therefore are hidden from the compiled PDF.
--->
-
-# Settings
-
-Packages required for this vignette:
-
-```{r packages, include=FALSE}
-library(scater)
-library(EnsDb.Hsapiens.v79)
-```
-
-```{r workdir, include=FALSE}
-if (interactive()){
-    workdir <- "."
-} else {
-    workdir <- ".."
-}
-```
-
-```{r paths, include=FALSE}
-folder.quant <- file.path(workdir, "quant")
-folder.expData <- file.path(workdir, "expData")
-folder.rds <- file.path(workdir, "rds")
-folder.qc <- file.path(workdir, "qc")
-```
-
-# Import data
-
-## Transcript quantitation
+# Pre-processed data
 
 Prior to this document, quantitation data for all 384 samples
-(including single cells, blanks and bulks) was obtained using
-[Kallisto](https://pachterlab.github.io/kallisto/) as follows:
+(including single cells, blanks and bulks) was obtained using _Kallisto_ 
+as follows:
 
 ```
 kallisto quant \
@@ -70,27 +38,73 @@ kallisto quant \
     $fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
 ```
 
+# Settings
+
+Packages required for this vignette:
+
+```{r packages, message=FALSE}
+library(scater)
+library(EnsDb.Hsapiens.v79)
+```
+
+```{r workdir}
+workdir <- ifelse(interactive(), ".", "..")
+```
+
+Let us set the working directory to execute the following code chunks:
+
+```{r workdir}
+workdir <- ifelse(interactive(), ".", "..")
+```
+
+Let us set a few paths relevant to the analysis:
+
+```{r paths}
+folder.kallisto <- file.path(workdir, "boot")
+folder.expData <- file.path(workdir, "expData")
+folder.rds <- file.path(workdir, "rds")
+```
+
+Create folders as necessary:
+
+```{r}
+if (!dir.exists(folder.rds)){
+  dir.create(folder.rds)
+}
+```
+
+# Import data
+
+## Transcript quantitation
+
 Let us import the quantitation data, using the trimmed folder name
 as a unique identifier for each sample:
 
 ```{r kallistoDirs, include=FALSE}
-kallisto.dirs <- list.files(folder.quant)
+kallisto.dirs <- list.files(folder.kallisto)
 length(kallisto.dirs)
 ```
 
 ```{r readKallistoResults, message=FALSE}
 sc_DC <- readKallistoResults(
-    samples = gsub("WTCHG_", "", kallisto.dirs),
-    directories = file.path(folder.quant, kallisto.dirs)
+    samples = gsub("WTCHG_[[:digit:]]*_", "", kallisto.dirs),
+    directories = file.path(folder.kallisto, kallisto.dirs)
 )
 ```
 
 We can examine the resulting `SCESet`, highlighting how the sum of `TPM` values
 totals one million in all samples:
 
-```{r}
+```{r tpmTx}
 dim(sc_DC)
 summary(colSums(tpm(sc_DC)))
+ggplot(data.frame(sum = colSums(tpm(sc_DC)))) +
+  geom_point(aes(x = seq_along(sum), y=sum)) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank()
+  ) +
+  labs(x = "Sample", title = "Sum of TPM across transcripts")
 ```
 
 ## Phenotypes
@@ -99,16 +113,10 @@ Then, let us attach experimental covariates to the `SCESet`, in the `phenoData`
 slot:
 
 ```{r expData}
-samplesData <- read.csv(file.path(folder.expData, "samples.csv"),row.names=1)
-pData(sc_DC) <- cbind(samplesData, pData(sc_DC))
-rm(samplesData)
 varLabels(sc_DC)
+samplesData <- read.csv(file.path(folder.expData, "samples.csv"))
+pData(sc_DC) <- cbind(samplesData, pData(sc_DC))
 ```
-
-**Note:** To match each row of the CSV file to the corresponding sample in the
-`SCESet`, the first column of the CSV file contains the same unique sample
-identifier supplied to the `readKallistoResults` method in the previous
-code chunk.
 
 # Collapse transcript to genes
 
@@ -132,14 +140,18 @@ gene identifier and gene name using the `EnsDb.Hsapiens.v79` package[^1]:
 
 [^1]: GRCh38 genome build.
 
-```{r mapIds}
-fData(sc_DC)$ensembl_gene_id <-
-  mapIds(EnsDb.Hsapiens.v79, fData(sc_DC)$feature_id, "GENEID", "TXID")
+```{r mapIds, results='asis'}
+fData(sc_DC)$ensembl_gene_id <- mapIds(
+    EnsDb.Hsapiens.v79,
+    gsub("\\.[[:digit:]]+", "", fData(sc_DC)$feature_id),
+    "GENEID", "TXID"
+)
 fData(sc_DC)$ensembl_gene_id <- ifelse(
   is.na(fData(sc_DC)$ensembl_gene_id),
   fData(sc_DC)$feature_id,
   fData(sc_DC)$ensembl_gene_id
 )
+pander::pandoc.table(head(fData(sc_DC)))
 ```
 
 Once the `SCESet` contains gene annotations, transcript-level expression
@@ -147,10 +159,24 @@ estimates produced by _Kallisto_ can be collapsed to gene-level estimates
 using the `summariseExprsAcrossFeatures` method:
 
 ```{r summariseExprsAcrossFeatures}
-sc_DC_gene<-summariseExprsAcrossFeatures(sc_DC,summarise_by="ensembl_gene_id")
+sc_DC_gene <- summariseExprsAcrossFeatures(
+  sc_DC, summarise_by = "ensembl_gene_id"
+)
 names(fData(sc_DC_gene))
 colnames(fData(sc_DC_gene)) <-
     gsub("exprs_collapsed_to", "feature_id", names(fData(sc_DC_gene)))
+```
+
+```{r tpmGene}
+dim(sc_DC_gene)
+summary(colSums(tpm(sc_DC_gene)))
+ggplot(data.frame(sum = colSums(tpm(sc_DC_gene)))) +
+  geom_point(aes(x = seq_along(sum), y=sum)) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank()
+  ) +
+  labs(x = "Sample", title = "Sum of TPM across summarised genes")
 ```
 
 # Add gene symbols to featureNames to make them more intuitive
@@ -181,7 +207,7 @@ head(fData(sc_DC_gene), n = 3)
 # Save the updated SCESet to file
 
 ```{r saveRDS}
-saveRDS(sc_DC_gene, file.path(folder.rds, "sc_DC_gene.rds"))
+saveRDS(sc_DC_gene, file.path(folder.rds, "sc_DC_EnsDb.rds"))
 ```
 
 # Session info
