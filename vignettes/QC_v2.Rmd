@@ -645,7 +645,6 @@ clearly associate with any experimental covariate---underlying the need for
 those samples to be removed from the data set before proceeding to downstream
 analyses.
 
-# Let us 
 
 \fixme{
 Remove samples.
