@@ -13,7 +13,7 @@ author:
 date: "`r doc_date()`"
 package: "`r pkg_ver('BiocStyle')`"
 abstract: >
-  Revised quality control using all 384 samples, including blanks, bulks
+  Quality control using all 384 samples, including blanks, bulks
   and single cells.
 vignette: >
   %\VignetteIndexEntry{Quality Control}
@@ -24,47 +24,7 @@ output:
     toc_newpage: true
 ---
 
-# Pre-processed data
-
-Prior to this document, quantitation data for all 384 samples
-(including single cells, blanks and bulks) was obtained using _Kallisto_ 
-as follows:
-
-```
-kallisto quant \
-    --index=$kallistoIdx \
-    --output-dir=$kallistoDir/$cell \
-    --bootstrap-samples=100 \
-    $fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
-```
-
-# Settings
-
-Packages required for this vignette:
-
-```{r packages, include=FALSE}
-library(scater)
-library(S4Vectors)
-library(reshape2)
-library(knitr)
-library(dplyr)
-library(BiocParallel)
-library(EnsDb.Hsapiens.v79)
-```
-
-Let us set the working directory to execute the following code chunks:
-
-```{r workdir}
-workdir <- ifelse(interactive(), ".", "..")
-```
-
-Let us set a few paths relevant to the analysis:
-
-```{r paths, include=FALSE}
-folder.rds <- file.path(workdir, "rds")
-```
-
-# Import preprocessed data
+# Prior work
 
 Prior to this document, quantitation data for all 384 samples
 (including single cells, blanks and bulks) was obtained using
@@ -85,88 +45,611 @@ Subsequently:
   `SCESet` using the `r Biocpkg("scater")` `readKallistoResults` method,
 * Phenotype data was imported from a CSV file and attached to the `SCESet`,
 * Transcript-level expression data was aggregated into gene-level
-    expression estimates using the `r Biocpkg("EnsDb.Hsapiens.v79")` package
-    and `r Biocpkg("scater")` `summariseExprsAcrossFeatures` method.
+  expression estimates using the `r Biocpkg("EnsDb.Hsapiens.v79")` package
+  (GRCh38) and `r Biocpkg("scater")` `summariseExprsAcrossFeatures` method.
 * Gene identifiers were made more intuitive by prepending gene symbol where
-    possible (*e.g.* `ENSG00000277943` to `CCL4_ENSG00000277943`).
+  possible (*e.g.* `ENSG00000277943` to `CCL4_ENSG00000277943`).
 * The resulting `SCESet` was serialised and written to file.
+
+# Settings
+
+Packages required for this vignette:
+
+```{r packages, message=FALSE}
+library(scater)
+library(S4Vectors)
+library(reshape2)
+library(knitr)
+library(dplyr)
+library(BiocParallel)
+library(EnsDb.Hsapiens.v79)
+library(pander)
+```
+
+Let us set the working directory to execute the following code chunks:
+
+```{r workdir}
+workdir <- ifelse(interactive(), ".", "..")
+```
+
+Let us set a few paths relevant to the analysis:
+
+```{r paths}
+folder.rds <- file.path(workdir, "rds")
+```
+
+# Import preprocessed data
 
 Here, we simply import the preprocessed data:
 
-```{r preprocessed, message=FALSE}
-library(scater)
-sc_DC_gene <- readRDS(file.path(folder.rds, "sc_DC_EnsDb.rds"))
+```{r DC_all}
+DC_all <- readRDS(file.path(folder.rds, "sc_DC_EnsDb.rds"))
 ```
 
-Let us examine a summary of the experimental phenotype data:
+Let us create a copy of the data set, subsetted to only single cells:
+
+```{r DC_sc}
+DC_sc <- DC_all[, !DC_all$Status %in% c("Blank", "BULK")]
+```
+
+Let us examine a summary of the experimental phenotype data in the full
+data set:
 
 ```{r expdata}
-expdata <- pData(sc_DC_gene)[,1:7]
+expdata <- droplevels(
+  pData(DC_all)[,c("Infection","Status","Time","Lane","Plate","Well")]
+)
 expdata$Lane <- as.factor(expdata$Lane)
-expdata$Identifier.number <- as.character(expdata$Identifier.number)
 summary(expdata)
 ```
 
 # Calculate QC metrics
 
-## Identify control samples
+In the following sections,
+let us calculate QC metrics across _all_ samples (including blanks and bulks),
+and across single cells _only_.
 
-Using the phenotype data, let us create `FilterRules` that identify
-the control samples, namely `BULK` and `Blank` samples:
+## Identify mitochondrial genes
 
-```{r controlSamplesRules}
-filter.samples.ctrl <- FilterRules(list(
-    BULK = function(x) x$Status == "BULK",
-    Blank = function(x) x$Status == "Blank"
-))
-summary(evalSeparately(filter.samples.ctrl, pData(sc_DC_gene)))
+To calculate QC metrics related to mitochondrial genes, let us first obtain
+the gene identifier of those genes from the `EnsDb.Hsapiens.v79` package:
+
+```{r MTrules}
+MT_ids <- genes(
+  EnsDb.Hsapiens.v79, "gene_id", SeqnameFilter("MT", "=")
+  )$gene_id
+length(MT_ids)
 ```
 
-## Identify control features 
+## Calculate QC metrics in the complete data set
 
-### Identify ERCC spike-in features
+Let us calculate several QC metrics based on control samples and features
+available in the complete data set:
 
-ERCC spike-in features can be easily identified from their identifier:
-
-```{r ERCCrules}
-filter.features.ctrl <- FilterRules(list(
-    ERCC = function(x) grepl("ERCC-[[:digit:]]", featureNames(x))
-))
-summary(evalSeparately(filter.features.ctrl, sc_DC_gene))
-```
-
-### Identify mitochondrial genes
-
-```{r}
-filter.features.ctrl <- c(
-  filter.features.ctrl, FilterRules(list(
-    MT = function(x) fData(x)$feature_id %in%
-      genes(EnsDb.Hsapiens.v79, "gene_id", SeqnameFilter("MT", "="))$gene_id
-  ))
-)
-summary(evalSeparately(filter.features.ctrl, sc_DC_gene))
-```
-
-
-### Calculate QC metrics
-
-Once control features and samples were defined in the above sections,
-the `r Biocpkg("scater")` `calculateQCMetrics` method may be used
-to annotate the `SCESet` with various QC metrics:
-
-```{r ctrlFeaturesSamples, message=FALSE}
-sc_DC_gene <- calculateQCMetrics(sc_DC_gene,
-    list(
-      ERCC = eval(filter.features.ctrl["ERCC"], sc_DC_gene),
-      MT = eval(filter.features.ctrl["MT"], sc_DC_gene)),
-    list(
-        Bulk = eval(filter.samples.ctrl["BULK"], pData(sc_DC_gene)),
-        Blank = eval(filter.samples.ctrl["Blank"], pData(sc_DC_gene))
-    )
+```{r calculateQCMetrics384, message=FALSE}
+DC_all <- calculateQCMetrics(
+  DC_all,
+  feature_controls = list(
+    ERCC = grepl("ERCC-[[:digit:]]", featureNames(DC_all)),
+    MT = fData(DC_all)$feature_id %in% MT_ids),
+  cell_controls = list(
+    Bulk = DC_all$Status == "BULK",
+    Blank = DC_all$Status == "Blank"
+  )
 )
 ```
 
+## Calculate QC metrics across single cells only
 
+In the data set that contains single cells _only_, we may calculate
+QC metrics based on the control features:
+
+```{r calculateQCMetricsSC, message=FALSE}
+DC_sc <- calculateQCMetrics(
+  DC_sc,
+  feature_controls = list(
+    ERCC = grepl("ERCC-[[:digit:]]", featureNames(DC_sc)),
+    MT = fData(DC_sc)$feature_id %in% MT_ids),
+  nmads = 3
+)
+```
+
+Let us examine the list of QC metrics calculated for the _single cells only_
+data set:
+
+```{r QCMetrics}
+varLabels(DC_sc)
+```
+
+# Global quality control for the experiment
+
+## Most abundant features {#highestExpression}
+
+The following figure confirms that ERCC spike-ins are the most abundant
+features detected in the two `Blank` samples (right panel),
+accounting for over `98%` of the expression data in those samples.
+Conversely, the most abundant features among the _combined_ data set of
+nine `BULK` samples and `373` single cells tend to be known associates of
+immune cells (*e.g.* `CD74`, `CCL4`, `ISG15`; left panel).
+
+```{r highestExpression, echo=FALSE, out.width='90%', fig.height = 10}
+multiplot(
+    plotQC(
+        DC_all[,!DC_all$is_cell_control_Blank],
+        type = "highest-expression", exprs_values = "tpm"
+    ), # + ggtitle("Bulks and single cells")
+    plotQC(
+        DC_all[,DC_all$is_cell_control_Blank],
+        type = "highest-expression", exprs_values = "tpm"
+    ), # + ggtitle("Blanks")
+    cols = 2
+)
+```
+
+## Library complexity {#LibraryComplexity}
+
+Let us examine library complexity across `Status`, `Infection`, and `Time`:
+
+```{r libraryComplexity, fig.height=7.5}
+plot(
+    DC_all, block1 = "Infection", block2 = "Status",
+    colour_by = "Time", nfeatures = 300, exprs_values = "counts"
+)
+```
+
+First, from a QC perspective, some reassuring observations:
+
+* Blanks show a very low library complexity (which reaffirms the
+  [earlier](#highestExpression) observation that the `50` most highly expressed
+  features account for more than `98%` of TPM values in `Blank` samples).
+* Bulks show a generally higher complexity, as is expected for the combined
+  tanscriptomes of many cells.
+* Single cells generally show a complexity profile comparable to that of `BULK`
+  control samples
+
+Now, from a biological perspective:
+
+* A small number of single cells (e.g. `exposed:LT2:4h`, `infected:LT2:6h`,
+  `exposed:D23580:6h`) show suspiciously low library complexity.
+  Those single cells must henceforth be treated as outliers and removed from
+  subsequent analyses.
+* Library complexity seems to decrease with `Time` in `exposed` and `infected`
+  samples.
+  This **may** indicate a polarisation of treated single cells toward
+  particular phenotype(s).
+  + `Mock` (*i.e.* `uninfected`) single cells tend to show a consistent,
+    relatively high library complexity
+  + Both `LT2` and `D23580` infections show a gradual decrease of library
+    complexity over time. This observation **might** be more pronounced
+    for `D23580`.
+
+# Identify outliers
+
+## Overview of built-in `scater` filters {#builtinFilters}
+
+Let us illustrate the result of the `r Biocpkg("scater")` `calculateQCMetrics`
+method by displaying whether each of the `373` single cells passes each
+built-in filter. Non-default cut-off values are listed below:
+
+* Number of median absolute deviation (MADs) `nmads=3` (instead of `5`)
+  on the following QC metrics:
+    + `total_counts` (_i.e._, total number of counts for the cell)
+    + `total_features` (_i.e._, number of features with non-zero expression)
+  
+To facilitate comparison, the filters are listed by order of outliers detected:
+
+```{r scaterFiltersHeatmap, echo=FALSE, fig.height=8}
+QC_long <- melt(
+  pData(DC_sc),
+  id.vars = "sample",
+  measure.vars = grep("^filter_on", varLabels(DC_sc), value = TRUE),
+  variable.name = "Filter",
+  value.name = "Outlier"
+)
+QC_long$Filter <- with(QC_long,reorder(Filter, Outlier, sum))
+ggplot(QC_long) +
+  geom_tile(aes(x = as.character(sample), y = Filter, fill = !Outlier)) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.y= element_text(size = rel(0.8))
+  ) +
+  labs(x = "Sample") +
+  scale_fill_discrete(name = "Pass filter")
+rm(QC_long)
+```
+
+## Total counts per sample {#totalCount}
+
+Let us illustrate the single cells identified as outliers due to their 
+`total_count` metric (_i.e._, total number of counts for the cell) being
+_lower_ than `3` median absolute deviation (MADs) below the median value
+(both median and MAD being calculated using single cell samples _only_).
+The median _plus_ `3` MADs is indicated with a dashed line, for information
+purpose only:
+
+```{r totalCounts, echo=FALSE}
+metric <- DC_sc$total_counts
+M <- median(metric)
+SD <- mad(metric, center = M)
+ggplot(pData(DC_all)) +
+  geom_point(aes(
+    x = seq_len(nrow(pData(DC_all))),
+    y = total_counts,
+    colour = Status,
+    shape = Infection
+  )) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank()
+  ) +
+  labs(x = "Sample") +
+  geom_hline(
+    yintercept = M + 3*SD*(-1:1), colour = c(2,1,2), linetype = c(1,1,2)
+  )
+```
+
+Let us count _single cells_ identified as outliers (those numbers
+do not consider the `Blank` and `BULK` samples displayed in the figure
+for reference only):
+
+```{r totalCountTable}
+table(metric < (M-(3*SD)))
+rm(metric, M, SD)
+```
+
+Note that only single cells **below** the median minus `3` MADs are detected
+as outliers, given their excessively low library size.
+
+## Total features per sample
+
+Let us illustrate the single cells identified as outliers due to their 
+`total_features` metric (_i.e._, number of features with non-zero expression)
+being _lower_ than `3` median absolute deviation (MADs) below the median value
+(both median and MAD being calculated using single cell samples _only_).
+The median _plus_ `3` MADs is indicated with a dashed line, for information
+purpose only:
+
+```{r totalFeatures, echo=FALSE}
+metric <- DC_sc$total_features
+M <- median(metric)
+SD <- mad(metric, center = M)
+ggplot(pData(DC_all)) +
+  geom_point(aes(
+    x = seq_len(nrow(pData(DC_all))),
+    y = total_features,
+    colour = Status,
+    shape = Infection
+  )) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank()
+  )  +
+  labs(x = "Sample") +
+  geom_hline(
+    yintercept = M + 3*SD*(-1:1), colour = c(2,1,2), linetype = c(1,1,2)
+  )
+```
+
+Note how only `BULK` samples show exceed the median values plus `3` MADs
+(calculated on single cells _only_). In contrast, `3` single cells
+display a markedly _low_ total of features detected, comparable to that of
+`Blank` samples. Notably, those three samples are also detected by the
+`filter_on_total_counts` QC in the [previous section](#totalCount), as
+visible in the heatmap presented [earlier](#builtinFilters) to summarise
+built-in `scater` filters.
+
+Let us show how many _single cells_ are identified as outliers (those numbers
+do not consider the `Blank` and `BULK` samples also displayed in the figure
+for information purpose only):
+
+```{r totalFeaturesTable}
+table((metric-M)/SD < -3)
+rm(metric, M, SD)
+```
+
+Note that only single cells **below** the median minus `3` MADs are detected
+as outliers, given their excessively _low_ total number of features detected.
+
+## Library complexity {#ComplexityOutliers}
+
+In addition to the total number of features detected in each sample,
+another critical QC metric si the proportion of library accounted for by
+the top `N` features.
+Different levels of `N` may help identify blank-like features of very low
+complexity (very few features account for virtually the entire library), or
+unusual libraries in the data set at larger values of `N`.
+Typically, libraries showing excessively _low_ complexity are problematic,
+indicating partial or biased coverage of the transcriptome.
+
+Let us illustrate display the proportion of libraries accounted for by the
+top `50`, `100`, and `200` features.
+Single cells higher than the median _plus_ `3` MADs are considered outliers
+due to their excessively _low_ library complexity for the given number of
+features. The median _minus_ `3` MADs is indicated with a dashed line, for information purpose only:
+
+```{r complexity50100200, echo=FALSE, fig.height=10}
+res_table <- data.frame()
+plots <- lapply(c(50, 100, 200), function(Nfeatures){
+    metricName <- sprintf("pct_tpm_top_%i_features", Nfeatures)
+    metric <- pData(DC_sc)[,metricName]
+    M <- median(metric)
+    MAD <- mad(metric, center = M)
+    res_table[as.character(Nfeatures), "M"] <<- M
+    res_table[as.character(Nfeatures), "MAD"] <<- MAD
+    ggplot(pData(DC_all)) +
+      geom_point(aes_string(
+        x = seq_len(nrow(pData(DC_all))),
+        y = metricName,
+        colour = "Status",
+        shape = "Infection"
+      )) +
+      theme(
+        axis.text.x = element_blank(),
+        axis.ticks.x = element_blank()
+      )  +
+      labs(x = "Sample") +
+      geom_hline(
+        yintercept = M + 3*MAD*(-1:1), colour = c(2,1,2), linetype = c(2,1,1)
+      )
+  })
+multiplot(plotlist = plots)
+rm(plots)
+```
+
+Let us create additional columns in the `phenoData` slot to mark
+_single cells_ identified as outliers by those at those counts of features:
+
+```{r complexityTable}
+DC_sc$filter_on_pct_tpm_top50 <- DC_sc$pct_tpm_top_50_features >
+  res_table["50", "M"] + 3 * res_table["50", "MAD"]
+DC_sc$filter_on_pct_tpm_top100 <- DC_sc$pct_tpm_top_100_features >
+  res_table["100", "M"] + 3 * res_table["100", "MAD"]
+DC_sc$filter_on_pct_tpm_top200 <- DC_sc$pct_tpm_top_200_features >
+  res_table["200", "M"] + 3 * res_table["200", "MAD"]
+rm(res_table)
+```
+
+Let us show how many _single cells_ are identified as outliers (those numbers
+do not consider the `Blank` and `BULK` samples also displayed in the figure
+for information purpose only):
+
+```{r evalComplexityFilters}
+summary(evalSeparately(
+  FilterRules(list(
+    top50 = expression(filter_on_pct_tpm_top50),
+    top100 = expression(filter_on_pct_tpm_top100),
+    top200 = expression(filter_on_pct_tpm_top200)
+  )),
+  pData(DC_sc)
+))
+```
+
+## Spike-in ERCC control feature
+
+Let us illustrate the single cells identified as outliers due to
+_over_-representation of spike-in ERCC control features.
+For this purpose, let us display the `pct_tpm_feature_controls_ERCC` metric,
+the default cut-off value of `80%`, and the more stringent cut-off of `5%`:
+
+```{r pct_tpm_feature_controls_ERCC_80, echo=FALSE}
+ggplot(pData(DC_all)) +
+  geom_point(aes(
+    x = seq_len(nrow(pData(DC_all))),
+    y = pct_tpm_feature_controls_ERCC,
+    colour = Status,
+    shape = Infection
+  )) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank()
+  )  +
+  labs(x = "Sample") +
+  geom_hline(
+    yintercept = c(5, 80), colour = "red"
+  )
+```
+
+Notably, one single cell displays ERCC detection levels accounting for more
+than `80%` of TPM in the data set---in a similar fashion to `Blank` control
+samples---flagging this single cell as a clear outlier, in addition
+to the `total_counts` and `total_features` metrics described
+previous sections. In contrast, `BULK` samples show very low detection levels
+for spike-ins features, as can be expected considering the larger relative
+quantity of endogenous RNA in bulk samples.
+
+Finally, a small number of single cells show detection levels of spike-in
+control features markedly higher than the vast majority of single cell samples
+(80% of single cells are found in the range `[0.87-2.54%]`). For this reason,
+let us define single cells as outliers if their ERCC detection levels exceed
+`5%` of TPM:
+
+```{r pctERCCTable}
+DC_sc$filter_on_ERCC_5pct <- DC_sc$pct_tpm_feature_controls_ERCC > 5
+table(DC_sc$filter_on_ERCC_5pct)
+```
+
+Note that only single cells **above** `5%` are defined
+as outliers, given their excessively _high_ total number of ERCC spike-in
+detected.
+
+## Mitochondrial endogenous features
+
+Let us visualise the percentage of TPM assigned to mitochondrial genes in all
+samples (including bulks and blanks).
+We also display the median value, and `3` median absolute deviations (MADs)
+from the median, calculated using single cells _only_ :
+
+```{r MTpctTPMplot}
+pct.mt.sc <- DC_sc$pct_tpm_feature_controls_MT
+M <- median(pct.mt.sc)
+SD <- mad(pct.mt.sc, center = M)
+ggplot(pData(DC_all)) +
+  geom_point(aes(
+    x = seq_len(nrow(pData(DC_all))),
+    y = pct_tpm_feature_controls_MT,
+    colour = Status,
+    shape = Infection
+  )) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank()
+  )  +
+  labs(x = "Sample", y = "Percentage TPM in MT genes") +
+  geom_hline(yintercept = M + 3*SD*(-1:1), colour = c(2,1,2))
+table((abs(pct.mt.sc-M)/SD) > 3)
+```
+
+Again, all samples are displayed in the figure, including `Blank` and `BULK`
+samples for reference.
+Notably, `Blank` samples show virtually complete absence of mitochondrial gene
+expression (< 0.1% of TPM), along with one single cell (`exposed:LT2`)
+which must therefore be considered as an outlier and excluded from downstream
+analyses.
+
+In contrast, all `BULK` samples show expression level of mitochondrial genes
+markedly higher than the majority of single cells, as one may expect from a
+population of cells that contain various counts of mitochondria. Setting an
+arbitrary cut-off of `3` MADs from the median value (calculated on single cells
+_only_), `8` single cells show mitochondrial gene expression levels higher
+than the median values of single cells plus `3` MADs; those single cells are
+therefore also considered outliers, and marked as such in the `SCESet`:
+
+```{r MTpctTPMfilter}
+DC_sc$filter_on_MT_3_MAD <- (abs(pct.mt.sc-M)/SD) > 3
+rm(M, SD, pct.mt.sc)
+```
+
+## Principal components analysis of selected QC metrics
+
+Let us detect outliers based on a PCA of selected sample-level QC metrics:
+
+```{r plotPCASCESet}
+DC_sc <- plotPCASCESet(
+  DC_sc, 300, 3,
+  colour_by = "Status", shape_by = "Time",
+  return_SCESet = TRUE, draw_plot = TRUE,
+  pca_data_input = "pdata", selected_variables = c(
+    "pct_counts_top_100_features",
+    "total_features",
+    "pct_counts_feature_controls",
+    "n_detected_feature_controls",
+    "log10_counts_endogenous_features",
+    "log10_counts_feature_controls"
+  ),
+  detect_outliers = TRUE
+)
+```
+
+Note that outliers detected by the PCA are identified by the new
+column `outlier` in the `phenoData` slot of the `SCESet`.
+Let us rename this column to `filter_on_PCA_QC` to match the other
+columns identifying outliers:
+
+```{r outliersPCA}
+varLabels(DC_sc) <- gsub("^outlier$", "filter_on_PCA_QC", varLabels(DC_sc))
+table(DC_sc$filter_on_PCA_QC)
+```
+
+## Final overview of sample filters
+
+Let us display the combined built-in filters implemented in
+`r Biocpkg("scater")` and those specifically calculated in this analysis.
+To facilitate comparison, the filters are ordered by count of outliers
+detected:
+
+```{r finalFiltersHeatmap, echo=FALSE, fig.height=8}
+QC_long <- melt(
+  pData(DC_sc),
+  id.vars = "sample",
+  measure.vars = grep("^filter_on", varLabels(DC_sc), value = TRUE),
+  variable.name = "Filter",
+  value.name = "Outlier"
+)
+QC_long$Filter <- with(QC_long,reorder(Filter, Outlier, sum))
+ggplot(QC_long) +
+  geom_tile(aes(x = as.character(sample), y = Filter, fill = !Outlier)) +
+  theme(
+    axis.text.x = element_blank(),
+    axis.ticks.x = element_blank(),
+    axis.text.y= element_text(size = rel(0.8))
+  ) +
+  labs(
+    x = "Sample"
+  ) +
+  scale_fill_discrete(name = "Pass filter")
+rm(QC_long)
+```
+
+Note how all outliers identified by the PCA based on QC metrics are also
+detected by at least one other filter, highlighting the robustness 
+and sensitivity of the PCA method.
+It is important to bear in mind that the sensitivity of the PCA approach
+is largely controlled by the selection of QC metrics provided to the method.
+
+Notably several samples were identified as outliers due only to their
+low library size (_i.e._ `total_counts`). In other words, those samples are
+excluded from downstream analyses solely on the basis of risking insufficient
+sequencing depth, while showing otherwise normal QC metrics.
+
+Let us count the number of single cells according to the count of filters failed:
+
+```{r countCellsFilterFailed, results='asis', echo=FALSE}
+count_failed <- pData(DC_sc)[,grep("^filter_on", varLabels(DC_sc))]
+count_failed <- rowSums(count_failed)
+count_failed <- as.data.frame(table(subset(count_failed, count_failed > 0)))
+colnames(count_failed) <- c("Filters failed", "Cells")
+pandoc.table(count_failed)
+rm(count_failed)
+```
+
+And the number of single cells that fail at least one filter:
+
+```{r finalFilterCounts}
+DC_sc$outlier <- rowSums(
+  dplyr::select(pData(DC_sc), grep("^filter", varLabels(DC_sc)))) > 0
+table(DC_sc$outlier)
+```
+
+Let us examine the phenotype information of those samples:
+
+```{r phenoOutliers, results='asis', echo=FALSE}
+pander::pandoc.table(subset(
+  pData(DC_sc), outlier, c("Infection","Status","Time","Lane","Plate","Well"))
+)
+```
+
+# Miscellaneous
+
+Below is a PCA based on the expression level of the `300` mot highly
+expressed genes across the single cells:
+
+```{r PCAexprTimeStatus}
+plotPCASCESet(DC_sc, 300, 3, colour_by = "Status", shape_by = "Time")
+```
+
+Note how `PC1` tends to associate with `Time`,
+while `PC3` tends to associate with `Status`.
+
+We may show the same PCA highlighting only the outliers identified in the
+previous sections:
+
+```{r PCAexprOutliers}
+plotPCASCESet(
+  DC_sc, 300, 3, colour_by = "outlier", shape_by = "Time"
+)
+```
+
+Most of those outlier single cells appear clearly on `PC2`---which do not
+clearly associate with any experimental covariate---underlying the need for
+those samples to be removed from the data set before proceeding to downstream
+analyses.
+
+# Let us 
+
+\fixme{
+Remove samples.
+}
 
 # Session info
 

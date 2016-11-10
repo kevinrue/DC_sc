@@ -47,10 +47,6 @@ library(scater)
 library(EnsDb.Hsapiens.v79)
 ```
 
-```{r workdir}
-workdir <- ifelse(interactive(), ".", "..")
-```
-
 Let us set the working directory to execute the following code chunks:
 
 ```{r workdir}
