@@ -76,6 +76,7 @@ Let us set a few paths relevant to the analysis:
 
 ```{r paths}
 folder.rds <- file.path(workdir, "rds")
+folder.expdata <- file.path(workdir, "expData")
 ```
 
 # Import preprocessed data
@@ -261,17 +262,16 @@ rm(QC_long)
 
 ## Total counts per sample {#totalCount}
 
-Let us illustrate the single cells identified as outliers due to their 
-`total_count` metric (_i.e._, total number of counts for the cell) being
-_lower_ than `3` median absolute deviation (MADs) below the median value
-(both median and MAD being calculated using single cell samples _only_).
-The median _plus_ `3` MADs is indicated with a dashed line, for information
-purpose only:
+Let us illustrate the single cells identified as outliers due to their
+log~10~-transformed `total_count` metric
+(_i.e._, total number of estimated counts for the cell) being
+further than `3` median absolute deviation (MADs) away from the median value
+(both median and MAD being calculated using single cell samples _only_):
 
 ```{r totalCounts, echo=FALSE}
-metric <- DC_sc$total_counts
+metric <- log10(DC_sc$total_counts)
 M <- median(metric)
-SD <- mad(metric, center = M)
+MAD <- mad(metric, center = M)
 ggplot(pData(DC_all)) +
   geom_point(aes(
     x = seq_len(nrow(pData(DC_all))),
@@ -285,8 +285,10 @@ ggplot(pData(DC_all)) +
   ) +
   labs(x = "Sample") +
   geom_hline(
-    yintercept = M + 3*SD*(-1:1), colour = c(2,1,2), linetype = c(1,1,2)
+    yintercept = 10^(M + 3*MAD*(-1:1)),
+    colour = c(2,1,2), linetype = c(1,1,1)
   )
+rm(metric, M, MAD)
 ```
 
 Let us count _single cells_ identified as outliers (those numbers
@@ -294,12 +296,8 @@ do not consider the `Blank` and `BULK` samples displayed in the figure
 for reference only):
 
 ```{r totalCountTable}
-table(metric < (M-(3*SD)))
-rm(metric, M, SD)
+table(DC_sc$filter_on_total_counts)
 ```
-
-Note that only single cells **below** the median minus `3` MADs are detected
-as outliers, given their excessively low library size.
 
 ## Total features per sample
 
@@ -313,7 +311,7 @@ purpose only:
 ```{r totalFeatures, echo=FALSE}
 metric <- DC_sc$total_features
 M <- median(metric)
-SD <- mad(metric, center = M)
+MAD <- mad(metric, center = M)
 ggplot(pData(DC_all)) +
   geom_point(aes(
     x = seq_len(nrow(pData(DC_all))),
@@ -327,8 +325,9 @@ ggplot(pData(DC_all)) +
   )  +
   labs(x = "Sample") +
   geom_hline(
-    yintercept = M + 3*SD*(-1:1), colour = c(2,1,2), linetype = c(1,1,2)
+    yintercept = M + 3*MAD*(-1:1), colour = c(2,1,2), linetype = c(1,1,2)
   )
+rm(metric, M, MAD)
 ```
 
 Note how only `BULK` samples show exceed the median values plus `3` MADs
@@ -344,11 +343,10 @@ do not consider the `Blank` and `BULK` samples also displayed in the figure
 for information purpose only):
 
 ```{r totalFeaturesTable}
-table((metric-M)/SD < -3)
-rm(metric, M, SD)
+table(DC_sc$filter_on_total_features)
 ```
 
-Note that only single cells **below** the median minus `3` MADs are detected
+Note that only single cells _below_ the median minus `3` MADs are detected
 as outliers, given their excessively _low_ total number of features detected.
 
 ## Library complexity {#ComplexityOutliers}
@@ -483,7 +481,7 @@ from the median, calculated using single cells _only_ :
 ```{r MTpctTPMplot}
 pct.mt.sc <- DC_sc$pct_tpm_feature_controls_MT
 M <- median(pct.mt.sc)
-SD <- mad(pct.mt.sc, center = M)
+MAD <- mad(pct.mt.sc, center = M)
 ggplot(pData(DC_all)) +
   geom_point(aes(
     x = seq_len(nrow(pData(DC_all))),
@@ -496,8 +494,8 @@ ggplot(pData(DC_all)) +
     axis.ticks.x = element_blank()
   )  +
   labs(x = "Sample", y = "Percentage TPM in MT genes") +
-  geom_hline(yintercept = M + 3*SD*(-1:1), colour = c(2,1,2))
-table((abs(pct.mt.sc-M)/SD) > 3)
+  geom_hline(yintercept = M + 3*MAD*(-1:1), colour = c(2,1,2))
+table((abs(pct.mt.sc-M)/MAD) > 3)
 ```
 
 Again, all samples are displayed in the figure, including `Blank` and `BULK`
@@ -516,8 +514,8 @@ than the median values of single cells plus `3` MADs; those single cells are
 therefore also considered outliers, and marked as such in the `SCESet`:
 
 ```{r MTpctTPMfilter}
-DC_sc$filter_on_MT_3_MAD <- (abs(pct.mt.sc-M)/SD) > 3
-rm(M, SD, pct.mt.sc)
+DC_sc$filter_on_MT_3_MAD <- (abs(pct.mt.sc-M)/MAD) > 3
+rm(M, MAD, pct.mt.sc)
 ```
 
 ## Principal components analysis of selected QC metrics
@@ -581,7 +579,7 @@ ggplot(QC_long) +
 rm(QC_long)
 ```
 
-Note how all outliers identified by the PCA based on QC metrics are also
+Note how most outliers identified by the PCA based on QC metrics are also
 detected by at least one other filter, highlighting the robustness 
 and sensitivity of the PCA method.
 It is important to bear in mind that the sensitivity of the PCA approach
@@ -619,7 +617,7 @@ pander::pandoc.table(subset(
 )
 ```
 
-# Miscellaneous
+# Visualise outliers in PCA analysis of gene expression
 
 Below is a PCA based on the expression level of the `300` mot highly
 expressed genes across the single cells:
@@ -645,10 +643,37 @@ clearly associate with any experimental covariate---underlying the need for
 those samples to be removed from the data set before proceeding to downstream
 analyses.
 
+# Exclusion of outlier samples
 
-\fixme{
-Remove samples.
-}
+Let us finally exclude all outliers from the single cell data set:
+
+```{r excludeOutliers}
+DC_goodCells <- DC_sc[,!DC_sc$outlier]
+```
+
+# Save filtered data set to file
+
+Let us save the serialised object to file:
+
+```{r saveRDS}
+saveRDS(DC_goodCells, file.path(folder.rds, "DC_goodCells.rds"))
+```
+
+Let us also write the experimental information of the single cells that passed
+all quality controls above to file.
+Later, this phenotype file may be used to import _only_ those
+single cells deemed reliable for separate analyses.
+
+```{r writePhenoGoodCells}
+write.csv(
+  pData(DC_goodCells)[
+    ,c("sample","Infection","Status","Time","Lane","Plate","Well")
+  ],
+  file.path(folder.expdata, "good_cells.csv"),
+  quote = FALSE
+  )
+```
+
 
 # Session info
 
