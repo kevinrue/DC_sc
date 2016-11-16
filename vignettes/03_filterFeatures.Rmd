@@ -1,0 +1,245 @@
+---
+title: Quality Control
+author:
+  - name: Anna Aulicino
+    email: anna.aulicino@ndm.ox.ac.uk
+    affiliation: MRC,Human Immunology Unit, Weatherall Institute of Molecular
+        Medicine, NIHR Biomedical research centre, University of Oxford,
+        John Radcliffe Hospital, Oxford, UK.
+  - name: Kévin Rue-Albrecht
+    email: kevinrue67@gmail.com
+    affiliation: Department of Medicine, Imperial College London,
+        Hammersmith Campus, Du Cane Road, London, W12 0NN, UK
+date: "`r doc_date()`"
+package: "`r pkg_ver('BiocStyle')`"
+abstract: >
+  Quality control of endogenous features in single cells that passed quality
+  control.
+vignette: >
+  %\VignetteIndexEntry{Quality Control}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+output: 
+  BiocStyle::pdf_document2:
+    toc_newpage: true
+---
+
+# Prior work
+
+Prior to this document, quantitation data for all 384 samples
+(including single cells, blanks and bulks) was obtained using
+[Kallisto](https://pachterlab.github.io/kallisto/)
+as follows:
+
+```
+kallisto quant \
+    --index=$kallistoIdx \
+    --output-dir=$kallistoDir/$cell \
+    --bootstrap-samples=100 \
+    $fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
+```
+
+Subsequently:
+
+* The quantitation data was imported into the _R_ environment.
+* Phenotype data was attached imported and attached to the `SCESet`
+* Transcript-level expression data was aggregated at the gene level
+* Gene identifiers were made more intuitive by prepending gene symbol where
+  possible
+* Outliers were identified and removed among single cells,
+  using blank and bulk samples as reference for certain metrics.
+* The remaining single cells were serialised as a `SCESet` and written to file.
+
+# Settings
+
+Packages required for this vignette:
+
+```{r packages, message=FALSE}
+library(scater)
+library(ensembldb)
+library(EnsDb.Hsapiens.v79)
+library(scran)
+library(reshape2)
+```
+
+Let us set the working directory to execute the following code chunks:
+
+```{r workdir}
+workdir <- ifelse(interactive(), ".", "..")
+```
+
+Let us set a few paths relevant to the analysis:
+
+```{r paths}
+folder.rds <- file.path(workdir, "rds")
+folder.expdata <- file.path(workdir, "expData")
+```
+
+# Import preprocessed data
+
+Here, we simply import the preprocessed data:
+
+```{r DC_all}
+DC_sc <- readRDS(file.path(folder.rds, "DC_goodCells.rds"))
+```
+
+# Overwrite QC metrics
+
+In the previous step, QC metrics were calculated using _all_ single cells
+in the data set. This has not updated certain metrics depending on the number
+of cells, such as `n_cells_exprs`
+(The number of cells for which the expression level of the feature is above the
+detection limit).
+To update those metrics, let us call once more the `calculateQCMetrics`
+method:
+
+```{r calculateQCMetrics}
+MT_ids <- genes(
+  EnsDb.Hsapiens.v79, "gene_id", SeqnameFilter("MT", "=")
+  )$gene_id
+DC_sc <- calculateQCMetrics(
+  DC_sc,
+  feature_controls = list(
+    ERCC = grepl("ERCC-[[:digit:]]", featureNames(DC_sc)),
+    MT = fData(DC_sc)$feature_id %in% MT_ids),
+  nmads = 3
+)
+```
+
+# Visualise gene average expression and cell detection level
+
+In order to select expressed features appropriate for downstream analyses,
+let us visualise, for each measured feature (including ERCC spike-in features),
+the count of cells expressing each feature against the log~10~-transformed
+average estimated counts.
+
+First, let us calculate the average estimate counts for each gene:
+
+```{r avgCounts}
+ave.counts <- rowMeans(counts(DC_sc))
+```
+
+We may then identify features showing an average estimated count above `1`:
+
+```{r avgCountsGe1}
+keep <- ave.counts >= 1
+table(keep)
+```
+
+Let us visualise the distribution of average estimated counts,
+and mark the cut-off value of `1` used to remove features associated
+with excessive dropout events:
+
+```{r histAvgCount}
+hist(
+  log10(ave.counts), breaks=100, main="", col="grey80",
+  xlab=expression(Log[10]~"average count")
+)
+abline(v=log10(1), col="blue", lwd=2, lty=2)
+```
+
+In this plot, the cut-off line crosses the peak, rather than the more flat
+region on the left of the peak, as suggested .
+However, the fact that this data set includes more cells allows the
+average estimated counts to reach lower values
+(_e.g._ a single estimated count in a single cell, divided by `400` cells
+produced a value of `0.0025`, while in `100` cells it produces a minimal value
+of `0.01`).
+
+It is therefore important to represent the average estimated count value
+against the number of cells in which each feature is detected,
+and mark the cutoff value of `1` as above:
+
+```{r smoothScatter}
+numcells <- nexprs(DC_sc, byrow=TRUE)
+setSpike(DC_sc) <- "ERCC"
+smoothScatter(
+  log10(ave.counts), numcells,
+  xlab = expression(Log[10]~"average count"),
+  ylab = "Number of expressing cells"
+)
+points(
+  log10(ave.counts[isSpike(DC_sc)]),
+  numcells[isSpike(DC_sc)], col = "red", pch = 16, cex = 0.5)
+abline(v = 0, col = "orange")
+rm(numcells)
+```
+
+# Normalisation
+
+```{r computeSumFactors}
+DC_sc <- computeSumFactors(DC_sc, sizes=c(20, 40, 60, 80))
+summary(sizeFactors(DC_sc))
+```
+
+```{r plotsizeFactors}
+plot(sizeFactors(DC_sc), DC_sc$total_counts/1e6, log="xy",
+    ylab="Library size (millions)", xlab="Size factor")
+```
+
+```{r computeSpikeFactors}
+DC_sc <- computeSpikeFactors(DC_sc, type="ERCC", general.use=FALSE)
+```
+
+```{r normalize}
+DC_sc <- normalize(DC_sc)
+```
+
+# Visualise
+
+## PCA
+
+```{r prcompSamples}
+dc_pca.samples <- prcomp(t(assayData(DC_sc)[["norm_exprs"]]))
+```
+
+```{r pcaSamples}
+pca.samples <- cbind(dc_pca.samples$x, pData(DC_sc))
+dim(pca.samples)
+multiplot(
+  ggplot(pca.samples, aes(x = PC1, y = PC2, shape = Time)) +
+    geom_point(aes(colour = Status)) +
+    geom_density_2d(aes(linetype = Time)),
+  ggplot(pca.samples, aes(x = PC1, y = PC2, shape = Time)) +
+    geom_point(aes(colour = Infection)) +
+    geom_density_2d(aes(linetype = Time)),
+  cols = 1
+)
+```
+
+```{r, include=FALSE}
+multiplot(
+  ggplot(pca.samples, aes(x = PC1, y = PC2, shape = Time)) +
+    geom_point(aes(colour = Status)),
+  ggplot(pca.samples, aes(x = PC1, y = PC3, shape = Time)) +
+    geom_point(aes(colour = Infection)),
+  ggplot(pca.samples, aes(x = PC2, y = PC3, shape = Time)) +
+    geom_point(aes(colour = Infection)),
+  ggplot(pca.samples, aes(x = PC1, y = PC4, shape = Time)) +
+    geom_point(aes(colour = Infection)),
+  cols = 2
+)
+```
+
+
+
+```{r}
+ggplot(pca.samples.long) +
+  geom_point(aes(x = Coordinate, y = Coordinate, colour = Status, shape = Time)) +
+  facet_grid(PC ~ PC)
+```
+
+
+
+# Session info
+
+Here is the output of `sessionInfo()` on the system on which this
+document was compiled:
+
+```{r sessionInfo, echo=FALSE}
+sessionInfo()
+```
+
+
+[R]: http://r-project.org
+[RStudio]: http://www.rstudio.com/
