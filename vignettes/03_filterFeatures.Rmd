@@ -22,6 +22,8 @@ vignette: >
 output: 
   BiocStyle::pdf_document2:
     toc_newpage: true
+bibliography:
+  QC.bib
 ---
 
 # Prior work
@@ -139,7 +141,7 @@ abline(v=log10(1), col="blue", lwd=2, lty=2)
 ```
 
 In this plot, the cut-off line crosses the peak, rather than the more flat
-region on the left of the peak, as suggested .
+region on the left of the peak, as suggested in [@67].
 However, the fact that this data set includes more cells allows the
 average estimated counts to reach lower values
 (_e.g._ a single estimated count in a single cell, divided by `400` cells
@@ -167,19 +169,61 @@ rm(numcells)
 
 # Normalisation
 
+This section applies the normalisation procedure as presented in [@67]
+for the haematopoietic stem cells (HSCs) data set.
+
+## Cell-specific biases
+
+Let us compute size factors using the `r Biocpkg("scran")` `computeSumFactors`
+method:
+
 ```{r computeSumFactors}
 DC_sc <- computeSumFactors(DC_sc, sizes=c(20, 40, 60, 80))
 summary(sizeFactors(DC_sc))
 ```
 
+The range of size factors is similar to that of the HSCs data set.
+This may indicate that the outlier detection procedure applied in the previous
+vignette has successfully removed extreme outliers, leaving an homogeneous
+data set (as homogeneous as can bean experimental design including three
+time points, uninfected cells, and cells exposed to or infected by two
+different bacterial strains).
+
 ```{r plotsizeFactors}
 plot(sizeFactors(DC_sc), DC_sc$total_counts/1e6, log="xy",
     ylab="Library size (millions)", xlab="Size factor")
+cor.test(sizeFactors(DC_sc), DC_sc$total_counts/1e6, alternative = "greater")
 ```
+
+In contrast to [@67], the size factors computed for this data set do not
+show an important scatter around the trend of correlation.
+This suggests that the systematic differences between cells are _not_ primarily
+driven by differences in capture efficiency or sequencing depth.
+Instead, this observation hints to the existence of differential expression
+between single cells, which is expected from the experimental design.
+
+## Separate size factors for spike-in transcripts
+
+Size factors computed from the counts for endogenous genes are usually not
+appropriate for normalising the counts for spike-in transcripts.
+To ensure normalisation is performed correctly, we compute a separate set of
+size factors for the spike-in set.
 
 ```{r computeSpikeFactors}
 DC_sc <- computeSpikeFactors(DC_sc, type="ERCC", general.use=FALSE)
 ```
+
+## Applying the size factors to normalize gene expression
+
+As explained in [@67], the (estimated) count data are used to compute
+normalised log-expression values for use in downstream analyses.
+Each value is de ned as the log-ratio of each count to the size factor for the
+corresponding cell, after adding a prior count of `1` to avoid unde ned values
+at zero counts.
+Division by the size factor ensures that any cell-specific biases are removed.
+
+Spike-in-specific size factors are automatically applied to normalize the
+spike-in transcripts separately from the endogenous genes.
 
 ```{r normalize}
 DC_sc <- normalize(DC_sc)
@@ -189,11 +233,21 @@ DC_sc <- normalize(DC_sc)
 
 ## PCA
 
+Let us obtain a first overview of the normalised data set using a
+principal component analysis.
+
 ```{r prcompSamples}
 dc_pca.samples <- prcomp(t(assayData(DC_sc)[["norm_exprs"]]))
 ```
 
-```{r pcaSamples}
+We may then use colours and shapes to mark experimental groups of single
+cells, and identify the primary experimental factors that correlate with
+the first two components of highest variance in the data set.
+We may also add 2D-density lines estimated from the 2D distribution
+of single cells obtained at the three different time points (irrespective of
+`Stimulation` or `Infection`):
+
+```{r pcaSamples, fig.height=10}
 pca.samples <- cbind(dc_pca.samples$x, pData(DC_sc))
 dim(pca.samples)
 multiplot(
@@ -207,7 +261,23 @@ multiplot(
 )
 ```
 
-```{r, include=FALSE}
+Note how 2D density lines emphasise the increasing divergence between
+uninfected and stimulated cells over time; at `6` hours post-infection,
+the uninfected cells are given their own set of contours by the 2D kernel
+density estimation.
+
+Similarly to principal component analysis prior to outlier detection and
+removal, `Time` remains the experimental factor most correlated with `PC1`,
+explaining most of the variance in the filtered data set.
+In contrast, `PC2` now separates primarily uninfected cells from stimulated
+cells;
+principal component analysis of the data set before outlier detection showed
+a clear correlation of `PC2` with library size,
+owing to presence of important outliers for their excessively low library size,
+low total number of features detected, or high content of reads originating
+from mitochondrial genes.
+
+```{r multiPCA}
 multiplot(
   ggplot(pca.samples, aes(x = PC1, y = PC2, shape = Time)) +
     geom_point(aes(colour = Status)),
@@ -220,16 +290,6 @@ multiplot(
   cols = 2
 )
 ```
-
-
-
-```{r}
-ggplot(pca.samples.long) +
-  geom_point(aes(x = Coordinate, y = Coordinate, colour = Status, shape = Time)) +
-  facet_grid(PC ~ PC)
-```
-
-
 
 # Session info
 
