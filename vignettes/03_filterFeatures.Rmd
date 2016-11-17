@@ -277,6 +277,12 @@ owing to presence of important outliers for their excessively low library size,
 low total number of features detected, or high content of reads originating
 from mitochondrial genes.
 
+\fixme{
+Below is a matrix of PCA plots using combinations of the first four principal
+components. The figure should be updated to present a matrix 3x3 showing
+plots related to PC1 in the first row and column, and so on.
+}
+
 ```{r multiPCA}
 multiplot(
   ggplot(pca.samples, aes(x = PC1, y = PC2, shape = Time)) +
