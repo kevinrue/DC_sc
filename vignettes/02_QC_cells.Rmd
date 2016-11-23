@@ -23,7 +23,7 @@ output:
   BiocStyle::pdf_document2:
     toc_newpage: true
 ---
-
+  
 # Prior work
 
 Prior to this document, quantitation data for all 384 samples
@@ -33,24 +33,24 @@ as follows:
 
 ```
 kallisto quant \
-    --index=$kallistoIdx \
-    --output-dir=$kallistoDir/$cell \
-    --bootstrap-samples=100 \
-    $fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
+--index=$kallistoIdx \
+--output-dir=$kallistoDir/$cell \
+--bootstrap-samples=100 \
+$fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
 ```
 
 Subsequently:
-
+  
 * The quantitation data was imported into the _R_ environment as a
-  `SCESet` using the `r Biocpkg("scater")` `readKallistoResults` method,
+`SCESet` using the `r Biocpkg("scater")` `readKallistoResults` method,
 * Phenotype data was imported from a CSV file and attached to the `SCESet`,
 * Transcript-level expression data was aggregated into gene-level
-  expression estimates using the `r Biocpkg("EnsDb.Hsapiens.v79")` package
-  (GRCh38) and `r Biocpkg("scater")` `summariseExprsAcrossFeatures` method.
+expression estimates using the `r Biocpkg("EnsDb.Hsapiens.v79")` package
+(GRCh38) and `r Biocpkg("scater")` `summariseExprsAcrossFeatures` method.
 * Gene identifiers were made more intuitive by prepending gene symbol where
-  possible (*e.g.* `ENSG00000277943` to `CCL4_ENSG00000277943`).
+possible (*e.g.* `ENSG00000277943` to `CCL4_ENSG00000277943`).
 * The resulting `SCESet` was serialised and written to file.
-
+  
 # Settings
 
 Packages required for this vignette:
@@ -84,13 +84,20 @@ folder.expdata <- file.path(workdir, "expData")
 Here, we simply import the preprocessed data:
 
 ```{r DC_all}
-DC_all <- readRDS(file.path(folder.rds, "sc_DC_EnsDb.rds"))
+DC_all <- readRDS(file.path(folder.rds, "all_EnsDb.rds"))
 ```
 
 Let us create a copy of the data set, subsetted to only single cells:
 
 ```{r DC_sc}
 DC_sc <- DC_all[, !DC_all$Status %in% c("Blank", "BULK")]
+```
+
+Let us drop unused factor levels `Blank` and `BULK` from the data set
+that only contains single cells:
+
+```{r dropLevels}
+pData(DC_sc) <- droplevels(pData(DC_sc))
 ```
 
 Let us examine a summary of the experimental phenotype data in the full
@@ -106,9 +113,8 @@ summary(expdata)
 
 # Calculate QC metrics
 
-In the following sections,
-let us calculate QC metrics across _all_ samples (including blanks and bulks),
-and across single cells _only_.
+Let us calculate QC metrics across _all_ samples
+(including blanks and bulks).
 
 ## Identify mitochondrial genes
 
@@ -118,7 +124,7 @@ the gene identifier of those genes from the `EnsDb.Hsapiens.v79` package:
 ```{r MTrules}
 MT_ids <- genes(
   EnsDb.Hsapiens.v79, "gene_id", SeqnameFilter("MT", "=")
-  )$gene_id
+)$gene_id
 length(MT_ids)
 ```
 
@@ -175,15 +181,15 @@ immune cells (*e.g.* `CD74`, `CCL4`, `ISG15`; left panel).
 
 ```{r highestExpression, echo=FALSE, out.width='90%', fig.height = 10}
 multiplot(
-    plotQC(
-        DC_all[,!DC_all$is_cell_control_Blank],
-        type = "highest-expression", exprs_values = "tpm"
-    ), # + ggtitle("Bulks and single cells")
-    plotQC(
-        DC_all[,DC_all$is_cell_control_Blank],
-        type = "highest-expression", exprs_values = "tpm"
-    ), # + ggtitle("Blanks")
-    cols = 2
+  plotQC(
+    DC_all[,!DC_all$is_cell_control_Blank],
+    type = "highest-expression", exprs_values = "tpm"
+  ), # + ggtitle("Bulks and single cells")
+  plotQC(
+    DC_all[,DC_all$is_cell_control_Blank],
+    type = "highest-expression", exprs_values = "tpm"
+  ), # + ggtitle("Blanks")
+  cols = 2
 )
 ```
 
@@ -193,36 +199,36 @@ Let us examine library complexity across `Status`, `Infection`, and `Time`:
 
 ```{r libraryComplexity, fig.height=7.5}
 plot(
-    DC_all, block1 = "Infection", block2 = "Status",
-    colour_by = "Time", nfeatures = 300, exprs_values = "counts"
+  DC_all, block1 = "Infection", block2 = "Status",
+  colour_by = "Time", nfeatures = 300, exprs_values = "counts"
 )
 ```
 
 First, from a QC perspective, some reassuring observations:
 
 * Blanks show a very low library complexity (which reaffirms the
-  [earlier](#highestExpression) observation that the `50` most highly expressed
-  features account for more than `98%` of TPM values in `Blank` samples).
+[earlier](#highestExpression) observation that the `50` most highly expressed
+features account for more than `98%` of TPM values in `Blank` samples).
 * Bulks show a generally higher complexity, as is expected for the combined
-  tanscriptomes of many cells.
+tanscriptomes of many cells.
 * Single cells generally show a complexity profile comparable to that of `BULK`
-  control samples
+control samples
 
 Now, from a biological perspective:
 
 * A small number of single cells (e.g. `exposed:LT2:4h`, `infected:LT2:6h`,
-  `exposed:D23580:6h`) show suspiciously low library complexity.
-  Those single cells must henceforth be treated as outliers and removed from
-  subsequent analyses.
+`exposed:D23580:6h`) show suspiciously low library complexity.
+Those single cells must henceforth be treated as outliers and removed from
+subsequent analyses.
 * Library complexity seems to decrease with `Time` in `exposed` and `infected`
-  samples.
-  This **may** indicate a polarisation of treated single cells toward
-  particular phenotype(s).
-  + `Mock` (*i.e.* `uninfected`) single cells tend to show a consistent,
-    relatively high library complexity
-  + Both `LT2` and `D23580` infections show a gradual decrease of library
-    complexity over time. This observation **might** be more pronounced
-    for `D23580`.
+samples.
+This **may** indicate a polarisation of treated single cells toward
+particular phenotype(s).
++ `Mock` (*i.e.* `uninfected`) single cells tend to show a consistent,
+relatively high library complexity
++ Both `LT2` and `D23580` infections show a gradual decrease of library
+complexity over time. This observation **might** be more pronounced
+for `D23580`.
 
 # Identify outliers
 
@@ -233,10 +239,10 @@ method by displaying whether each of the `373` single cells passes each
 built-in filter. Non-default cut-off values are listed below:
 
 * Number of median absolute deviation (MADs) `nmads=3` (instead of `5`)
-  on the following QC metrics:
-    + `total_counts` (_i.e._, total number of counts for the cell)
-    + `total_features` (_i.e._, number of features with non-zero expression)
-  
+on the following QC metrics:
++ `total_counts` (_i.e._, total number of counts for the cell)
++ `total_features` (_i.e._, number of features with non-zero expression)
+
 To facilitate comparison, the filters are listed by order of outliers detected:
 
 ```{r scaterFiltersHeatmap, echo=FALSE, fig.height=8}
@@ -369,28 +375,28 @@ features. The median _minus_ `3` MADs is indicated with a dashed line, for infor
 ```{r complexity50100200, echo=FALSE, fig.height=10}
 res_table <- data.frame()
 plots <- lapply(c(50, 100, 200), function(Nfeatures){
-    metricName <- sprintf("pct_tpm_top_%i_features", Nfeatures)
-    metric <- pData(DC_sc)[,metricName]
-    M <- median(metric)
-    MAD <- mad(metric, center = M)
-    res_table[as.character(Nfeatures), "M"] <<- M
-    res_table[as.character(Nfeatures), "MAD"] <<- MAD
-    ggplot(pData(DC_all)) +
-      geom_point(aes_string(
-        x = seq_len(nrow(pData(DC_all))),
-        y = metricName,
-        colour = "Status",
-        shape = "Infection"
-      )) +
-      theme(
-        axis.text.x = element_blank(),
-        axis.ticks.x = element_blank()
-      )  +
-      labs(x = "Sample") +
-      geom_hline(
-        yintercept = M + 3*MAD*(-1:1), colour = c(2,1,2), linetype = c(2,1,1)
-      )
-  })
+  metricName <- sprintf("pct_tpm_top_%i_features", Nfeatures)
+  metric <- pData(DC_sc)[,metricName]
+  M <- median(metric)
+  MAD <- mad(metric, center = M)
+  res_table[as.character(Nfeatures), "M"] <<- M
+  res_table[as.character(Nfeatures), "MAD"] <<- MAD
+  ggplot(pData(DC_all)) +
+    geom_point(aes_string(
+      x = seq_len(nrow(pData(DC_all))),
+      y = metricName,
+      colour = "Status",
+      shape = "Infection"
+    )) +
+    theme(
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank()
+    )  +
+    labs(x = "Sample") +
+    geom_hline(
+      yintercept = M + 3*MAD*(-1:1), colour = c(2,1,2), linetype = c(2,1,1)
+    )
+})
 multiplot(plotlist = plots)
 rm(plots)
 ```
@@ -619,7 +625,7 @@ pander::pandoc.table(subset(
 
 # Visualise outliers in PCA analysis of gene expression
 
-Below is a PCA based on the expression level of the `300` mot highly
+Below is a PCA based on the expression level of the `300` most highly
 expressed genes across the single cells:
 
 ```{r PCAexprTimeStatus}
@@ -633,15 +639,50 @@ We may show the same PCA highlighting only the outliers identified in the
 previous sections:
 
 ```{r PCAexprOutliers}
-plotPCASCESet(
-  DC_sc, 300, 3, colour_by = "outlier", shape_by = "Time"
-)
+plotPCASCESet(DC_sc, 300, 3, colour_by = "outlier", shape_by = "Time")
 ```
 
 Most of those outlier single cells appear clearly on `PC2`---which do not
 clearly associate with any experimental covariate---underlying the need for
 those samples to be removed from the data set before proceeding to downstream
 analyses.
+
+## Plate-level overview
+
+Let us examine the coordinate of each sample
+(including bulks an blanks) on the three principal
+components capturing the largest amount of variance
+in gene expression data, to illustrate the absence
+of batch effect between the different plates:
+
+```{r PCplates, echo=FALSE, fig.height=12}
+DC_all <- plotPCASCESet(
+  DC_all, 300, 3, colour_by = "Status", shape_by = "Time",
+  return_SCESet = TRUE, draw_plot = FALSE)
+DC_all$Row <- factor(
+  gsub("^([[:alpha:]])([[:digit:]]+)$", "\\1", DC_all$Well),
+  LETTERS[8:1] # Facilitates later geom_tile
+)
+DC_all$Column <- factor(
+  gsub("^([[:alpha:]])([[:digit:]]+)$", "\\2", DC_all$Well),
+  1:12
+)
+multiplot(
+  ggplot(cbind(pData(DC_all), reducedDimension(DC_all))) +
+    geom_tile(aes(x=Column, y=Row, fill=PC1)) +
+    facet_wrap(~ Plate),
+  ggplot(cbind(pData(DC_all), reducedDimension(DC_all))) +
+    geom_tile(aes(x=Column, y=Row, fill=PC2)) +
+    facet_wrap(~ Plate),
+  ggplot(cbind(pData(DC_all), reducedDimension(DC_all))) +
+    geom_tile(aes(x=Column, y=Row, fill=PC3)) +
+    facet_wrap(~ Plate)
+)
+```
+
+**Note:** In the top figure, the four blocks that display markedly distinct
+coordinates on `PC1` correspond to `2h`, `4h`, `6h`, and `uninfected`, from
+left to right, respectively.
 
 # Exclusion of outlier samples
 
@@ -656,7 +697,7 @@ DC_goodCells <- DC_sc[,!DC_sc$outlier]
 Let us save the serialised object to file:
 
 ```{r saveRDS}
-saveRDS(DC_goodCells, file.path(folder.rds, "DC_goodCells.rds"))
+saveRDS(DC_goodCells, file.path(folder.rds, "goodCells.rds"))
 ```
 
 Let us also write the experimental information of the single cells that passed
@@ -668,12 +709,108 @@ single cells deemed reliable for separate analyses.
 write.csv(
   pData(DC_goodCells)[
     ,c("sample","Infection","Status","Time","Lane","Plate","Well")
-  ],
+    ],
   file.path(folder.expdata, "good_cells.csv"),
   quote = FALSE
-  )
+)
 ```
 
+
+# Correlation of single cell and bulk gene expression
+
+Let us compare the bulk sample for each `Time:Infection` experimental group
+to the average expression profile of `infected` and `exposed` single cells
+for the corresponding conditions.
+
+First let us restrict this comparison to only endogenous features:
+
+```{r endogenous}
+DC_all.endo <- DC_all[!fData(DC_all)$is_feature_control_ERCC,]
+DC_goodCells.endo <- DC_goodCells[!fData(DC_goodCells)$is_feature_control_ERCC,]
+```
+
+Let us then obtain, for each `Time` point and each `Infection` condition,
+the expression profile in `BULK` samples and the average expression profile
+across single cells under the same conditions:
+
+```{r compExprs}
+comp.exprs <- data.frame(
+  Time = character(),
+  Infection = character(),
+  Bulk = numeric(),
+  Status = character(),
+  Average = numeric()
+)
+for (time in c("2h", "4h", "6h")){
+  # Mock
+  bulk.exprs <- as.numeric(exprs(DC_all.endo[
+      ,
+      DC_all.endo$Status == "BULK" &
+        DC_all.endo$Infection == "Mock" &
+        DC_all.endo$Time == time
+      ]))
+  cells.avg <- rowMeans(exprs(DC_goodCells.endo[
+      ,
+      DC_goodCells.endo$Status == "uninfected" &
+        DC_goodCells.endo$Infection == "Mock" &
+        DC_goodCells.endo$Time == time
+      ]))
+  mock.df <- data.frame(
+      Time = time,
+      Infection = "Mock",
+      Bulk = bulk.exprs,
+      Status = "uninfected",
+      Average = cells.avg
+    )
+  for (infection in c("D23580", "LT2")){
+    bulk.exprs <- as.numeric(exprs(DC_all.endo[
+      ,
+      DC_all.endo$Status == "BULK" &
+        DC_all.endo$Infection == infection &
+        DC_all.endo$Time == time
+      ]))
+    cells.avg <- rowMeans(exprs(DC_goodCells.endo[
+      ,
+      DC_goodCells.endo$Status == "exposed" &
+        DC_goodCells.endo$Infection == infection &
+        DC_goodCells.endo$Time == time
+      ]))
+    exposed.df <- data.frame(
+      Time = time,
+      Infection = infection,
+      Bulk = bulk.exprs,
+      Status = "exposed",
+      Average = cells.avg
+    )
+    cells.avg <- rowMeans(exprs(DC_goodCells.endo[
+      ,
+      DC_goodCells.endo$Status == "infected" &
+        DC_goodCells.endo$Infection == infection &
+        DC_goodCells.endo$Time == time
+      ]))
+    infected.df <- data.frame(
+      Time = time,
+      Infection = infection,
+      Bulk = bulk.exprs,
+      Status = "infected",
+      Average = cells.avg
+    )
+    comp.exprs <- rbind(comp.exprs, mock.df, exposed.df, infected.df)
+  }
+}
+```
+
+We may then visualise this information in a figure faceted by `Time` and
+`Infection`:
+
+```{r compExprsPlot, fig.height=10}
+ggplot(comp.exprs, aes(x = Bulk)) +
+  geom_point(aes(y = Average, colour = Status), size = 0.5, alpha = 0.3) +
+  geom_abline(slope = 1, intercept = 0, alpha = 0.5) +
+  facet_grid(Infection ~ Time) +
+  scale_x_continuous(limits = c(0, 17.5)) +
+  scale_y_continuous(limits = c(0, 17.5))
+```
 
 # Session info
 

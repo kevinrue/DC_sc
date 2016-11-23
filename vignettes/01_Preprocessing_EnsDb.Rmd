@@ -203,7 +203,7 @@ head(fData(sc_DC_gene), n = 3)
 # Save the updated SCESet to file
 
 ```{r saveRDS}
-saveRDS(sc_DC_gene, file.path(folder.rds, "sc_DC_EnsDb.rds"))
+saveRDS(sc_DC_gene, file.path(folder.rds, "all_EnsDb.rds"))
 ```
 
 # Session info

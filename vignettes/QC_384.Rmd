@@ -675,7 +675,6 @@ multiplot(
 
 ```
 
-
 # Feature detection within experimental groups
 
 Let us examine the number of detected features as a function of the proportion

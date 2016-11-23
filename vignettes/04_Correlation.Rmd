@@ -1,0 +1,106 @@
+---
+title: Distance matrix
+author:
+  - name: Anna Aulicino
+    email: anna.aulicino@ndm.ox.ac.uk
+    affiliation: MRC,Human Immunology Unit, Weatherall Institute of Molecular
+        Medicine, NIHR Biomedical research centre, University of Oxford,
+        John Radcliffe Hospital, Oxford, UK.
+  - name: Kévin Rue-Albrecht
+    email: kevinrue67@gmail.com
+    affiliation: Department of Medicine, Imperial College London,
+        Hammersmith Campus, Du Cane Road, London, W12 0NN, UK
+date: "`r doc_date()`"
+package: "`r pkg_ver('BiocStyle')`"
+abstract: >
+  Visualise pairwise distance between single cells using normalised gene
+  expression.
+vignette: >
+  %\VignetteIndexEntry{Quality Control}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+output: 
+  BiocStyle::pdf_document2:
+    toc_newpage: true
+bibliography:
+  QC.bib
+---
+
+# Prior work
+
+Prior to this document, quantitation data for all 384 samples
+(including single cells, blanks and bulks) was obtained using
+[Kallisto](https://pachterlab.github.io/kallisto/)
+as follows:
+
+```
+kallisto quant \
+    --index=$kallistoIdx \
+    --output-dir=$kallistoDir/$cell \
+    --bootstrap-samples=100 \
+    $fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
+```
+
+Subsequently:
+
+* The quantitation data was imported into the _R_ environment.
+* Phenotype data was attached imported and attached to the `SCESet`
+* Transcript-level expression data was aggregated at the gene level
+* Gene identifiers were made more intuitive by prepending gene symbol where
+  possible
+* Outliers were identified and removed among single cells,
+  using blank and bulk samples as reference for certain metrics.
+* Endogenous and spike-in features were filtered to retain only those
+  detected in the data set
+* The remaining single cells and features were serialised as a `SCESet` and
+  written to file.
+
+# Settings
+
+Packages required for this vignette:
+
+```{r packages, message=FALSE}
+library(scater)
+```
+
+Let us set the working directory to execute the following code chunks:
+
+```{r workdir}
+workdir <- ifelse(interactive(), ".", "..")
+```
+
+Let us set a few paths relevant to the analysis:
+
+```{r paths}
+folder.rds <- file.path(workdir, "rds")
+folder.expdata <- file.path(workdir, "expData")
+```
+
+# Import preprocessed data
+
+Let us import the normalised data:
+
+```{r DC_all}
+sc_norm <- readRDS(file.path(folder.rds, "normalised.rds"))
+```
+
+Let us immediately subset the data set to retain only endogenous features:
+
+```{r excludeERCC}
+endo_sc <- DC_sc[!fData(DC_sc)$is_feature_control_ERCC,]
+```
+
+# 
+
+# Session info
+
+Here is the output of `sessionInfo()` on the system on which this
+document was compiled:
+
+```{r sessionInfo, echo=FALSE}
+sessionInfo()
+```
+
+
+[R]: http://r-project.org
+[RStudio]: http://www.rstudio.com/

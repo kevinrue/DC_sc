@@ -1,5 +1,5 @@
 ---
-title: Quality Control
+title: Feature selection
 author:
   - name: Anna Aulicino
     email: anna.aulicino@ndm.ox.ac.uk
@@ -62,6 +62,9 @@ library(ensembldb)
 library(EnsDb.Hsapiens.v79)
 library(scran)
 library(reshape2)
+library(ggrepel)
+library(dplyr)
+library(BiocParallel)
 ```
 
 Let us set the working directory to execute the following code chunks:
@@ -82,18 +85,18 @@ folder.expdata <- file.path(workdir, "expData")
 Here, we simply import the preprocessed data:
 
 ```{r DC_all}
-DC_sc <- readRDS(file.path(folder.rds, "DC_goodCells.rds"))
+DC_sc <- readRDS(file.path(folder.rds, "goodCells.rds"))
 ```
 
 # Overwrite QC metrics
 
-In the previous step, QC metrics were calculated using _all_ single cells
-in the data set. This has not updated certain metrics depending on the number
-of cells, such as `n_cells_exprs`
-(The number of cells for which the expression level of the feature is above the
-detection limit).
-To update those metrics, let us call once more the `calculateQCMetrics`
-method:
+In the previous vignette, QC metrics were calculated using _all_ samples
+in the data set.
+Exclusion of outliers, blanks, and bulks has not updated certain metrics
+depending on the number of cells; for instance, `n_cells_exprs`
+(the number of cells for which the expression level of the feature is above
+the detection limit).
+Let us call again the `calculateQCMetrics` method on the subsetted data set:
 
 ```{r calculateQCMetrics}
 MT_ids <- genes(
@@ -108,7 +111,181 @@ DC_sc <- calculateQCMetrics(
 )
 ```
 
-# Visualise gene average expression and cell detection level
+# Gene expression and cell detection level
+
+## Number of features detected and cell counts
+
+### Across all cells 
+
+Let us first visualise the count of detectable features and the number of cells
+in which they are detected.
+Let us also store in an additional column of the `phenoData` slot the count of
+_single cells_ in which each feature was detected:
+
+```{r countSCdetected}
+fData(DC_sc)$n_sc_exprs <- rowSums(
+    exprs(DC_sc[,!DC_sc$is_cell_control]) > 0
+)
+```
+
+We may then visualise the number of features detected in each number of cells:
+
+```{r featuresDetectedSC, echo=FALSE, out.width="100%"}
+tmp <- data.frame(
+    N_cells = 0:sum(!DC_sc$is_cell_control)
+)
+tmp$N_features <- sapply(tmp$N_cells, function(x){
+    sum(fData(DC_sc)$n_sc_exprs >= x)
+})
+ggplot(tmp, aes(x = N_cells, y = N_features)) +
+  geom_point(size = 0.5) +
+  scale_y_continuous(limits = c(0, nrow(DC_sc)), labels = scales::comma) +
+  labs(
+      x = "Detection cut-off (cells)",
+      y = "Features detected"
+  ) +
+  geom_text_repel(
+    aes(label = N_features),
+    dplyr::filter(tmp, N_cells %in% c(50, 100, 150, 200, 250, 300, 350)),
+    min.segment.length = unit(0, 'lines'),
+    point.padding = unit(0.5, 'lines')
+  )
+rm(tmp)
+```
+
+### Within experimental groups
+
+Let us examine the number of detected features as a function of the proportion
+of _non-outlier_ single cells in which they were detected, within each
+experimental group.
+First, let us subset the data set to only single cells that passed all
+the outlier detection filters detailed in the previous sections.
+In addition, let us create two subsets:
+
+* one that contains only ERCC spike-in control features
+* one that contains only endogenous gene features
+
+```{r subsetDetectionExpGroup}
+sc_DC.subset.ERCC <- DC_sc[fData(DC_sc)$is_feature_control,]
+sc_DC.subset.genes <- DC_sc[!fData(DC_sc)$is_feature_control,]
+```
+
+Before going further let us examine how many cells are left
+in each experimental group:
+
+```{r tablePhenoExpGroup}
+print(tt <- table(pData(sc_DC.subset.genes)[,c("Infection","Status","Time")]))
+```
+
+Now, for each experimental group `Infection:Status:Time`, let us obtain and
+visualise the count of features detected against the count of single cells
+they were detected in:
+
+```{r genesCountExpGroup, include=FALSE}
+# List of experimental groups
+df <- distinct(pData(sc_DC.subset.genes), Infection, Status, Time)
+# Data points for each experimental group
+dfl <- bplapply(seq_len(nrow(df)), function(r){
+    infection <- df[r,"Infection"]
+    status <- df[r,"Status"]
+    time <- df[r,"Time"]
+    cells <- tt[infection, status, time]
+    n_cells <- seq_len(cells)
+    n_features <- sapply(n_cells, function(x){
+        sum(
+            rowSums(
+                exprs(sc_DC.subset.genes[
+                    ,sc_DC.subset.genes$Infection == infection &
+                        sc_DC.subset.genes$Status == status &
+                        sc_DC.subset.genes$Time == time
+                ]) > 0
+            ) >= x
+        )
+    })
+    return(data.frame(
+        Infection = infection,
+        Status = status,
+        Time = time,
+        Cells = n_cells,
+        Features = n_features
+    ))
+})
+ddfl <- do.call(rbind, dfl)
+rm(dfl)
+```
+
+```{r plotExpGroupGenes, echo=FALSE}
+p.sc_detection_genes <- ggplot(ddfl) +
+    scale_y_continuous(
+        limits = c(0, nrow(sc_DC.subset.genes)),
+        labels = scales::comma
+    ) +
+    labs(
+        x = "Detection cut-off (cells)",
+        y = "Features detected"
+    )
+p.sc_detection_genes +
+    geom_point(aes(x=Cells, y=Features, colour=Status), size = 0.5) +
+    facet_grid(Time ~ Infection) +
+    ggtitle("Endogenous feature")
+rm(ddfl)
+```
+
+And the same approach applied only to ERCC spike-ins:
+
+```{r countExpGroupERCC, include=FALSE}
+# Data points for each experimental group
+dfl <- bplapply(seq_len(nrow(df)), function(r){
+    infection <- df[r,"Infection"]
+    status <- df[r,"Status"]
+    time <- df[r,"Time"]
+    cells <- tt[infection, status, time]
+    n_cells <- seq_len(cells)
+    n_features <- sapply(n_cells, function(x){
+        sum(
+            rowSums(
+                exprs(sc_DC.subset.ERCC[
+                    ,sc_DC.subset.ERCC$Infection == infection &
+                        sc_DC.subset.ERCC$Status == status &
+                        sc_DC.subset.ERCC$Time == time
+                ]) > 0
+            ) >= x
+        )
+    })
+    return(data.frame(
+        Infection = infection,
+        Status = status,
+        Time = time,
+        Cells = n_cells,
+        Features = n_features
+    ))
+})
+ddfl <- do.call(rbind, dfl)
+rm(dfl, df)
+```
+
+```{r plotExpGroupERCC, echo=FALSE}
+p.sc_detection_ERCC <- ggplot(ddfl) +
+    geom_point(aes(x=Cells, y=Features, colour=Status), size = 0.5) +
+    scale_y_continuous(
+        limits = c(0, nrow(sc_DC.subset.ERCC)),
+        labels = scales::comma
+    ) +
+    labs(
+        x = "Detection cut-off (cells)",
+        y = "Features detected"
+    )
+p.sc_detection_ERCC +
+    geom_point(aes(x=Cells, y=Features, colour=Status), size = 0.5) +
+    facet_grid(Time ~ Infection) +
+    ggtitle("ERCC spike-ins")
+rm(ddfl)
+```
+
+See [Appendix 3](#Appendix3) for an overview of the nine panels overlaid.
+
+
+## Average expression and cell counts
 
 In order to select expressed features appropriate for downstream analyses,
 let us visualise, for each measured feature (including ERCC spike-in features),
@@ -167,6 +344,12 @@ abline(v = 0, col = "orange")
 rm(numcells)
 ```
 
+# Filter detected features
+
+```{r filterFeatures}
+DC_detected <- DC_sc[keep,]
+```
+
 # Normalisation
 
 This section applies the normalisation procedure as presented in [@67]
@@ -178,21 +361,24 @@ Let us compute size factors using the `r Biocpkg("scran")` `computeSumFactors`
 method:
 
 ```{r computeSumFactors}
-DC_sc <- computeSumFactors(DC_sc, sizes=c(20, 40, 60, 80))
-summary(sizeFactors(DC_sc))
+DC_detected <- computeSumFactors(DC_detected, sizes=c(20, 40, 60, 80))
+summary(sizeFactors(DC_detected))
 ```
 
 The range of size factors is similar to that of the HSCs data set.
 This may indicate that the outlier detection procedure applied in the previous
 vignette has successfully removed extreme outliers, leaving an homogeneous
-data set (as homogeneous as can bean experimental design including three
+data set (as homogeneous as can be an experimental design including three
 time points, uninfected cells, and cells exposed to or infected by two
 different bacterial strains).
 
 ```{r plotsizeFactors}
-plot(sizeFactors(DC_sc), DC_sc$total_counts/1e6, log="xy",
-    ylab="Library size (millions)", xlab="Size factor")
-cor.test(sizeFactors(DC_sc), DC_sc$total_counts/1e6, alternative = "greater")
+plot(
+  sizeFactors(DC_detected), DC_detected$total_counts/1e6, log="xy",
+  ylab="Library size (millions)", xlab="Size factor")
+cor.test(
+  sizeFactors(DC_detected), DC_detected$total_counts/1e6,
+  alternative = "greater")
 ```
 
 In contrast to [@67], the size factors computed for this data set do not
@@ -210,15 +396,15 @@ To ensure normalisation is performed correctly, we compute a separate set of
 size factors for the spike-in set.
 
 ```{r computeSpikeFactors}
-DC_sc <- computeSpikeFactors(DC_sc, type="ERCC", general.use=FALSE)
+DC_detected <- computeSpikeFactors(DC_detected, type="ERCC", general.use=FALSE)
 ```
 
 ## Applying the size factors to normalize gene expression
 
 As explained in [@67], the (estimated) count data are used to compute
 normalised log-expression values for use in downstream analyses.
-Each value is de ned as the log-ratio of each count to the size factor for the
-corresponding cell, after adding a prior count of `1` to avoid unde ned values
+Each value is defined as the log-ratio of each count to the size factor for the
+corresponding cell, after adding a prior count of `1` to avoid undefined values
 at zero counts.
 Division by the size factor ensures that any cell-specific biases are removed.
 
@@ -226,75 +412,167 @@ Spike-in-specific size factors are automatically applied to normalize the
 spike-in transcripts separately from the endogenous genes.
 
 ```{r normalize}
-DC_sc <- normalize(DC_sc)
+DC_normalised <- normalize(DC_detected)
 ```
 
-# Visualise
+# Save the normalised data set to file
 
-## PCA
-
-Let us obtain a first overview of the normalised data set using a
-principal component analysis.
-
-```{r prcompSamples}
-dc_pca.samples <- prcomp(t(assayData(DC_sc)[["norm_exprs"]]))
+```{r saveRDS}
+saveRDS(DC_normalised, file.path(folder.rds, "normalised.rds"))
 ```
 
-We may then use colours and shapes to mark experimental groups of single
-cells, and identify the primary experimental factors that correlate with
-the first two components of highest variance in the data set.
-We may also add 2D-density lines estimated from the 2D distribution
-of single cells obtained at the three different time points (irrespective of
-`Stimulation` or `Infection`):
+# Visualise normalised data
 
-```{r pcaSamples, fig.height=10}
-pca.samples <- cbind(dc_pca.samples$x, pData(DC_sc))
-dim(pca.samples)
+First of all, let us subset the data set, excluding ERCC spike-in features:
+
+```{r excludeERCC}
+endo_sc <- DC_normalised[!fData(DC_normalised)$is_feature_control_ERCC,]
+```
+
+## PCA - All samples
+
+### All features
+
+First, let us visualise the two principal components of highest variance
+identified considering all the features in the 
+
+```{r prcomp, fig.height=10}
+dc_pca.samples <- prcomp(t(assayData(endo_sc)[["norm_exprs"]]))
+pca.samples <- cbind(dc_pca.samples$x, pData(endo_sc))
 multiplot(
-  ggplot(pca.samples, aes(x = PC1, y = PC2, shape = Time)) +
-    geom_point(aes(colour = Status)) +
-    geom_density_2d(aes(linetype = Time)),
-  ggplot(pca.samples, aes(x = PC1, y = PC2, shape = Time)) +
-    geom_point(aes(colour = Infection)) +
-    geom_density_2d(aes(linetype = Time)),
-  cols = 1
+  ggplot(pca.samples, aes(x = PC1, y = PC2, shape = Time, colour = Status)) +
+    geom_point(), # + geom_density_2d(aes(linetype = Time))
+  ggplot(pca.samples, aes(x = PC1, y = PC2, shape = Time, colour = Infection)) +
+    geom_point() #  + geom_density_2d(aes(linetype = Time))
 )
 ```
 
-Note how 2D density lines emphasise the increasing divergence between
-uninfected and stimulated cells over time; at `6` hours post-infection,
-the uninfected cells are given their own set of contours by the 2D kernel
-density estimation.
+Let us also repeat the same figure, adding 2D density lines to emphasise the
+clustering of cells by `Time` and `Status`:
 
-Similarly to principal component analysis prior to outlier detection and
-removal, `Time` remains the experimental factor most correlated with `PC1`,
-explaining most of the variance in the filtered data set.
-In contrast, `PC2` now separates primarily uninfected cells from stimulated
-cells;
-principal component analysis of the data set before outlier detection showed
-a clear correlation of `PC2` with library size,
-owing to presence of important outliers for their excessively low library size,
-low total number of features detected, or high content of reads originating
-from mitochondrial genes.
-
-\fixme{
-Below is a matrix of PCA plots using combinations of the first four principal
-components. The figure should be updated to present a matrix 3x3 showing
-plots related to PC1 in the first row and column, and so on.
-}
-
-```{r multiPCA}
+```{r density2D, fig.height=10}
 multiplot(
-  ggplot(pca.samples, aes(x = PC1, y = PC2, shape = Time)) +
-    geom_point(aes(colour = Status)),
-  ggplot(pca.samples, aes(x = PC1, y = PC3, shape = Time)) +
-    geom_point(aes(colour = Infection)),
-  ggplot(pca.samples, aes(x = PC2, y = PC3, shape = Time)) +
-    geom_point(aes(colour = Infection)),
-  ggplot(pca.samples, aes(x = PC1, y = PC4, shape = Time)) +
-    geom_point(aes(colour = Infection)),
-  cols = 2
+  ggplot(pca.samples, aes(x = PC1, y = PC2, shape = Time, colour = Status)) +
+    geom_point() + geom_density_2d(aes(linetype = Time)),
+  ggplot(pca.samples, aes(x = PC1, y = PC2, shape = Time, colour = Infection)) +
+    geom_point() + geom_density_2d(aes(linetype = Time))
 )
+```
+
+### Most variable features
+
+Let us use the `300` most variable features
+to obtain an overview of the normalised data set using a separate
+principal component analysis:
+
+```{r plotPCASCESet, fig.height=10}
+multiplot(
+  plotPCASCESet(endo_sc, 300, 3, colour_by = "Status", shape_by = "Time"),
+  plotPCASCESet(endo_sc, 300, 3, colour_by = "Infection", shape_by = "Time")
+)
+```
+
+Several important observations:
+
+* `uninfected` samples show a striking homogeneity, relative to the expression
+  profile of stimulated cells increasingly diverging at `4h` and `6h` after
+  stimulation.
+* `PC3` differentiates to some extent `infected` and `exposed` cells at `6h`
+  after stimulation.
+* `Time` remains the experimental factor most correlated with `PC1`
+  (R^2^: 0.63; see [Appendix 1A](#AppendixPcsTime)),
+  similarly to principal component analysis prior to outlier detection
+  and removal in a precedent vignette.
+
+Let us immediately find the principal components most associated with each
+experimental factor in the study (figures shown in [Appendix 1](#Appendix1)):
+
+```{r findImportantPCs}
+pcs.time <- findImportantPCs(endo_sc, "Time", ntop = 300)
+pcs.status <- findImportantPCs(endo_sc, "Status", ntop = 300)
+pcs.infection <- findImportantPCs(endo_sc, "Infection", ntop = 300)
+```
+
+\newpage
+
+## PCA - By time point
+
+The overwhelming effect of `Time` on expression profiles may hide more subtle
+differences that exist between cells of distinct `Status` or `Infection`.
+Such differences may be revealed by principal component analyses performed
+within each time point:
+
+```{r plotPCASCESet2h, fig.height=10}
+multiplot(
+  plotPCASCESet(
+    endo_sc[,endo_sc$Time == "2h"], 300, 3,
+    colour_by = "Status", shape_by = "Infection"
+  ),
+  plotPCASCESet(
+    endo_sc[,endo_sc$Time == "2h"], 300, 3,
+    colour_by = "Infection", shape_by = "Status"
+  )
+)
+```
+
+\newpage
+
+```{r plotPCASCESet4h, fig.height=10}
+multiplot(
+  plotPCASCESet(
+    endo_sc[,endo_sc$Time == "4h"], 300, 3,
+    colour_by = "Status", shape_by = "Infection"
+  ),
+  plotPCASCESet(
+    endo_sc[,endo_sc$Time == "4h"], 300, 3,
+    colour_by = "Infection", shape_by = "Status"
+  )
+)
+```
+
+\newpage
+
+```{r plotPCASCESet6h, fig.height=10}
+multiplot(
+  plotPCASCESet(
+    endo_sc[,endo_sc$Time == "6h"], 300, 3,
+    colour_by = "Status", shape_by = "Infection"
+  ),
+  plotPCASCESet(
+    endo_sc[,endo_sc$Time == "6h"], 300, 3,
+    colour_by = "Infection", shape_by = "Status"
+  )
+)
+```
+
+While `PC1` clearly separates `uninfected` cells from stimulated ones,
+discriminates to some extent cells infected by `D23580` from those infected by
+`LT2`, as reinforced  by the 
+
+```{r importantPCs6h, fig.height=10}
+findImportantPCs(endo_sc[,endo_sc$Time == "6h"], "Infection")
+```
+
+# Appendix {#Appendix}
+
+## Principal components and experimental covariates {#Appendix1}
+
+### Time {#AppendixPcsTime}
+
+```{r pcsTime, out.width='80%', fig.width = 8, fig.height = 12}
+pcs.time
+```
+
+### Status {#AppendixPcsStatus}
+
+```{r pcsStatus, out.width='80%', fig.width = 8, fig.height = 12}
+pcs.status
+```
+
+### Infection {#AppendixPcsInfection}
+
+```{r pcsInfection, out.width='80%', fig.width = 8, fig.height = 12}
+pcs.infection
 ```
 
 # Session info

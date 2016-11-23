@@ -1,6 +1,7 @@
 # Compiled vignettes
 *.pdf
 *.html
+DC_vignettes.zip
 
 # Data folders
 quant
@@ -8,6 +9,7 @@ expData
 qc
 rds
 boot
+featureCounts
 
 # osx
 .DS_Store
