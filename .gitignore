@@ -1,7 +1,7 @@
 # Compiled vignettes
 *.pdf
 *.html
-DC_vignettes.zip
+*.zip
 
 # Data folders
 quant

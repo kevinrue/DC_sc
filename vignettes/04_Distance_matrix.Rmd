@@ -1,0 +1,394 @@
+---
+title: Distance matrix
+author:
+  - name: Anna Aulicino
+    email: anna.aulicino@ndm.ox.ac.uk
+    affiliation: MRC,Human Immunology Unit, Weatherall Institute of Molecular
+        Medicine, NIHR Biomedical research centre, University of Oxford,
+        John Radcliffe Hospital, Oxford, UK.
+  - name: Kévin Rue-Albrecht
+    email: kevinrue67@gmail.com
+    affiliation: Department of Medicine, Imperial College London,
+        Hammersmith Campus, Du Cane Road, London, W12 0NN, UK
+date: "`r doc_date()`"
+package: "`r pkg_ver('BiocStyle')`"
+abstract: >
+  Visualise pairwise distance between single cells using normalised gene
+  expression.
+vignette: >
+  %\VignetteIndexEntry{Quality Control}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+output: 
+  BiocStyle::pdf_document2:
+    toc_newpage: true
+bibliography:
+  QC.bib
+---
+
+# Prior work
+
+Prior to this document, quantitation data for all 384 samples
+(including single cells, blanks and bulks) was obtained using
+[Kallisto](https://pachterlab.github.io/kallisto/)
+as follows:
+
+```
+kallisto quant \
+    --index=$kallistoIdx \
+    --output-dir=$kallistoDir/$cell \
+    --bootstrap-samples=100 \
+    $fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
+```
+
+Subsequently:
+
+* The quantitation data was imported into the _R_ environment.
+* Phenotype data was attached imported and attached to the `SCESet`
+* Transcript-level expression data was aggregated at the gene level
+* Gene identifiers were made more intuitive by prepending gene symbol where
+  possible
+* Outliers were identified and removed among single cells,
+  using blank and bulk samples as reference for certain metrics.
+* Endogenous and spike-in features were filtered to retain only those
+  detected in the data set
+* The remaining single cells and features were serialised as a `SCESet` and
+  written to file.
+
+# Settings
+
+Packages required for this vignette:
+
+```{r packages, message=FALSE}
+library(scater)
+library(matrixStats)
+library(MKmisc)
+library(ComplexHeatmap)
+library(RColorBrewer)
+```
+
+Let us set the working directory to execute the following code chunks:
+
+```{r workdir}
+workdir <- ifelse(interactive(), ".", "..")
+```
+
+Let us set a few paths relevant to the analysis:
+
+```{r paths}
+folder.rds <- file.path(workdir, "rds")
+folder.expdata <- file.path(workdir, "expData")
+```
+
+# Import preprocessed data
+
+Let us import the normalised data:
+
+```{r DC_all}
+sc_norm <- readRDS(file.path(folder.rds, "normalised.rds"))
+```
+
+Let us immediately subset the data set to retain only endogenous features:
+
+```{r excludeERCC}
+endo_sc <- sc_norm[!fData(sc_norm)$is_feature_control_ERCC,]
+```
+
+Let us also reorder samples by `Time`, `Status`, and `Infection`:
+
+```{r orderSamples}
+endo_sc <- endo_sc[,order(endo_sc$Time, endo_sc$Status, endo_sc$Infection)]
+```
+
+Let us also order genes by decreasing variance:
+
+```{r}
+rv <- rowVars(assayData(endo_sc)[["norm_exprs"]])
+endo_sc <- endo_sc[order(rv, decreasing = TRUE),]
+rm(rv)
+```
+
+Let us focus on the most variable genes, centre and scale their expression
+values across all samples:
+
+```{r}
+top300 <- assayData(endo_sc)[["norm_exprs"]][1:300,]
+top300.scaled <- t(scale(t(top300)))
+```
+
+# Display expression data as supervised clusters
+
+Let us prepare colours to indicate phenotypes:
+
+```{r palette9}
+col9 <- brewer.pal(10, "Set3")
+```
+
+We may then visualised normalised and scaled expression values in
+a heat map manually organised by phenotype, while allowing genes with
+similar expression profiles to cluster:
+
+```{r heatManual}
+h_column = HeatmapAnnotation(
+  df = pData(endo_sc)[,c("Time", "Status", "Infection")],
+  col = list(
+    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
+    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[10])
+  )
+)
+ht = Heatmap(
+  top300,
+  name = "norm_exprs", column_title = "Normalised expression",
+  top_annotation = h_column,
+  cluster_rows = TRUE, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE,
+  show_row_dend = TRUE
+)
+ht.scaled = Heatmap(
+  top300.scaled,
+  name = "scaled_exprs", column_title = "Scaled expression",
+  top_annotation = h_column,
+  cluster_rows = TRUE, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE,
+  show_row_dend = TRUE
+)
+```
+
+```{r heatManualNorm, fig.height=8}
+draw(ht)
+```
+
+```{r heatManualScaled, fig.height=8}
+draw(ht.scaled)
+```
+
+In this case, the heat map that displays normalised (non-scaled) expression
+is more informative, as it gives a better impression of the _relative_
+expression of different genes within and between samples that were manually
+clustered to emphasise differences and similiarities between experimental
+groups.
+
+In contrast, scaled expression values are more relevant in following sections
+to perform unsupervised clustering of samples while preventing distance metrics
+such as the Euclidian distance from being overwhelmed by highly expressed genes.
+
+# Pairwise distances between samples
+
+## Euclidian distance between most variable genes
+
+### Estimate distances
+
+Calculate the Euclidian distance between samples using the
+scaled normalised expression values calculated earlier:
+
+```{r distEuclidScaled}
+d.e.s <- dist(t(top300.scaled), diag = TRUE, upper = TRUE)
+mat.e.s <- as.matrix(d.e.s)
+```
+
+For demonstration purpose, do the same with normalised (unscaled) values:
+
+```{r distEuclidNorm}
+d.e.n <- dist(t(top300), diag = TRUE, upper = TRUE)
+mat.e.n <- as.matrix(d.e.n)
+```
+
+Cluster samples according to their Euclidian distance for scaled values:
+
+```{r clustEuclidScaled}
+h.e.s <- hclust(d.e.s)
+ord.e.s <- mat.e.s[h.e.s$order, h.e.s$order]
+rm(mat.e.s)
+```
+
+Again, do the same for unscaled values:
+
+```{r clustEuclidNorm}
+h.e.n <- hclust(d.e.n)
+ord.e.n <- mat.e.n[h.e.n$order, h.e.n$order]
+rm(mat.e.n)
+```
+
+### Display heat maps
+
+Draw the heatmaps using Euclidian distance for normalised or
+normalised-scaled data:
+
+```{r heatEuclid}
+hs_column = HeatmapAnnotation(
+  df = pData(endo_sc)[h.e.s$order,c("Time", "Status", "Infection")],
+  col = list(
+    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
+    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[10])
+  )
+)
+hs = Heatmap(
+  ord.e.s, name = "norm_scaled", column_title = "Normalised scaled",
+  top_annotation = hs_column,
+  cluster_rows = FALSE, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE
+)
+hn_column = HeatmapAnnotation(
+  df = pData(endo_sc)[h.e.n$order,c("Time", "Status", "Infection")],
+  col = list(
+    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
+    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[10])
+  )
+)
+hn = Heatmap(
+  ord.e.n, name = "norm", column_title = "Normalised unscaled",
+  top_annotation = hn_column,
+  cluster_rows = FALSE, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE
+)
+```
+
+```{r heatEuclidNorm, fig.height=8}
+draw(hn)
+```
+
+```{r heatEuclidScaled, fig.height=8}
+draw(hs)
+```
+
+## Correlation between the most variable genes
+
+### Spearman
+
+Estimate distance between sample using Spearman's (rank) correlation.
+
+\bioccomment{
+The rank correlation is insensitive to the scaling process (the order
+of samples are preserved by the scaling procedure). Therefore, there is
+no need to compare the identical heat maps produced for the two data sets.
+}
+
+```{r distSpearman}
+c.s <- corDist(t(top300), "spearman", diag = TRUE, upper = TRUE)
+mat.c.s <- as.matrix(c.s)
+```
+
+Cluster samples:
+
+```{r clustSpearman}
+h.c.s <- hclust(c.s)
+ord.c.s <- mat.c.s[h.c.s$order, h.c.s$order]
+rm(c.s)
+```
+
+### Pearson
+
+Estimate distance between sample using Pearson's correlation.
+Let us compare the effect of scaling the expression data (by gene)
+on the correlation between samples.
+
+We start calculating the sample correlation using the unscaled normalised data:
+
+```{r distPearsonNorm}
+c.p.n <- corDist(t(top300), diag = TRUE, upper = TRUE)
+mat.c.p.n <- as.matrix(c.p.n)
+```
+
+We then do the same with the scaled data:
+
+```{r distPearsonScaled}
+c.p.s <- corDist(t(top300.scaled), diag = TRUE, upper = TRUE)
+mat.c.p.s <- as.matrix(c.p.s)
+```
+
+Cluster samples using Pearson's correlation for the unscaled data:
+
+```{r clustPearsonNorm}
+h.c.p.n <- hclust(c.p.n)
+ord.c.p.n <- mat.c.p.n[h.c.p.n$order, h.c.p.n$order]
+rm(c.p.n)
+```
+
+And the same for the scaled data:
+
+```{r clustPearsonScaled}
+h.c.p.s <- hclust(c.p.s)
+ord.c.p.s <- mat.c.p.s[h.c.p.s$order, h.c.p.s$order]
+rm(c.p.s)
+```
+
+# Heat maps
+
+
+Draw the heat map using Spearman's _rho_ correlation:
+
+```{r heatSpearman, fig.height=8}
+ht_column = HeatmapAnnotation(
+  df = pData(endo_sc)[h.c.s$order,c("Time", "Status", "Infection")],
+  col = list(
+    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
+    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[10])
+  )
+)
+ht = Heatmap(
+  ord.c.s, name = "1 - r", column_title = "Spearman distance",
+  top_annotation = h_column,
+  cluster_rows = FALSE, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE
+)
+draw(ht)
+```
+
+Draw the heat maps using Pearson's _r_ correlation:
+
+```{r heatPearson}
+hs_column = HeatmapAnnotation(
+  df = pData(endo_sc)[h.c.p.s$order,c("Time", "Status", "Infection")],
+  col = list(
+    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
+    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[10])
+  )
+)
+hs = Heatmap(
+  ord.c.p.s, name = "scaled (1 - r)", column_title = "Normalised scaled",
+  top_annotation = hs_column,
+  cluster_rows = FALSE, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE
+)
+hn_column = HeatmapAnnotation(
+  df = pData(endo_sc)[h.c.p.n$order,c("Time", "Status", "Infection")],
+  col = list(
+    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
+    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[10])
+  )
+)
+hn = Heatmap(
+  ord.c.p.n, name = "norm (1 - r)", column_title = "Normalised unscaled",
+  top_annotation = hn_column,
+  cluster_rows = FALSE, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE
+)
+```
+
+```{r heatPearsonNorm, fig.height=8}
+draw(hn)
+```
+
+Heat map based on the normalised-scaled data:
+
+```{r heatPearsonScaled, fig.height=8}
+draw(hs)
+```
+
+# Session info
+
+Here is the output of `sessionInfo()` on the system on which this
+document was compiled:
+
+```{r sessionInfo, echo=FALSE}
+sessionInfo()
+```
+
+[R]: http://r-project.org
+[RStudio]: http://www.rstudio.com/
