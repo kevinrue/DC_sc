@@ -331,7 +331,7 @@ ht_column = HeatmapAnnotation(
 )
 ht = Heatmap(
   ord.c.s, name = "1 - r", column_title = "Spearman distance",
-  top_annotation = h_column,
+  top_annotation = ht_column,
   cluster_rows = FALSE, cluster_columns = FALSE,
   show_row_names = FALSE, show_column_names = FALSE
 )
