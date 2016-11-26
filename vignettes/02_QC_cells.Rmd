@@ -358,7 +358,7 @@ as outliers, given their excessively _low_ total number of features detected.
 ## Library complexity {#ComplexityOutliers}
 
 In addition to the total number of features detected in each sample,
-another critical QC metric si the proportion of library accounted for by
+another critical QC metric is the proportion of library accounted for by
 the top `N` features.
 Different levels of `N` may help identify blank-like features of very low
 complexity (very few features account for virtually the entire library), or
