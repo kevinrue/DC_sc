@@ -27,8 +27,8 @@ output:
 # Pre-processed data
 
 Prior to this document, quantitation data for all 384 samples
-(including single cells, blanks and bulks) was obtained using _Kallisto_ 
-as follows:
+(including single cells, blanks and bulks) was obtained using
+[Kallisto](https://pachterlab.github.io/kallisto/) as follows:
 
 ```
 kallisto quant \
@@ -91,6 +91,11 @@ sc_DC <- readKallistoResults(
 We can examine the resulting `SCESet`, highlighting how the sum of `TPM` values
 totals one million in all samples:
 
+\bioccomment{
+The total count varies around one million by half a unit, certainly due to
+rounding of values during the quantitation procedure.
+}
+
 ```{r tpmTx}
 dim(sc_DC)
 summary(colSums(tpm(sc_DC)))
@@ -111,6 +116,7 @@ slot:
 ```{r expData}
 varLabels(sc_DC)
 samplesData <- read.csv(file.path(folder.expData, "samples.csv"))
+names(samplesData)
 pData(sc_DC) <- cbind(samplesData, pData(sc_DC))
 ```
 
@@ -152,7 +158,7 @@ pander::pandoc.table(head(fData(sc_DC)))
 
 Once the `SCESet` contains gene annotations, transcript-level expression
 estimates produced by _Kallisto_ can be collapsed to gene-level estimates
-using the `summariseExprsAcrossFeatures` method:
+using the `r Biocpkg("scater")` `summariseExprsAcrossFeatures` method:
 
 ```{r summariseExprsAcrossFeatures}
 sc_DC_gene <- summariseExprsAcrossFeatures(
@@ -162,6 +168,9 @@ names(fData(sc_DC_gene))
 colnames(fData(sc_DC_gene)) <-
     gsub("exprs_collapsed_to", "feature_id", names(fData(sc_DC_gene)))
 ```
+
+Let us examine the collapsed `SCESet` and confirm that the total TPM remains
+a million:
 
 ```{r tpmGene}
 dim(sc_DC_gene)
@@ -175,7 +184,12 @@ ggplot(data.frame(sum = colSums(tpm(sc_DC_gene)))) +
   labs(x = "Sample", title = "Sum of TPM across summarised genes")
 ```
 
-# Add gene symbols to featureNames to make them more intuitive
+# Prepend intuitive gene symbols to featureNames
+
+Let us store the feature identifier (including ERCC spike-in identifier),
+and the associated gene symbol (`NA` for ERCC spike-in and gene identifiers
+not associated with an official gene symbol) in two additional columns of the
+`featureData` slot:
 
 ```{r mapGeneSymbols}
 fData(sc_DC_gene)$feature_id <- as.character(fData(sc_DC_gene)$feature_id)
@@ -197,10 +211,15 @@ featureNames(sc_DC_gene) <- ifelse(
         sep = "_"
     )
 )
-head(fData(sc_DC_gene), n = 3)
 ```
 
-# Save the updated SCESet to file
+Let us examine some features:
+
+```{r tableAnnotatedFeatures, results='asis'}
+pander::pandoc.table(head(fData(sc_DC_gene), 10))
+```
+
+# Save the preprocessed SCESet to file
 
 ```{r saveRDS}
 saveRDS(sc_DC_gene, file.path(folder.rds, "all_EnsDb.rds"))
