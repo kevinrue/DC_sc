@@ -10,6 +10,7 @@ qc
 rds
 boot
 featureCounts
+trimgalore
 
 # osx
 .DS_Store
