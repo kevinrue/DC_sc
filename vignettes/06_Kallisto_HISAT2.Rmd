@@ -1,0 +1,313 @@
+---
+title: Comparison of pseudo-aligned and aligned data sets
+author:
+  - name: Anna Aulicino
+    email: anna.aulicino@ndm.ox.ac.uk
+    affiliation: MRC,Human Immunology Unit, Weatherall Institute of Molecular
+        Medicine, NIHR Biomedical research centre, University of Oxford,
+        John Radcliffe Hospital, Oxford, UK.
+  - name: Kévin Rue-Albrecht
+    email: kevinrue67@gmail.com
+    affiliation: Department of Medicine, Imperial College London,
+        Hammersmith Campus, Du Cane Road, London, W12 0NN, UK
+date: "`r doc_date()`"
+package: "`r pkg_ver('BiocStyle')`"
+abstract: >
+  Comparison of pseudo-aligned data obtained using _Kallisto_ to aligned data
+  obtained using _Trim Galore!_, _HISAT2_, and _featureCounts_.
+vignette: >
+  %\VignetteIndexEntry{Quality Control}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+output: 
+  BiocStyle::pdf_document2:
+    toc_newpage: true
+---
+  
+# Prior work
+
+## Kallisto
+
+Prior to this document:
+* Quantitation data was obtained using
+  [Kallisto](https://pachterlab.github.io/kallisto/)
+* The quantitation data was imported into the _R_ environment as a `SCESet`.
+* Phenotype data was attached to the `SCESet`.
+* Transcript-level expression data was aggregated into gene-level
+expression estimates.
+* Gene identifiers were made more intuitive by prepending gene symbol where
+    possible 
+* Outlier samples were identified and removed from the `SCESet`
+* Detected features were selected
+  + To compare the pseudo-aligned and aligned data sets, we consider in this
+    vignette _all_ features measured in both platforms,
+    even those below detection level in either of them.
+* The resulting `SCESet` was serialised and written to file.
+
+The pipeline is described in more details across vignettes _01_ and _02_.
+  
+## HISAT2
+
+An alignment-based pipeline was implemented using:
+
+* [Trim Galore!](http://www.bioinformatics.babraham.ac.uk/projects/trim_galore)
+* [HISAT2](https://ccb.jhu.edu/software/hisat2/index.shtml)
+* [featureCounts](http://bioinf.wehi.edu.au/featureCounts)
+
+The pipeline is described in more details in _Vignette 05_.
+
+# Settings
+
+Packages required for this vignette:
+
+```{r packages, message=FALSE}
+library(scater)
+library(edgeR)
+library(dplyr)
+library(ggplot2)
+library(EnsDb.Hsapiens.v79)
+```
+
+Let us set the working directory to execute the following code chunks:
+
+```{r workdir}
+workdir <- ifelse(interactive(), ".", "..")
+```
+
+Let us set a few paths relevant to the analysis:
+
+```{r paths}
+folder.rds <- file.path(workdir, "rds")
+```
+
+# Import preprocessed data
+
+## Kallisto
+
+Here, we simply import the preprocessed data for all samples,
+including bulks and blanks:
+
+```{r DC_all}
+kallisto_all <- readRDS(file.path(folder.rds, "all_EnsDb.rds"))
+```
+
+Let us examine a summary of the experimental phenotype data in the full
+data set:
+
+```{r expdata}
+expdata <- droplevels(
+  pData(kallisto_all)[,c("Infection","Status","Time","Lane","Plate")]
+)
+expdata$Lane <- as.factor(expdata$Lane)
+summary(expdata)
+```
+
+## Alignment pipeline
+
+```{r readDGE}
+expdata$files <- file.path(sprintf(
+  "WTCHG_%s_%s", expdata$Lane, rownames(expdata)
+))
+expdata$group <- paste(
+  expdata$Time, expdata$Infection, expdata$Status,
+  sep = "_"
+)
+```
+
+Let us import the data previously serialised and saved to file:
+
+```{r}
+dge_all <- readRDS(file.path(folder.rds, "dge_all.rds"))
+```
+
+# Overview of alignment pipeline
+
+# Bulks
+
+Let us compare the estimated counts produced by _Kallisto_ to the count
+obtained through the alignment pipeline in each `BULK` sample.
+
+First, let us retain only the features identified in both platforms:
+
+```{r}
+features.overlap <- intersect(rownames(dge_all), fData(kallisto_all)$feature_id)
+kallisto.overlap <- kallisto_all[
+  match(features.overlap, fData(kallisto_all)$feature_id),
+  ]
+dge.overlap <- dge_all[features.overlap,]
+stopifnot(all(fData(kallisto.overlap)$feature_id == rownames(dge.overlap)))
+rm(kallisto_all, dge_all)
+```
+
+Then, let us identify this comparison to only endogenous features:
+
+```{r endogenous}
+ercc <- grepl("^ERCC-", features.overlap)
+table(ercc)
+```
+
+Let us then collect for each experimental group, the estimated counts
+obtained using _Kallisto_) and the counts using the alignment pipeline:
+
+```{r, message=FALSE}
+comp.bulks <- data.frame(
+  Time = character(),
+  Infection = character(),
+  Kallisto = integer(),
+  THF = integer(),
+  ERCC = logical()
+)
+for (time in c("2h", "4h", "6h")){
+  for (infection in c("Mock", "D23580", "LT2")){
+    message(sprintf("%s - %s", time, infection))
+    kallisto <- counts(kallisto.overlap[
+      ,
+      kallisto.overlap$Time == time &
+        kallisto.overlap$Infection == infection &
+        kallisto.overlap$Status == "BULK"
+    ])[,1]
+    thf = dge.overlap$counts[
+      ,
+      dge.overlap$samples$Time == time &
+        dge.overlap$samples$Infection == infection &
+        dge.overlap$samples$Status == "BULK"
+    ]
+    new.df <- data.frame(
+      Time = time,
+      Infection = infection,
+      Kallisto = kallisto,
+      THF = thf,
+      ERCC = ercc
+    )
+    comp.bulks <- rbind(comp.bulks, new.df)
+  }
+}
+rm(kallisto, thf, time, infection, new.df)
+```
+
+Let us now plot the log~10~-transformed
+estimated counts obtained using _Kallisto_ against
+the counts obtained from the alignment pipeline
+(_Trim Galore!_-_HISAT2_-_featureCounts_; THF)
+after adding one count to all features:
+
+```{r}
+ggplot(comp.bulks, aes(log10(Kallisto + 1), log10(THF + 1))) +
+  geom_hex() +
+  facet_grid(Infection ~ Time) +
+  geom_point(
+    aes(log10(Kallisto + 1), log10(THF + 1)),
+    subset(comp.bulks, ERCC),
+    colour = "red", size = 0.3)
+```
+
+For reference, let us show display the data without log-scaling the axes:
+
+```{r}
+ggplot(comp.bulks, aes(Kallisto + 1, THF + 1)) +
+  geom_hex() +
+  facet_grid(Infection ~ Time) +
+  geom_point(
+    aes(Kallisto + 1, THF + 1),
+    subset(comp.bulks, ERCC),
+    colour = "red", size = 0.3)
+```
+
+# Single cells
+
+To compare the output of _Kallisto_ and the alignment-based pipeline on
+single cells, let us focus on the subset of cells that passed filtering:
+
+```{r}
+kallisto_cells <- readRDS(file.path(folder.rds, "goodCells.rds"))
+```
+
+Let us retain only the features also measured by the alignment pipeline:
+
+```{r}
+kallisto.overlap <- kallisto_cells[
+  match(features.overlap, fData(kallisto_cells)$feature_id),
+  ]
+```
+
+To compare the performance of both approaches in a representative sample of
+experimental groups, let us randomly select a single cell from each
+`Time:Infection` condition, and colour the data points according the cell
+`Status` (`uninfected`, `exposed`, `infected`):
+
+```{r}
+set.seed(1985)
+comp.sc <- data.frame(
+  Time = character(),
+  Infection = character(),
+  Status = character(),
+  Kallisto = numeric(),
+  THF = numeric(),
+  ERCC = logical()
+)
+for (time in c("2h", "4h", "6h")){
+   for (infection in c("Mock", "D23580", "LT2")){
+    sname <- as.character(sample(subset(
+      pData(kallisto.overlap),
+      Time == time & Infection == infection,
+      select = sample,
+      drop = TRUE), 1))
+    message(sname)
+    kallisto <- counts(kallisto.overlap[,sname])[,1]
+    thf = dge.overlap$counts[,sname]
+    new.df <- data.frame(
+      Time = time,
+      Infection = infection,
+      Status = subset(
+        pData(kallisto.overlap), sample == sname, select = Status, drop = TRUE
+      ),
+      Kallisto = kallisto,
+      THF = thf,
+      ERCC = ercc
+    )
+    comp.sc <- rbind(comp.sc, new.df)
+  }
+}
+```
+
+Let us now plot the log~10~-transformed
+estimated counts obtained using _Kallisto_ against
+the counts obtained from the alignment pipeline
+(_Trim Galore!_-_HISAT2_-_featureCounts_; THF)
+after adding one count to all features:
+
+```{r}
+ggplot(comp.sc, aes(log10(Kallisto + 1), log10(THF + 1))) +
+  geom_hex(aes(colour = Status)) +
+  facet_grid(Infection ~ Time) +
+  geom_point(
+    aes(log10(Kallisto + 1), log10(THF + 1)),
+    subset(comp.sc, ERCC),
+    colour = "red", size = 0.3)
+```
+
+Let us show the same data without colour:
+
+```{r}
+ggplot(comp.sc, aes(log10(Kallisto + 1), log10(THF + 1))) +
+  geom_hex() +
+  facet_grid(Infection ~ Time) +
+  geom_point(
+    aes(log10(Kallisto + 1), log10(THF + 1)),
+    subset(comp.sc, ERCC),
+    colour = "red", size = 0.3)
+```
+
+
+# Session info
+
+Here is the output of `sessionInfo()` on the system on which this
+document was compiled:
+
+```{r sessionInfo, echo=FALSE}
+sessionInfo()
+```
+
+
+[R]: http://r-project.org
+[RStudio]: http://www.rstudio.com/

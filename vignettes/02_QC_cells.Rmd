@@ -1,5 +1,5 @@
 ---
-title: Quality Control
+title: Quality control and outlier detection
 author:
   - name: Anna Aulicino
     email: anna.aulicino@ndm.ox.ac.uk
@@ -26,28 +26,17 @@ output:
   
 # Prior work
 
-Prior to this document, quantitation data for all 384 samples
-(including single cells, blanks and bulks) was obtained using
+Prior to this document:
+
+* Quantitation data was obtained using
 [Kallisto](https://pachterlab.github.io/kallisto/)
-as follows:
-
-```
-kallisto quant \
---index=$kallistoIdx \
---output-dir=$kallistoDir/$cell \
---bootstrap-samples=100 \
-$fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
-```
-
-Subsequently:
-  
 * The quantitation data was imported into the _R_ environment as a
 `SCESet` using the `r Biocpkg("scater")` `readKallistoResults` method,
 * Phenotype data was imported from a CSV file and attached to the `SCESet`,
 * Transcript-level expression data was aggregated into gene-level
 expression estimates using the `r Biocpkg("EnsDb.Hsapiens.v79")` package
-(GRCh38) and `r Biocpkg("scater")` `summariseExprsAcrossFeatures` method.
-* Gene identifiers were made more intuitive by prepending gene symbol where
+(GRCh38) and the `r Biocpkg("scater")` `summariseExprsAcrossFeatures` method.
+* Feature names were made more intuitive by prepending gene symbol where
 possible (*e.g.* `ENSG00000277943` to `CCL4_ENSG00000277943`).
 * The resulting `SCESet` was serialised and written to file.
   
@@ -72,7 +61,7 @@ Let us set the working directory to execute the following code chunks:
 workdir <- ifelse(interactive(), ".", "..")
 ```
 
-Let us set a few paths relevant to the analysis:
+Let us set a few paths relevant to this analysis:
 
 ```{r paths}
 folder.rds <- file.path(workdir, "rds")
@@ -83,17 +72,17 @@ folder.expdata <- file.path(workdir, "expData")
 
 Here, we simply import the preprocessed data:
 
-```{r DC_all}
+```{r DCall}
 DC_all <- readRDS(file.path(folder.rds, "all_EnsDb.rds"))
 ```
 
 Let us create a copy of the data set, subsetted to only single cells:
 
-```{r DC_sc}
+```{r DCsc}
 DC_sc <- DC_all[, !DC_all$Status %in% c("Blank", "BULK")]
 ```
 
-Let us drop unused factor levels `Blank` and `BULK` from the data set
+Let us drop unused factor levels (_i.e._ `Blank`, `BULK`) from the data set
 that only contains single cells:
 
 ```{r dropLevels}
@@ -105,7 +94,7 @@ data set:
 
 ```{r expdata}
 expdata <- droplevels(
-  pData(DC_all)[,c("Infection","Status","Time","Lane","Plate","Well")]
+  pData(DC_all)[,c("Infection","Status","Time","Lane","Plate")]
 )
 expdata$Lane <- as.factor(expdata$Lane)
 summary(expdata)
@@ -113,15 +102,16 @@ summary(expdata)
 
 # Calculate QC metrics
 
-Let us calculate QC metrics across _all_ samples
+In this section, we calculate QC metrics across _all_ samples
 (including blanks and bulks).
 
 ## Identify mitochondrial genes
 
 To calculate QC metrics related to mitochondrial genes, let us first obtain
-the gene identifier of those genes from the `EnsDb.Hsapiens.v79` package:
+from the `EnsDb.Hsapiens.v79` package the gene identifier of all genes on the
+mitochondrial chromosome:
 
-```{r MTrules}
+```{r MTids}
 MT_ids <- genes(
   EnsDb.Hsapiens.v79, "gene_id", SeqnameFilter("MT", "=")
 )$gene_id
@@ -161,11 +151,11 @@ DC_sc <- calculateQCMetrics(
 )
 ```
 
-Let us examine the list of QC metrics calculated for the _single cells only_
-data set:
+Let us examine the list of QC metrics calculated for the data set that only
+includes single cells :
 
 ```{r QCMetrics}
-varLabels(DC_sc)
+paste(varLabels(DC_sc))
 ```
 
 # Global quality control for the experiment
@@ -245,7 +235,7 @@ on the following QC metrics:
 
 To facilitate comparison, the filters are listed by order of outliers detected:
 
-```{r scaterFiltersHeatmap, echo=FALSE, fig.height=8}
+```{r scaterFiltersHeatmap, fig.height=8}
 QC_long <- melt(
   pData(DC_sc),
   id.vars = "sample",
@@ -336,7 +326,7 @@ ggplot(pData(DC_all)) +
 rm(metric, M, MAD)
 ```
 
-Note how only `BULK` samples show exceed the median values plus `3` MADs
+Note how only `BULK` samples exceed the median values plus `3` MADs
 (calculated on single cells _only_). In contrast, `3` single cells
 display a markedly _low_ total of features detected, comparable to that of
 `Blank` samples. Notably, those three samples are also detected by the
@@ -436,7 +426,7 @@ _over_-representation of spike-in ERCC control features.
 For this purpose, let us display the `pct_tpm_feature_controls_ERCC` metric,
 the default cut-off value of `80%`, and the more stringent cut-off of `5%`:
 
-```{r pct_tpm_feature_controls_ERCC_80, echo=FALSE}
+```{r pct_tpm_feature_controls_ERCC, echo=FALSE}
 ggplot(pData(DC_all)) +
   geom_point(aes(
     x = seq_len(nrow(pData(DC_all))),
@@ -798,6 +788,14 @@ for (time in c("2h", "4h", "6h")){
     comp.exprs <- rbind(comp.exprs, mock.df, exposed.df, infected.df)
   }
 }
+```
+
+To reduce file size and the number of uninformative data plotted,
+let us remove many data points that indicate
+simultaneously null expression in cell average and bulks:
+
+```{r}
+comp.exprs <- subset(comp.exprs, Bulk > 0 | Average > 0)
 ```
 
 We may then visualise this information in a figure faceted by `Time` and

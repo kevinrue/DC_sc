@@ -1,0 +1,245 @@
+---
+title: Preprocessing of alignment-based quantitation data
+author:
+  - name: Anna Aulicino
+    email: anna.aulicino@ndm.ox.ac.uk
+    affiliation: MRC,Human Immunology Unit, Weatherall Institute of Molecular
+        Medicine, NIHR Biomedical research centre, University of Oxford,
+        John Radcliffe Hospital, Oxford, UK.
+  - name: Kévin Rue-Albrecht
+    email: kevinrue67@gmail.com
+    affiliation: Department of Medicine, Imperial College London,
+        Hammersmith Campus, Du Cane Road, London, W12 0NN, UK
+date: "`r doc_date()`"
+package: "`r pkg_ver('BiocStyle')`"
+abstract: >
+  Import and preprocess quantitation data obtained using an alignment-based
+  pipeline made of _Trim Galore!_, _HISAT2_, and _featureCounts_.
+vignette: >
+  %\VignetteIndexEntry{Quality Control}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+output: 
+  BiocStyle::pdf_document2:
+    toc_newpage: true
+---
+  
+# Prior work
+
+An alignment-based pipeline was implemented using:
+
+* [Trim Galore!](http://www.bioinformatics.babraham.ac.uk/projects/trim_galore)
+* [HISAT2](https://ccb.jhu.edu/software/hisat2/index.shtml)
+* [featureCounts](http://bioinf.wehi.edu.au/featureCounts)
+
+### Trim Galore!
+
+On this data set, trimming was found to improve alignment rate by ~5%
+using _HISAT2_.
+All samples were adapter- and quality-trimmed as follows:
+
+```
+trim_galore \
+    --output_dir $trimgaloreDir \
+    --paired \
+    $fastqFolder/${cell}_1.fastq.gz $fastqFolder/${cell}_2.fastq.gz
+```
+
+\fixme{
+Report some trimming statistics here.
+}
+
+### HISAT2
+
+#### Composite genome
+
+A composite genome (chromosomes and ERCC spike-in sequences) was assembled
+as follows.
+
+First the sequence and annotations for the ERCC92 spike-ins were obtained:
+
+```
+wget https://tools.thermofisher.com/content/sfs/manuals/ERCC92.zip
+unzip ERCC92.zip
+```
+
+A composite genome was assembled by concatenating the ERCC92 sequences to
+the GRCh38 build:
+
+```
+wget http://ftp.ensembl.org/pub/release-86/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.toplevel.fa.gz
+gunzip Homo_sapiens.GRCh38.dna.toplevel.fa.gz
+cat Homo_sapiens.GRCh38.dna.toplevel.fa ERCC92.fa > genome_with_ERCC92.fa
+```
+A composite genome annotation file was assembled by concatenating the ERCC92 annotations to the the GRCh38 GTF file:
+
+```
+wget http://ftp.ensembl.org/pub/release-86/gtf/homo_sapiens/Homo_sapiens.GRCh38.86.gtf.gz
+gunzip Homo_sapiens.GRCh38.86.gtf.gz
+cat Homo_sapiens.GRCh38.86.gtf ERCC92.gtf > genes_with_ERCC.gtf
+```
+
+#### Genome index
+
+The composite genome was indexed as follows:
+
+```
+hisat2-build $fastaFiles $hisatIdxBase
+```
+
+#### Alignment
+
+Trimmed read pairs were aligned to the composite genome as follows:
+
+```
+hisat2 \
+    -x ${hisatIdxBase} \
+    -1 ${fastqFolder}/${cell}_1_val_1.fq.gz \
+    -2 ${fastqFolder}/${cell}_2_val_2.fq.gz |
+    samtools view -hb - > $hisatDir/${cell}.bam
+```
+
+\fixme{
+Report some alignment statistics here.
+}
+
+### featureCounts
+
+Aligned read pairs were assigned to annotated features (including ERCC spike-in
+features) as follows:
+
+```
+featureCounts \
+    -s 1 \
+    --primary \
+    --ignoreDup \
+    -p \
+    -a $gtfFile \
+    -o $countFolder/$cell \
+    $hisatDir/${cell}.bam
+```
+
+\fixme{
+Report some assignment statistics here.
+}
+
+# Settings
+
+Packages required for this vignette:
+
+```{r packages, message=FALSE}
+library(scater)
+library(edgeR)
+library(dplyr)
+library(ggplot2)
+library(EnsDb.Hsapiens.v79)
+```
+
+Let us set the working directory to execute the following code chunks:
+
+```{r workdir}
+workdir <- ifelse(interactive(), ".", "..")
+```
+
+Let us set a few paths relevant to the analysis:
+
+```{r paths}
+folder.expData <- file.path(workdir, "expData")
+folder.rds <- file.path(workdir, "rds")
+folder.count <- file.path(
+  workdir, "trimgalore", "HISAT2", "featureCounts", "trimmed"
+)
+```
+
+# Import preprocessed data
+
+## Alignment pipeline
+
+Then, let us import experimental information on samples:
+
+```{r expData}
+expdata <- read.csv(file.path(folder.expData, "samples.csv"))
+rownames(expdata) <- expdata$sample
+expdata$Lane <- as.factor(expdata$Lane)
+expdata$sample <- as.character(expdata$sample)
+summary(expdata)
+```
+
+Using the above information, let us add additional columns to define the file
+paths and the sample groups:
+
+```{r fixExpData}
+expdata$files <- file.path(sprintf(
+  "WTCHG_%s_%s", expdata$Lane, rownames(expdata)
+))
+expdata$group <- as.factor(paste(
+  expdata$Time, expdata$Infection, expdata$Status,
+  sep = "_"
+))
+levels(expdata$group)
+sort(table(expdata$group))
+```
+
+We may now load the data from the _featureCounts_ count files:
+
+```{r readDGE}
+dge_all <- readDGE(expdata, folder.count, c(1,7), skip = 1)
+```
+
+And then save the serialised object to file for faster loading in subsequent
+vignettes:
+
+```{r saveRDS}
+saveRDS(dge_all, file.path(folder.rds, "dge_all.rds"))
+```
+
+# Overview of alignment pipeline
+
+## Blanks
+
+Let us verify that ERCC spike-in features are the most abundant features
+in the two `Blank` samples.
+
+For this purpose, let us first extract the two `Blank` samples from the
+`DGEList`:
+
+```{r subsetBlanks}
+dge.blanks <- dge_all[,dge_all$samples$Status == "Blank"]
+```
+
+Let us then reorder the subsetted `DGEList` by decreasing average
+count:
+
+```{r reorderBlanks}
+avg.count.blanks <- rowMeans(dge.blanks$counts)
+dge.blanks <- dge.blanks[order(avg.count.blanks, decreasing = TRUE),]
+```
+
+We may then examine the features with highest counts (not normalised for
+feature length) in `Blank` samples:
+
+```{r topFeaturesBlanks, results='asis'}
+mappedSymbols <- mapIds(
+  EnsDb.Hsapiens.v79, rownames(dge.blanks$counts), "GENENAME", "GENEID"
+)
+pander::pandoc.table(
+  head(data.frame(
+    Symbol = mappedSymbols,
+    "Average count" = sort(avg.count.blanks, decreasing = TRUE)
+  ), 25)
+)
+rm(dge.blanks, mappedSymbols)
+```
+
+# Session info
+
+Here is the output of `sessionInfo()` on the system on which this
+document was compiled:
+
+```{r sessionInfo, echo=FALSE}
+sessionInfo()
+```
+
+
+[R]: http://r-project.org
+[RStudio]: http://www.rstudio.com/
