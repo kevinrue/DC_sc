@@ -21,7 +21,7 @@ shinyServer(function(input, output, session) {
   # New gene symbol selected, update choice of gene IDs
   observeEvent(
     input$geneSymbol, {
-      message("Update choice of gene IDs")
+      # message("Update choice of gene IDs")
       validate(need(
         input$geneSymbol %in% annTable$GENENAME,
         "Gene symbol not found in data set."
@@ -39,7 +39,7 @@ shinyServer(function(input, output, session) {
 
   # Number of gene IDs available for selection
   output$countGeneIds <- renderUI({
-    message("Update count of gene IDs")
+    # message("Update count of gene IDs")
     tagList(
       tags$code(length(rv[["matchedGeneIds"]])),
       "gene identifiers detected for gene symbol",
@@ -51,7 +51,7 @@ shinyServer(function(input, output, session) {
   observeEvent(
     input$geneId,{
       req(input$geneId)
-      message("New gene identifier")
+      # message("New gene identifier")
       rv[["normExprs"]] <-
         cbind(
           data.frame(exprs = norm_exprs(sceset)[input$geneId,]),
@@ -63,7 +63,7 @@ shinyServer(function(input, output, session) {
   # New expression data, update plot
   observeEvent(
     rv[["normExprs"]], {
-      message("New expression data")
+      # message("New expression data")
       rv[["exprPlot"]] <- drawExpProfile(
         rv[["normExprs"]], input$facetRow, input$facetCol,
         input$colour, input$shape, input$yRangeFull
@@ -74,7 +74,7 @@ shinyServer(function(input, output, session) {
   # New row facet, update plot
   observeEvent(
     input$facetRow,{
-      message("New facet row: ", input$facetRow)
+      # message("New facet row: ", input$facetRow)
       rv[["exprPlot"]] <- drawExpProfile(
         rv[["normExprs"]], input$facetRow, input$facetCol,
         input$colour, input$shape, input$yRangeFull
@@ -85,7 +85,7 @@ shinyServer(function(input, output, session) {
   # New column facet, update plot
   observeEvent(
     input$facetCol,{
-      message("New facet column: ", input$facetCol)
+      # message("New facet column: ", input$facetCol)
       rv[["exprPlot"]] <- drawExpProfile(
         rv[["normExprs"]], input$facetRow, input$facetCol,
         input$colour, input$shape, input$yRangeFull
@@ -96,7 +96,7 @@ shinyServer(function(input, output, session) {
   # New colour, update plot
   observeEvent(
     input$colour,{
-      message("New colour: ", input$colour)
+      # message("New colour: ", input$colour)
       rv[["exprPlot"]] <- drawExpProfile(
         rv[["normExprs"]], input$facetRow, input$facetCol,
         input$colour, input$shape, input$yRangeFull
@@ -107,7 +107,7 @@ shinyServer(function(input, output, session) {
   # New shape, update plot
   observeEvent(
     input$shape,{
-      message("New shape: ", input$shape)
+      # message("New shape: ", input$shape)
       rv[["exprPlot"]] <- drawExpProfile(
         rv[["normExprs"]], input$facetRow, input$facetCol,
         input$colour, input$shape, input$yRangeFull
@@ -118,7 +118,7 @@ shinyServer(function(input, output, session) {
   # Toggle full Y range, update plot
   observeEvent(
     input$yRangeFull,{
-      message("Full Y range: ", input$yRangeFull)
+      # message("Full Y range: ", input$yRangeFull)
       rv[["exprPlot"]] <- drawExpProfile(
         rv[["normExprs"]], input$facetRow, input$facetCol,
         input$colour, input$shape, input$yRangeFull
@@ -128,7 +128,7 @@ shinyServer(function(input, output, session) {
 
   # New plot, update output
   output$exprPlot <- renderPlot({
-    message("Draw plot")
+    # message("Draw plot")
     validate(need(
       length(rv[["exprPlot"]]$data) > 0,
       "No data to plot."
