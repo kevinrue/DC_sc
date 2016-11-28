@@ -14,12 +14,14 @@ shinyServer(function(input, output, session) {
 
   rv <- reactiveValues(
     matchedGeneIds = character(),
-    normExprs = data.frame()
+    normExprs = data.frame(),
+    exprPlot = ggplot()
   )
 
+  # New gene symbol selected, update choice of gene IDs
   observeEvent(
     input$geneSymbol, {
-
+      message("Update choice of gene IDs")
       validate(need(
         input$geneSymbol %in% annTable$GENENAME,
         "Gene symbol not found in data set."
@@ -35,7 +37,9 @@ shinyServer(function(input, output, session) {
     }
   )
 
+  # Number of gene IDs available for selection
   output$countGeneIds <- renderUI({
+    message("Update count of gene IDs")
     tagList(
       tags$code(length(rv[["matchedGeneIds"]])),
       "gene identifiers detected for gene symbol",
@@ -43,10 +47,11 @@ shinyServer(function(input, output, session) {
     )
   })
 
+  # New gene ID selected, update expression data
   observeEvent(
     input$geneId,{
       req(input$geneId)
-
+      message("New gene identifier")
       rv[["normExprs"]] <-
         cbind(
           data.frame(exprs = norm_exprs(sceset)[input$geneId,]),
@@ -55,24 +60,90 @@ shinyServer(function(input, output, session) {
     }
   )
 
+  # New expression data, update plot
+  observeEvent(
+    rv[["normExprs"]], {
+      message("New expression data")
+      rv[["exprPlot"]] <- drawExpProfile(
+        rv[["normExprs"]], input$facetRow, input$facetCol,
+        input$colour, input$shape, input$yRangeFull
+      )
+    }
+  )
+
+  # New row facet, update plot
+  observeEvent(
+    input$facetRow,{
+      message("New facet row: ", input$facetRow)
+      rv[["exprPlot"]] <- drawExpProfile(
+        rv[["normExprs"]], input$facetRow, input$facetCol,
+        input$colour, input$shape, input$yRangeFull
+      )
+    }
+  )
+
+  # New column facet, update plot
+  observeEvent(
+    input$facetCol,{
+      message("New facet column: ", input$facetCol)
+      rv[["exprPlot"]] <- drawExpProfile(
+        rv[["normExprs"]], input$facetRow, input$facetCol,
+        input$colour, input$shape, input$yRangeFull
+      )
+    }
+  )
+
+  # New colour, update plot
+  observeEvent(
+    input$colour,{
+      message("New colour: ", input$colour)
+      rv[["exprPlot"]] <- drawExpProfile(
+        rv[["normExprs"]], input$facetRow, input$facetCol,
+        input$colour, input$shape, input$yRangeFull
+      )
+    }
+  )
+
+  # New shape, update plot
+  observeEvent(
+    input$shape,{
+      message("New shape: ", input$shape)
+      rv[["exprPlot"]] <- drawExpProfile(
+        rv[["normExprs"]], input$facetRow, input$facetCol,
+        input$colour, input$shape, input$yRangeFull
+      )
+    }
+  )
+
+  # Toggle full Y range, update plot
+  observeEvent(
+    input$yRangeFull,{
+      message("Full Y range: ", input$yRangeFull)
+      rv[["exprPlot"]] <- drawExpProfile(
+        rv[["normExprs"]], input$facetRow, input$facetCol,
+        input$colour, input$shape, input$yRangeFull
+      )
+    }
+  )
+
+  # New plot, update output
   output$exprPlot <- renderPlot({
+    message("Draw plot")
     validate(need(
-      nrow(rv[["normExprs"]]) > 0,
+      length(rv[["exprPlot"]]$data) > 0,
       "No data to plot."
     ))
-    message(input$geneId)
-    ggplot(rv[["normExprs"]], aes(x = Time, y = exprs)) +
-      geom_violin(draw_quantiles = seq(0.25, 0.75, 0.25)) + geom_jitter(width = 0.25) +
-      facet_grid(Infection ~ Status)
+    rv[["exprPlot"]]
   })
 
-  output$normExprs <- renderTable({
-    validate(need(
-      nrow(rv[["normExprs"]]) > 0,
-      "No data to show."
-    ))
-
-    head(rv[["normExprs"]])
-  }, rownames = TRUE)
+  # output$normExprs <- renderTable({
+  #   message("Update sample table of expression data")
+  #   validate(need(
+  #     length(rv[["exprPlot"]]$data) > 0,
+  #     "No data to show."
+  #   ))
+  #
+  #   head(rv[["normExprs"]])
+  # }, rownames = TRUE)
 
 })

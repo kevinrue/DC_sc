@@ -40,19 +40,54 @@ shinyUI(fluidPage(
   wellPanel(
     fluidRow(
       column(
+        width = 3,
+        selectInput(
+          "facetRow", "Facet row",
+          c("Infection", "Status", ".")
+        )
+      ),
+      column(
+        width = 3,
+        selectInput(
+          "facetCol", "Facet column",
+          c("Status", "Infection", ".")
+        )
+      ),
+      column(
+        width = 3,
+        selectInput(
+          "colour", "Colour by",
+          c("None", "Status", "Infection", "Time")
+        )
+      ),
+      column(
+        width = 3,
+        selectInput(
+          "shape", "Shape by",
+          c("None", "Infection", "Status", "Time")
+        )
+      )
+    ),
+    fluidRow(
+      column(
+        width = 3,
+        checkboxInput("yRangeFull", "Full Y range", TRUE)
+      )
+    ),
+    fluidRow(
+      column(
         width = 12,
         plotOutput("exprPlot")
       )
     )
-  ),
-
-  wellPanel(
-    fluidRow(
-      column(
-        width = 12,
-        tableOutput("normExprs")
-      )
-    )
   )
+  # ,wellPanel(
+  #   fluidRow(
+  #     column(
+  #       width = 12,
+  #       tableOutput("normExprs")
+  #     )
+  #   )
+  # )
 
 ))
