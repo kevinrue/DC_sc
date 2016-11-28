@@ -65,6 +65,7 @@ library(matrixStats)
 library(MKmisc)
 library(ComplexHeatmap)
 library(RColorBrewer)
+library(EnsDb.Hsapiens.v79)
 ```
 
 Let us set the working directory to execute the following code chunks:
@@ -93,6 +94,21 @@ Let us immediately subset the data set to retain only endogenous features:
 ```{r excludeERCC}
 endo_sc <- sc_norm[!fData(sc_norm)$is_feature_control_ERCC,]
 ```
+
+Let us also retain only features annotated to the main chromosomes
+(not scaffolds):
+
+```{r}
+keep <- select(
+  EnsDb.Hsapiens.v79,
+  fData(endo_sc)$feature_id, c("SEQNAME"),
+  "GENEID")$SEQNAME %in%
+  c(1:22, "X", "Y", "MT")
+table(keep)
+endo_sc <- endo_sc[keep,]
+rm(keep)
+```
+
 
 Let us also reorder samples by `Time`, `Status`, and `Infection`:
 
