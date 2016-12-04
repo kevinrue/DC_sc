@@ -1067,7 +1067,6 @@ dim(sce.filtered)
 ```
 
 # Normalisation
-
 ## Sum factors
 
 Having identified the cells of good quality and the features robustly
@@ -1202,6 +1201,7 @@ factors, as well as the total spike-in count in each cell:
 ```{r plotExplanatoryVariables}
 plotExplanatoryVariables(
   sce.filtered,
+  exprs_values = "norm_exprs",
   variables = c(
     "counts_feature_controls_ERCC",
     "log10_counts_feature_controls_ERCC",
@@ -1220,7 +1220,9 @@ of the residual variance in the data set.
 
 Having normalised the expression data for detected features
 in single cells that passed quality control, let us examine the unsupervised
-clustering of those cells.
+clustering of those cells using different approaches.
+
+## Principal component analysis (PCA)
 
 Let us initially focus our attention on the two principal components that
 explain the largest amount of variance in the endogenous features.
@@ -1241,7 +1243,7 @@ explain the largest amount of variance in the endogenous features.
 plotPCASCESet(
   sce.filtered, ncomponents = 2, exprs_values = "norm_exprs",
   colour_by = "Status", shape_by = "Time",
-  feature_set = !fData(sce.filtered)$is_feature_control_ERCC
+  feature_set = !isSpike(sce.filtered)
 )
 ```
 
@@ -1267,7 +1269,7 @@ data set:
 plotPCASCESet(
   sce.filtered, ncomponents = 3, exprs_values = "norm_exprs",
   colour_by = "Status", shape_by = "Time",
-  feature_set = !fData(sce.filtered)$is_feature_control_ERCC
+  feature_set = !isSpike(sce.filtered)
 )
 ```
 
@@ -1278,9 +1280,47 @@ according to their `Infection` phenotype:
 plotPCASCESet(
   sce.filtered, ncomponents = 3, exprs_values = "norm_exprs",
   colour_by = "Infection", shape_by = "Time",
-  feature_set = !fData(sce.filtered)$is_feature_control_ERCC
+  feature_set = !isSpike(sce.filtered)
 )
 ```
+
+## t-distributed stochastic neighbour embedding (t-SNE)
+
+\fixme{TODO: add text here.}
+Let us apply the t-distributed stochastic neighbour embedding (t-SNE) dimensionality reduction technique on the normalised expression of the
+`500` most variable endogenous features to check for substructure in the data set:
+
+```{r plotTSNE_status}
+sce.filtered <- plotTSNE(
+  sce.filtered, ncomponents = 2, exprs_values = "norm_exprs",
+  colour_by = "Status", shape_by = "Time", return_SCESet = TRUE,
+  feature_set = !isSpike(sce.filtered),
+  rand_seed = 1794
+)
+```
+
+While the `Status` factor is investigated in the above figure,
+we may also examine the `Infection` factor below:
+
+```{r plotTSNE_infection}
+plotReducedDim.SCESet(
+  sce.filtered, ncomponents = 2, colour_by = "Infection", shape_by = "Time"
+)
+```
+
+Alternatively, we may overlay the expression level of a particular gene onto
+the data points:
+
+```{r}
+# plotId <- mapIds(EnsDb.Hsapiens.v79, "TNF", "GENEID", "GENENAME")
+plotReducedDim.SCESet(
+  sce.filtered, ncomponents = 2,
+  colour_by = "ENSG00000232810", # plotId
+  shape_by = "Time"
+  ) +
+  guides(colour = guide_colourbar(title = "TNF"))
+```
+
 
 # Saved session
 
