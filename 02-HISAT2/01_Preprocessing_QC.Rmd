@@ -26,13 +26,13 @@ library(xlsx)
 library(edgeR)
 library(scater)
 library(ggplot2)
-library(EnsDb.Hsapiens.v79)
 library(RColorBrewer)
 library(ComplexHeatmap)
 library(pander)
 library(dplyr)
 library(ggrepel)
 library(scran)
+library(rtracklayer)
 ```
 
 # Pre-processed data
@@ -485,13 +485,19 @@ plotQC(sce.blank, type = "highest-expression")
 The following sections require the estimation of several QC metrics that
 leverage control features and control samples, as means to identify
 outliers among single cells.
-For this purpose, let us first obtain the identifier of mitochondrial gene
+For this purpose, let us first import the `gene` records from the
+same GTF file that was supplied to _featureCounts_, to ensure coherent
+annotations are used throughout this analysis:
+
+```{r}
+gtfData <- import.gff("expdata/genes_with_ERCC.gtf", feature.type = "gene")
+```
+
+Let us extract from those annotations the identifier of mitochondrial gene
 features; those will be used in a [later section](#MTcontent):
 
 ```{r MT_ids}
-MTs <- ensembldb::select(
-  EnsDb.Hsapiens.v79, "MT", c("GENEID", "GENENAME"), "SEQNAME"
-)
+MTs <- mcols(gtfData)[seqnames(gtfData) == "MT", "gene_id"]
 ```
 
 Let us apply the `r Biocpkg("scater")` `calculateQCMetrics` to calculate
@@ -500,7 +506,7 @@ the relevant QC metrics in the _single cell_ data set:
 ```{r sc_QC}
 sce.sc <- calculateQCMetrics(
   sce.sc,
-  feature_controls = list(ERCC = ERCCs, MT = MTs$GENEID)
+  feature_controls = list(ERCC = ERCCs, MT = MTs)
 )
 ```
 
@@ -1100,7 +1106,7 @@ how the effect of library size on the size factor of individual cells is
 subject to factors related to the experimental design of the experiment.
 
 In particular, the figure below emphasises how the effect of library size is
-more important in `uninfected` cells, and at the ealiest time point
+more important in `uninfected` cells, and at the earliest time point
 (*i.e.*, `2h`), when the biological effect of infection may not have fully
 affect the transcriptome of most cells yet.
 
@@ -1181,7 +1187,7 @@ corresponding cell, after adding a prior count of `1` to avoid undefined values
 at zero counts.
 Division by the size factor ensures that any cell-specific biases are removed.
 Spike-in-specific size factors present are applied to normalize the spike-in
-transcripts separately from the endogenous genes:
+transcripts separately from the endogenous features:
 
 ```{r normalise}
 sce.filtered <- normalize(sce.filtered)
@@ -1286,7 +1292,6 @@ plotPCASCESet(
 
 ## t-distributed stochastic neighbour embedding (t-SNE)
 
-\fixme{TODO: add text here.}
 Let us apply the t-distributed stochastic neighbour embedding (t-SNE) dimensionality reduction technique on the normalised expression of the
 `500` most variable endogenous features to check for substructure in the data set:
 
@@ -1308,19 +1313,34 @@ plotReducedDim.SCESet(
 )
 ```
 
-Alternatively, we may overlay the expression level of a particular gene onto
-the data points:
 
-```{r}
-# plotId <- mapIds(EnsDb.Hsapiens.v79, "TNF", "GENEID", "GENENAME")
+Alternatively, we may overlay the expression level of a particular gene onto
+the data points.
+
+```{r plotTSNE_TNF}
+plotGeneId <- subset(
+    mcols(gtfData), gene_name == "TNF", select = gene_id, drop = TRUE
+  )
 plotReducedDim.SCESet(
   sce.filtered, ncomponents = 2,
-  colour_by = "ENSG00000232810", # plotId
-  shape_by = "Time"
+  colour_by = plotGeneId, shape_by = "Time"
   ) +
   guides(colour = guide_colourbar(title = "TNF"))
 ```
 
+## Diffusion map
+
+Finally, let us also produce a diffusion map plot of two components as a
+dimensionality reduction of the endogenous features:
+
+```{r plotDiffusionMapSCESet}
+plotDiffusionMapSCESet(
+  sce.filtered, exprs_values = "norm_exprs",
+  colour_by = "Status", shape_by = "Time",
+  feature_set = !isSpike(sce.filtered),
+  rand_seed = 1794
+)
+```
 
 # Saved session
 
