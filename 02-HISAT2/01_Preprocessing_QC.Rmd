@@ -275,7 +275,7 @@ all(multiqc$sample == rownames(pData(sce.all)))
 
 ### Assigned read pairs / Library size (_featureCounts_) {#featureCounts}
 
-Excessively small library size may indicate to technial issues during
+Excessively small library size may indicate technial issues during
 library preparation or low quality sample.
 Moreover, library size excessively different from the
 majority of samples may introduce bias due to under- or over-sampling of
@@ -767,7 +767,7 @@ ggplot(pData(sce.all), aes(sample, total_features)) +
   )
 ```
 
-### ERCC content
+### ERCC content {#ERCCoutliers}
 
 An identical quantity of ERCC spike-in features is added to each sample
 prior to library preparation. As a result, technical variation and issues
@@ -915,7 +915,7 @@ col9 <- brewer.pal(10, "Set3")[c(1:8, 10)]
 We may then display the QC metrics failed by each single cell as red cells
 in an heat map:
 
-```{r QC_heatmap, fig.height=8}
+```{r QC_heatmap}
 hm_row <- rowAnnotation(
   df = pData(sce.sc)[sample.order.supervised,c("Time", "Status", "Infection")],
   col = list(
@@ -983,7 +983,6 @@ table(pData(sce.pass)[,c("Infection","Status","Time")])
 ```
 
 # Feature selection
-
 ## Overview of feature detection levels
 
 Having selected single cells that pass all quality control criteria in the
@@ -1018,8 +1017,8 @@ plotExprsFreqVsMean(
 
 ## Definition of detected feature
 
-Let us set define low-abundance genes as those with an average count below a
-filter threshold of `1`.
+Let us set define low-abundance features as those with an average count below a
+filter threshold of `1`:
 
 ```{r ave.counts}
 ave.counts <- rowMeans(counts(sce.pass))
@@ -1075,17 +1074,23 @@ Having identified the cells of good quality and the features robustly
 detected across those cells, we may now normalise expression levels between
 cells using an approach suitable for single cell data sets.
 
-Let us apply the unsupervised (*i.e.*, unaware of experimental phenotypes)
-normalisation methodology implemented in the `r Biocpkg("scran")`
-package.
+Considering the multifactorial experimental design of this data set, and the
+expected differential expression in `exposed` and `infected` cells,
+let us cluster similar cells together prior to normalising the cells in each
+cluster using the deconvolution method implemented in the `r Biocpkg("scran")`
+package:
 
-The first step of the procedure is to pool counts from many cells for accurate
-size factor estimation (**cite Lun et al 2016**), before deconvolution into
-cell-based factors for cell-specific normalization
-(**cite paper 67 from Davis**):
+```{r quickCluster}
+clusters <- quickCluster(sce.filtered)
+```
+
+In this case, none of the cells were assigned to any cluster, which suggests
+that despite the expected differences between experimental groups, the data set
+is sufficiently homogenous for the normalisation procedure to be applied to
+all cells equally:
 
 ```{r computeSumFactors}
-sce.filtered <- computeSumFactors(sce.filtered, sizes = c(20, 40, 60, 80))
+sce.filtered <- computeSumFactors(sce.filtered, clusters = clusters)
 summary(sizeFactors(sce.filtered))
 ```
 
@@ -1129,6 +1134,15 @@ ggplot(
   labs(y = "Size factor", x = "")
 ```
 
+In a different perspective, the above figure emphasises again how
+size factors are affected by experimental factors in this data set;
+in particular at the later time points, size factors for cells infected by
+or exposed to bacteria display markedly distinct size factors,
+irrespective of library size.
+This suggests that `Infection`, and `Status` drive more important
+systematic differences between cells than library size at those time points,
+having likely reshaped the transcriptional profile of stimulated cells.
+
 ## Spike factors
 
 To ensure normalization is performed correctly, let us compute a separate set
@@ -1147,8 +1161,17 @@ We may then examine the spike factors calculated:
 ```{r spikeFactors_ggplot}
 ggplot(pData(sce.filtered), aes(total_counts / 1E6, size_factor_ERCC)) +
   geom_point(aes(colour = Time, shape = Status)) +
-  stat_smooth(method = "lm")
+  stat_smooth(method = "lm") +
+  labs(x = "Library size", y = "Spike factor")
 ```
+
+In contrast to size factors calculated using endogenous features, spike factors
+calculated using ERCC spike-in display a much weaker correlation with
+library size, and no trend with experimental factors.
+This reinforces the absence of extreme outliers after the removal
+of cells with abnormal ERCC content in an [earlier section](#ERCCoutliers);
+moreover, it suggests that counts assigned to individual ERCC spike-in features
+are similar across all the cells retained after quality control.
 
 ## Apply size factors to normalise
 
@@ -1167,16 +1190,14 @@ sce.filtered <- normalize(sce.filtered)
 
 # Relative importance of experimental factors
 
-\fixme{TODO}
+Having normalised the expression data for detected features in cells that
+passed quality control, the relative importance of experimental factors---both
+technical and biological---provides insight into uninteresting technical
+factors that may need to be accounted for when explaining variance in the
+expression data.
 
-Having normalised the expression 
-
-Larger experiments contain more technical factors that need to be investigated. In this dataset, factors include the sex
-of the animal from which the cells were extracted, the age of the animal, the tissue of origin for each cell, and the total
-spike-in count in each cell. Figure 19 shows that the tissue of origin explains a substantial proportion of the variance
-for a subset of genes. This is probably because each tissue contains a different composition of cell types, leading to
-systematic differences in gene expression between tissues. The other factors explain only a small proportion of the
-variance for most genes and do not need to be incorporated into our downstream analyses.
+Let us examine the proportion of variance explained by known experimental
+factors, as well as the total spike-in count in each cell:
 
 ```{r plotExplanatoryVariables}
 plotExplanatoryVariables(
@@ -1189,25 +1210,23 @@ plotExplanatoryVariables(
 )
 ```
 
+The above figure reinforces the effect of `Time` as the primary source of
+variance in this expression data set, with substantial proportion of variance
+explained for a subset of features. Next are `Status` and `Infection`
+factors, while other technical factors share explanation of lower amount
+of the residual variance in the data set.
 
 # Clustering
 
-Having selected single cells that pass all quality control criteria in the
-previous sections, let us examine the unsupervised clustering of those cells
-to validate the absence of extreme outliers:
+Having normalised the expression data for detected features
+in single cells that passed quality control, let us examine the unsupervised
+clustering of those cells.
 
-```{r plotPCASCESet_status}
-plotPCASCESet(
-  sce.filtered, ncomponents = 3,
-  colour_by = "Status", shape_by = "Time",
-  feature_set = !fData(sce.filtered)$is_feature_control_ERCC
-)
-```
+Let us initially focus our attention on the two principal components that
+explain the largest amount of variance in the endogenous features.
 
 **Note 1:** Some important default values are:
 
-* `exprs_values="exprs"`: the log~2~-transformed CPM (after raw counts were
-  offset by `1` count) are used.
 * `ntop=500`: only the `500` most variable features are used
 * `scale_features=TRUE`: standardises expression values so that each feature
   has unit variance; normalises the relative importance of features expressed
@@ -1215,15 +1234,49 @@ plotPCASCESet(
 
 **Note 2:** Some important non-default values are:
 
-* `scale_features=FALSE`: to use directly the log~2~-transformed CPM values
-  as between-sample normalisation was not performed yet.
+* `exprs_values`: the normalised log~2~-transformed CPM are used.
+* `feature_set`: only endogenous features are used.
+
+```{r plotPCASCESet_PC1and2}
+plotPCASCESet(
+  sce.filtered, ncomponents = 2, exprs_values = "norm_exprs",
+  colour_by = "Status", shape_by = "Time",
+  feature_set = !fData(sce.filtered)$is_feature_control_ERCC
+)
+```
+
+The above figure emphasises the importance of the `Time` factor, significantly
+associated with `PC1`; in the figure, cells progress from the earliest time
+points at the lowest coordinates on `PC1` to the latest time points at the
+highest coordinates of `PC1`.
+
+In addition, `PC2` contributes to the increasingly marked separation of
+stimulated cells (*i.e.*, `infected` and `stimulated`) from `uninfected` cells;
+`uninfected` cells generally appear at lower coordinates than their stimulated
+counterparts on both `PC2` and `PC1`, with this trend becoming increasingly
+apparent over time.
+
+Overall, the observations above suggest different transcriptional *paths* taken
+by cells in their experimental stimuli.
+
+The analysis may be extended to more principal components; however, by
+definition those principal will report decreasing amount of variance in the
+data set:
+
+```{r plotPCASCESet_PC1to3}
+plotPCASCESet(
+  sce.filtered, ncomponents = 3, exprs_values = "norm_exprs",
+  colour_by = "Status", shape_by = "Time",
+  feature_set = !fData(sce.filtered)$is_feature_control_ERCC
+)
+```
 
 We may also use the `shape` aesthetic to examine the clustering of samples
 according to their `Infection` phenotype:
 
 ```{r plotPCASCESet_infection}
 plotPCASCESet(
-  sce.filtered, ncomponents = 3,
+  sce.filtered, ncomponents = 3, exprs_values = "norm_exprs",
   colour_by = "Infection", shape_by = "Time",
   feature_set = !fData(sce.filtered)$is_feature_control_ERCC
 )
