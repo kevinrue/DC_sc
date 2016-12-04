@@ -516,7 +516,7 @@ the relevant QC metrics in the complete data set:
 ```{r all_QC}
 sce.all <- calculateQCMetrics(
   sce.all,
-  feature_controls = list(ERCC = ERCCs, MT = MTs$GENEID),
+  feature_controls = list(ERCC = ERCCs, MT = MTs),
   cell_controls = list(
     Bulk = which(sce.all$Status == "BULK"),
     Blank = which(sce.all$Status == "Blank")
@@ -1006,7 +1006,7 @@ data set using once more the `r Biocpkg("scater")` `calculateQCMetrics` method:
 
 ```{r pass_calculateQCMetrics}
 sce.pass <- calculateQCMetrics(
-  sce.pass, feature_controls = list(ERCC = ERCCs, MT = MTs$GENEID)
+  sce.pass, feature_controls = list(ERCC = ERCCs, MT = MTs)
 )
 ```
 
