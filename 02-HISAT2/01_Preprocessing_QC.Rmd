@@ -12,7 +12,9 @@ vignette: >
 output: 
   BiocStyle::html_document:
     toc: true
-    toc_float: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
 ---
 
 # Requirements
@@ -29,6 +31,8 @@ library(RColorBrewer)
 library(ComplexHeatmap)
 library(pander)
 library(dplyr)
+library(ggrepel)
+library(scran)
 ```
 
 # Pre-processed data
@@ -151,12 +155,17 @@ Reports of the various preprocessing steps above were collated using [MultiQC](h
 
 ## Phenotype information
 
-Let us import experimental information:
+Let us import experimental information and reformat some of the experimental
+factors:
 
 ```{r importPheno}
 pheno <- read.xlsx("expdata/samples.xlsx", sheetName="pheno", row.names=1)
 pheno$sample <- as.character(pheno$sample)
 pheno$Lane <- as.factor(pheno$Lane)
+pheno$Infection <- factor(pheno$Infection, c("Mock","D23580","LT2","Blank"))
+pheno$Status <- factor(
+  pheno$Status, c("uninfected","exposed","infected","Blank","BULK")
+)
 ```
 
 ## Counts
@@ -209,7 +218,6 @@ pd.blank <- new("AnnotatedDataFrame", data = droplevels(pheno[idx.blank,]))
 sce.blank <- newSCESet(countData = RG$counts[,idx.blank], phenoData = pd.blank)
 dim(sce.blank)
 ```
-
 ```{r sce.bulk}
 idx.bulk<- pheno$Status == "BULK"
 pd.bulk <- new("AnnotatedDataFrame", data = droplevels(pheno[idx.bulk,]))
@@ -297,10 +305,12 @@ Let us visualise those outliers, along with blank and bulk samples
 for reference:
 
 ```{r multiQC_ggplot_assigned}
-ggplot(multiqc) +
-  geom_point(aes(
-    sample, featureCounts_Assigned, colour = Status, shape = Infection
-  )) +
+ggplot(multiqc, aes(sample, featureCounts_Assigned)) +
+  geom_point(aes(colour = Status, shape = Infection)) +
+  ggrepel::geom_text_repel(
+    aes(label = sample), subset(multiqc[idx.sc,], multiqc.assigned.outliers),
+    alpha = 0.4
+  ) +
   geom_hline(
     yintercept = 10^(multiqc.assigned.M + 3*c(1,-1)*multiqc.assigned.MAD),
     colour = "red"
@@ -335,10 +345,12 @@ Let us visualise the outlier, along with blank and bulk samples
 for reference:
 
 ```{r multiQC_ggplot_GC}
-ggplot(multiqc) +
-  geom_point(aes(
-    sample, FastQC_percent_gc, colour = Status, shape = Infection
-  )) +
+ggplot(multiqc, aes(sample, FastQC_percent_gc)) +
+  geom_point(aes(colour = Status, shape = Infection)) +
+  ggrepel::geom_text_repel(
+    aes(label = sample), subset(multiqc[idx.sc,], multiqc.GC.outliers),
+    alpha = 0.4
+  ) +
   geom_hline(
     yintercept = multiqc.GC.M + 3*c(1,-1)*multiqc.GC.MAD,
     colour = "red"
@@ -372,10 +384,12 @@ Let us visualise the outlier, along with blank and bulk samples
 for reference:
 
 ```{r multiQC_ggplot_align}
-ggplot(multiqc) +
-  geom_point(aes(
-    sample, Bowtie.2_overall_alignment_rate, colour = Status, shape = Infection
-  )) +
+ggplot(multiqc, aes(sample, Bowtie.2_overall_alignment_rate)) +
+  geom_point(aes(colour = Status, shape = Infection)) +
+  ggrepel::geom_text_repel(
+    aes(label = sample), subset(multiqc[idx.sc,], multiqc.aligned.outliers),
+    alpha = 0.4
+  ) +
   geom_hline(
     yintercept = multiqc.aligned.M + 5*c(1,-1)*multiqc.aligned.MAD,
     colour = "red",
@@ -402,7 +416,7 @@ assignment rate:
 metric <- multiqc$featureCounts_percent_assigned[idx.sc]
 multiqc.assignedPerc.M <- median(metric)
 multiqc.assignedPerc.MAD <- mad(metric)
-multiqc.assignedProp.outliers <-
+multiqc.assignedPerc.outliers <-
   metric < multiqc.assignedPerc.M - 3 * multiqc.assignedPerc.MAD
 table(multiqc.assigned.outliers)
 ```
@@ -411,10 +425,12 @@ Let us visualise the outlier, along with blank and bulk samples
 for reference:
 
 ```{r multiQC_ggplot_assign}
-ggplot(multiqc) +
-  geom_point(aes(
-    sample, featureCounts_percent_assigned, colour = Status, shape = Infection
-  )) +
+ggplot(multiqc, aes(sample, featureCounts_percent_assigned)) +
+  geom_point(aes(colour = Status, shape = Infection)) +
+  ggrepel::geom_text_repel(
+    aes(label = sample), subset(multiqc[idx.sc,], multiqc.assignedPerc.outliers),
+    alpha = 0.4
+  ) +
   geom_hline(
     yintercept = multiqc.assignedPerc.M + 3*c(1,-1)*multiqc.assignedPerc.MAD,
     colour = "red",
@@ -516,34 +532,36 @@ for which the library size
 is further than `3` MADs (median absolute deviations) from the median
 of _single cell_ samples:
 
-```{r multiQC_outliers_totalCounts}
+```{r scater_outliers_totalCounts}
 metric <- sce.sc$log10_total_counts
-multiqc.totalCounts.M <- median(metric)
-multiqc.totalCounts.MAD <- mad(metric)
-multiqc.totalCounts.outliers <-
-  abs(metric - multiqc.totalCounts.M) > 3 * multiqc.totalCounts.MAD
-table(multiqc.totalCounts.outliers)
+scater.totalCounts.M <- median(metric)
+scater.totalCounts.MAD <- mad(metric)
+scater.totalCounts.outliers <-
+  abs(metric - scater.totalCounts.M) > 3 * scater.totalCounts.MAD
+table(scater.totalCounts.outliers)
 ```
 
 In particular, the lower cut-off value is:
 
 ```{r totalCounts_lowerCutOff}
-10^(multiqc.totalCounts.M - 3 * multiqc.totalCounts.MAD)
+10^(scater.totalCounts.M - 3 * scater.totalCounts.MAD)
 ```
 
 Let us visualise those outliers, along with blank and bulk samples
 for reference:
 
-```{r multiQC_ggplot_totalCounts}
-ggplot(pData(sce.all)) +
-  geom_point(aes(
-    sample, log10_total_counts, colour = Status, shape = Infection
-  )) +
+```{r scater_ggplot_totalCounts}
+ggplot(pData(sce.all), aes(sample, log10_total_counts)) +
+  geom_point(aes(colour = Status, shape = Infection)) +
+  geom_text_repel(
+    aes(label = sample), subset(pData(sce.sc), scater.totalCounts.outliers),
+    alpha = 0.4
+  ) +
   geom_hline(
-    yintercept = multiqc.totalCounts.M + 3*c(1,-1)*multiqc.totalCounts.MAD,
+    yintercept = scater.totalCounts.M + 3*c(1,-1)*scater.totalCounts.MAD,
     colour = "red"
   ) +
-  geom_hline(yintercept = multiqc.totalCounts.M) +
+  geom_hline(yintercept = scater.totalCounts.M) +
   theme(
     axis.ticks.x = element_blank(), axis.text.x = element_blank(),
     legend.position = "bottom", legend.box = "vertical"
@@ -644,10 +662,12 @@ Let us visualise those outliers, along with blank and bulk samples
 for reference:
 
 ```{r scater_ggplot_top50}
-ggplot(pData(sce.all)) +
-  geom_point(aes(
-    sample, pct_counts_top_50_features, colour = Status, shape = Infection
-  )) +
+ggplot(pData(sce.all), aes(sample, pct_counts_top_50_features)) +
+  geom_point(aes(colour = Status, shape = Infection)) +
+  geom_text_repel(
+    aes(label = sample), subset(pData(sce.sc), scater.top50.outliers),
+    alpha = 0.4
+  ) +
   geom_hline(
     yintercept = scater.top50.M + 3 * c(-1,1) * scater.top50.MAD,
     colour = "red", linetype = 2:1
@@ -660,10 +680,12 @@ ggplot(pData(sce.all)) +
 ```
 
 ```{r scater_ggplot_top100}
-ggplot(pData(sce.all)) +
-  geom_point(aes(
-    sample, pct_counts_top_100_features, colour = Status, shape = Infection
-  )) +
+ggplot(pData(sce.all), aes(sample, pct_counts_top_100_features)) +
+  geom_point(aes(colour = Status, shape = Infection)) +
+  geom_text_repel(
+    aes(label = sample), subset(pData(sce.sc), scater.top100.outliers),
+    alpha = 0.4
+  ) +
   geom_hline(
     yintercept = scater.top100.M + 3 * c(-1,1) * scater.top100.MAD,
     colour = "red", linetype = 2:1
@@ -676,10 +698,12 @@ ggplot(pData(sce.all)) +
 ```
 
 ```{r scater_ggplot_top200}
-ggplot(pData(sce.all)) +
-  geom_point(aes(
-    sample, pct_counts_top_200_features, colour = Status, shape = Infection
-  )) +
+ggplot(pData(sce.all), aes(sample, pct_counts_top_200_features)) +
+  geom_point(aes(colour = Status, shape = Infection)) +
+  geom_text_repel(
+    aes(label = sample), subset(pData(sce.sc), scater.top200.outliers),
+    alpha = 0.4
+  ) +
   geom_hline(
     yintercept = scater.top200.M + 3 * c(-1,1) * scater.top200.MAD,
     colour = "red", linetype = 2:1
@@ -726,10 +750,12 @@ Let us visualise those outliers, along with blank and bulk samples
 for reference:
 
 ```{r scater_ggplot_features}
-ggplot(pData(sce.all)) +
-  geom_point(aes(
-    sample, total_features, colour = Status, shape = Infection
-  )) +
+ggplot(pData(sce.all), aes(sample, total_features)) +
+  geom_point(aes(colour = Status, shape = Infection)) +
+  geom_text_repel(
+    aes(label = sample), subset(pData(sce.sc), scater.features.outliers),
+    alpha = 0.4
+  ) +
   geom_hline(
     yintercept = scater.features.M + 2 * c(-1,1) * scater.features.MAD,
     colour = "red", linetype = 1:2
@@ -767,11 +793,12 @@ Let us visualise those outliers, along with blank and bulk samples
 for reference:
 
 ```{r scater_ggplot_ERCC}
-ggplot(pData(sce.all)) +
-  geom_point(aes(
-      sample, pct_counts_feature_controls_ERCC,
-      colour = Status, shape = Infection
-  )) +
+ggplot(pData(sce.all), aes(sample, pct_counts_feature_controls_ERCC)) +
+  geom_point(aes(colour = Status, shape = Infection)) +
+  geom_text_repel(
+    aes(label = sample), subset(pData(sce.sc), scater.ERCC.outliers),
+    alpha = 0.6
+  ) +
   geom_hline(
     yintercept = scater.ERCC.M + 5 * c(-1,1) * scater.ERCC.MAD,
     colour = "red", linetype = 2:1
@@ -812,10 +839,12 @@ Let us visualise those outliers, along with blank and bulk samples
 for reference:
 
 ```{r scater_ggplot_MT}
-ggplot(pData(sce.all)) +
-  geom_point(aes(
-      sample, pct_counts_feature_controls_MT, colour = Status, shape = Infection
-  )) +
+ggplot(pData(sce.all), aes(sample, pct_counts_feature_controls_MT)) +
+  geom_point(aes(colour = Status, shape = Infection)) +
+  geom_text_repel(
+    aes(label = sample), subset(pData(sce.sc), scater.MT.outliers),
+    alpha = 0.4
+  ) +
   geom_hline(
     yintercept = scater.MT.M + 5 * c(-1,1) * scater.MT.MAD,
     colour = "red", linetype = 2:1
@@ -886,7 +915,7 @@ col9 <- brewer.pal(10, "Set3")[c(1:8, 10)]
 We may then display the QC metrics failed by each single cell as red cells
 in an heat map:
 
-```{r QC_heatmap}
+```{r QC_heatmap, fig.height=8}
 hm_row <- rowAnnotation(
   df = pData(sce.sc)[sample.order.supervised,c("Time", "Status", "Infection")],
   col = list(
@@ -933,7 +962,7 @@ pander::pandoc.table(
 ```
 
 # Single cells selection
-### Subsetting
+## Subsetting
 
 Let us select the single cells that passed all QC metrics into a new `SCESet`:
 
@@ -945,12 +974,259 @@ sce.pass <- sce.sc[,idx.pass]
 saveRDS(sce.pass, file.path("rds", "sce.pass.rds"))
 ```
 
-### Experimental phenotype information
+## Experimental phenotype information
 
 Let us examine the count of cells remaining in each experimental group:
 
 ```{r goodCells_pheno}
 table(pData(sce.pass)[,c("Infection","Status","Time")])
+```
+
+# Feature selection
+
+## Overview of feature detection levels
+
+Having selected single cells that pass all quality control criteria in the
+previous sections, let us identify features that are robustly detected across
+single cells in the data set.
+Indeed, features detected in a small count of cells, or expressed at very
+low levels carry limited information for differential expression analyses;
+moreover, those features negatively affect the performance of normalisation
+algorithms, due to the large number of dropout events (zero count).
+
+**cite paper 67 from McCarthy et al; Brennecke et al., 2013**
+
+For this purpose, let us first calculate updated QC metrics in the subsetted
+data set using once more the `r Biocpkg("scater")` `calculateQCMetrics` method:
+
+```{r pass_calculateQCMetrics}
+sce.pass <- calculateQCMetrics(
+  sce.pass, feature_controls = list(ERCC = ERCCs, MT = MTs$GENEID)
+)
+```
+
+We may then examine for each feature the proportion of cells in which it is
+detected (non-zero expression level) against its average expression level
+across all cells:
+
+```{r plotExprsFreqVsMean}
+plotExprsFreqVsMean(
+  sce.pass,
+  feature_controls = fData(sce.pass)$is_feature_control_ERCC
+)
+```
+
+## Definition of detected feature
+
+Let us set define low-abundance genes as those with an average count below a
+filter threshold of `1`.
+
+```{r ave.counts}
+ave.counts <- rowMeans(counts(sce.pass))
+keep <- ave.counts >= 1
+sum(keep)
+```
+
+To check whether the chosen threshold is suitable, let us examine the
+distribution of log-means across all genes:
+
+```{r detectVsMean_hist}
+hist(
+  log10(ave.counts), breaks = 100,
+  main = "", xlab = expression(Log[10]~"average count", col="grey80")
+)
+abline(v = log10(1), col = "blue", lwd = 2, lty = 2)
+```
+
+We may compare the above figure with the a smoother representation of the
+count of cells in which each feature is detected against the average
+log~10~-transformed count of reads assigned to that same feature, while
+marking the same cut-off threshold of an average `1` count across all cells:
+
+```{r smoothScatter}
+numcells <- nexprs(sce.pass, byrow = TRUE)
+is.ercc <- fData(sce.pass)$is_feature_control_ERCC
+smoothScatter(
+  log10(ave.counts), numcells, xlab=expression(Log[10]~"average count"),
+  ylab="Number of expressing cells"
+)
+points(
+  log10(ave.counts[is.ercc]), numcells[is.ercc],
+  col = "red", pch = 16, cex = 0.5
+)
+abline(v = log10(1), col = "blue", lwd = 2, lty = 2)
+```
+
+## Selection of detected features
+
+Let us now select the features defined as detected in the above sections
+into a new `SCESet`:
+
+```{r subset_features}
+sce.filtered <- sce.pass[keep,]
+dim(sce.filtered)
+```
+
+# Normalisation
+
+## Sum factors
+
+Having identified the cells of good quality and the features robustly
+detected across those cells, we may now normalise expression levels between
+cells using an approach suitable for single cell data sets.
+
+Let us apply the unsupervised (*i.e.*, unaware of experimental phenotypes)
+normalisation methodology implemented in the `r Biocpkg("scran")`
+package.
+
+The first step of the procedure is to pool counts from many cells for accurate
+size factor estimation (**cite Lun et al 2016**), before deconvolution into
+cell-based factors for cell-specific normalization
+(**cite paper 67 from Davis**):
+
+```{r computeSumFactors}
+sce.filtered <- computeSumFactors(sce.filtered, sizes = c(20, 40, 60, 80))
+summary(sizeFactors(sce.filtered))
+```
+
+In this case, the size factors are somewhat correlated with library size,
+while significant scatter is visible around the trend;
+augmenting the figure with experimental phenotype information emphasises
+how the effect of library size on the size factor of individual cells is
+subject to factors related to the experimental design of the experiment.
+
+In particular, the figure below emphasises how the effect of library size is
+more important in `uninfected` cells, and at the ealiest time point
+(*i.e.*, `2h`), when the biological effect of infection may not have fully
+affect the transcriptome of most cells yet.
+
+In contrast, at later time points (*i.e.*, `4h` and `6h`), trends indicate a
+markedly weaker effect of library size on size factor.
+This suggest that other sources of systematic differences between cells
+arose, and that differential expression is to be expected
+between experimental groups at those time points:
+
+```{r sizeFactor_librarySize}
+ggplot(
+  pData(sce.filtered), aes(total_counts / 1E6, size_factor)) +
+  geom_point(aes(colour = Time, shape = Status)) +
+  labs(x = "Library size (millions)", y = "Size factor") +
+  stat_smooth(
+    aes(colour = Time, linetype = Status),
+    method = "lm", se = TRUE, size = 0.5, alpha = 0.1
+  )
+```
+
+Let us examine further the effect of experimental covariates on the size
+factors:
+
+```{r sizeFactor_expFactors}
+ggplot(
+  pData(sce.filtered),
+  aes(interaction(Infection, Status, Time, sep = " - "), size_factor)) +
+  geom_boxplot(aes(alpha = Time, fill = Infection, linetype = Status)) +
+  coord_flip() +
+  labs(y = "Size factor", x = "")
+```
+
+## Spike factors
+
+To ensure normalization is performed correctly, let us compute a separate set
+of size factors for the spike-in set. This assumes
+that none of the spike-in transcripts are differentially expressed.
+
+```{r computeSpikeFactors}
+setSpike(sce.filtered) <- "ERCC"
+sce.filtered <- computeSpikeFactors(
+  sce.filtered, type = "ERCC", general.use = FALSE
+)
+```
+
+We may then examine the spike factors calculated:
+
+```{r spikeFactors_ggplot}
+ggplot(pData(sce.filtered), aes(total_counts / 1E6, size_factor_ERCC)) +
+  geom_point(aes(colour = Time, shape = Status)) +
+  stat_smooth(method = "lm")
+```
+
+## Apply size factors to normalise
+
+The count data are used to compute normalized log-expression values for use in
+downstream analyses.
+Each value is defined as the log-ratio of each count to the size factor for the
+corresponding cell, after adding a prior count of `1` to avoid undefined values
+at zero counts.
+Division by the size factor ensures that any cell-specific biases are removed.
+Spike-in-specific size factors present are applied to normalize the spike-in
+transcripts separately from the endogenous genes:
+
+```{r normalise}
+sce.filtered <- normalize(sce.filtered)
+```
+
+# Relative importance of experimental factors
+
+\fixme{TODO}
+
+Having normalised the expression 
+
+Larger experiments contain more technical factors that need to be investigated. In this dataset, factors include the sex
+of the animal from which the cells were extracted, the age of the animal, the tissue of origin for each cell, and the total
+spike-in count in each cell. Figure 19 shows that the tissue of origin explains a substantial proportion of the variance
+for a subset of genes. This is probably because each tissue contains a different composition of cell types, leading to
+systematic differences in gene expression between tissues. The other factors explain only a small proportion of the
+variance for most genes and do not need to be incorporated into our downstream analyses.
+
+```{r plotExplanatoryVariables}
+plotExplanatoryVariables(
+  sce.filtered,
+  variables = c(
+    "counts_feature_controls_ERCC",
+    "log10_counts_feature_controls_ERCC",
+    "Plate", "Lane", "Time", "Status", "Infection"
+    )
+)
+```
+
+
+# Clustering
+
+Having selected single cells that pass all quality control criteria in the
+previous sections, let us examine the unsupervised clustering of those cells
+to validate the absence of extreme outliers:
+
+```{r plotPCASCESet_status}
+plotPCASCESet(
+  sce.filtered, ncomponents = 3,
+  colour_by = "Status", shape_by = "Time",
+  feature_set = !fData(sce.filtered)$is_feature_control_ERCC
+)
+```
+
+**Note 1:** Some important default values are:
+
+* `exprs_values="exprs"`: the log~2~-transformed CPM (after raw counts were
+  offset by `1` count) are used.
+* `ntop=500`: only the `500` most variable features are used
+* `scale_features=TRUE`: standardises expression values so that each feature
+  has unit variance; normalises the relative importance of features expressed
+  at high and low levels in the calculation of principal components.
+
+**Note 2:** Some important non-default values are:
+
+* `scale_features=FALSE`: to use directly the log~2~-transformed CPM values
+  as between-sample normalisation was not performed yet.
+
+We may also use the `shape` aesthetic to examine the clustering of samples
+according to their `Infection` phenotype:
+
+```{r plotPCASCESet_infection}
+plotPCASCESet(
+  sce.filtered, ncomponents = 3,
+  colour_by = "Infection", shape_by = "Time",
+  feature_set = !fData(sce.filtered)$is_feature_control_ERCC
+)
 ```
 
 # Saved session
@@ -960,7 +1236,6 @@ Let us save the current session state for later use:
 ```{r saveSession}
 save.image(file = "01_Preprocessing_QC.RData")
 ```
-
 
 # Session info
 
