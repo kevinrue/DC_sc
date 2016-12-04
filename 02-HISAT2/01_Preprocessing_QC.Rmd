@@ -1,0 +1,977 @@
+---
+title: "Initial quality control of single-cell RNA-sequencing"
+author: "Anna Aulicino, Kévin Rue-Albrecht"
+date: "`r doc_date()`"
+package: "`r pkg_ver('BiocStyle')`"
+abstract: >
+  Import QC metric collected by _MultiQC_ after read preprocessing.
+vignette: >
+  %\VignetteIndexEntry{Bioconductor style for HTML documents}
+  %\VignetteEngine{knitr::rmarkdown}
+  %\VignetteEncoding{UTF-8}
+output: 
+  BiocStyle::html_document:
+    toc: true
+    toc_float: true
+---
+
+# Requirements
+
+This vignette requires the following packages to be installed:
+
+```{r pkgs, message=FALSE}
+library(xlsx)
+library(edgeR)
+library(scater)
+library(ggplot2)
+library(EnsDb.Hsapiens.v79)
+library(RColorBrewer)
+library(ComplexHeatmap)
+library(pander)
+library(dplyr)
+```
+
+# Pre-processed data
+
+## Overview
+
+Prior to this vignette, paired-end reads (2x75 bp) were:
+
+* Quality controlled using
+  [FastQC](http://www.bioinformatics.babraham.ac.uk/projects/fastqc)
+  (version `0.11.4`),
+* Aligned using [HISAT2](https://ccb.jhu.edu/software/hisat2)
+  (version `2.0.3b`),
+* Assigned to annotated features using
+  [featureCounts](http://bioinf.wehi.edu.au/featureCounts)
+  (version `1.5.0-p2`).
+
+**Note:**
+Adapter and quality trimming using
+[Trim Galore!](http://www.bioinformatics.babraham.ac.uk/projects/trim_galore)
+(version `0.4.1`; using _cutadapt_ version `1.10`) was tested,
+but the marginal improvement did not justify the extra computational
+time and disk space required to process and store the additional data.
+
+## Composite genome (_Ensembl_)
+
+Composite genome Fasta and GTF files were formed by concatenating the
+primary assembly of the _Homo sapiens_ genome build _GRCh38_
+(excluding haplotypes and patches) and the ERCC RNA Spike-In Mix:
+
+```
+cat $genomeFasta $erccFasta > $compositeFasta
+cat $genomeGTF $erccGTF > $compositeGTF
+```
+
+The Fasta and GTF files for the human genome were obtained from the
+_Ensembl FTP site_ [release 86](ftp://ftp.ensembl.org/pub//release-86).
+Namely, the downloaded files are:
+
+* `Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz`
+* `Homo_sapiens.GRCh38.86.chr.gtf.gz`
+
+The ERCC Fasta and GTF files were obtained from the _ThermoFisher_
+[website](https://www.thermofisher.com/order/catalog/product/4456739).
+
+## Genome index (_HISAT2_)
+
+The composite genome was indexed as follows:
+
+```
+hisat2-build $compositeFasta $hisatIdx
+```
+
+## Read quality control (_FastQC_)
+
+Raw sequenced reads were quality-controlled using
+[FastQC](#http://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
+as follows:
+
+```
+fastqc \
+  --outdir $fastqcFolder \
+  --nogroup \
+  $fastqFile
+```
+
+An example _FastQC_ report is embedded below:
+
+<iframe height="500" width="100%"
+src="fastqc/WTCHG_305265_201231_2_fastqc.html"></iframe>
+
+## Alignment (_HISAT2_)
+
+Raw (_i.e._, not trimmed.) read pairs were aligned as follows:
+
+```
+hisat2 \
+    -x ${hisatIdx} \
+    -1 ${fastqFolder}/${cell}_1.fastq.gz \
+    -2 ${fastqFolder}/${cell}_2.fastq.gz \
+    -S $hisatDir/${cell}.sam \
+    1> $logDir/${cell}.o 2> $logDir/${cell}.e
+```
+
+The resulting SAM files were compressed to BAM format as follows:
+
+```
+samtools view -hb -o $hisatDir/${cell}.bam $hisatDir/${cell}.sam
+```
+
+Finally, SAM files were then removed as follows:
+
+```
+rm -f $hisatDir/${cell}.sam
+```
+
+## Read assignment (_featureCounts_) {#featureCounts}
+
+Uniquely aligned read pairs were assigned to annotated genomic feaures and
+ERCC RNA spike-in features, and counted in an unstranded manner as follows:
+
+```
+featureCounts \
+    --primary \
+    --ignoreDup \
+    -p \
+    -a $compositeGTF \
+    -o $countDir/$cell \
+    $bamDir/${cell}.bam \
+    1> $logDir/$cell.out 2> $logDir/$cell.err
+```
+
+## _MultiQC_
+
+Reports of the various preprocessing steps above were collated using [MultiQC](http://multiqc.info). The overall report in embedded below:
+
+<iframe height="500" width="100%" src="MultiQC/final_pipeline.html"></iframe>
+
+# Import data
+
+## Phenotype information
+
+Let us import experimental information:
+
+```{r importPheno}
+pheno <- read.xlsx("expdata/samples.xlsx", sheetName="pheno", row.names=1)
+pheno$sample <- as.character(pheno$sample)
+pheno$Lane <- as.factor(pheno$Lane)
+```
+
+## Counts
+
+To import count data that is stored in a separate file for each sample,
+let us use the `r Biocpkg("edgeR")` `readDGE` method:
+
+```{r readDGE}
+RG <- readDGE(
+  rownames(pheno),
+  "counts",
+  c(1, 3),
+  paste(pheno$Time, pheno$Infection, pheno$Status, sep = "_"),
+  pheno$sample
+)
+```
+
+## `SCESet`
+
+Let us assemble the phenotype information and count data above into
+`r Biocpkg("scater")` `SCESet` objects:
+
+* one that contains all samples together
+* one for the blank samples
+* one for the bulk samples
+* one for the single cells
+
+**Note:**
+This distinction will later be important to compute QC metrics within each
+data set.
+
+First, let us match the sample identifier associated with the phenotype
+information to that associated with the count data:
+
+```{r renamePheno}
+rownames(pheno) <- rownames(RG$samples)
+```
+
+We may then create the four data sets:
+
+```{r sce.all}
+pd.all <- new("AnnotatedDataFrame", data = pheno)
+sce.all <- newSCESet(countData = RG$counts, phenoData = pd.all)
+dim(sce.all)
+```
+
+```{r sce.blank}
+idx.blank <- pheno$Status == "Blank"
+pd.blank <- new("AnnotatedDataFrame", data = droplevels(pheno[idx.blank,]))
+sce.blank <- newSCESet(countData = RG$counts[,idx.blank], phenoData = pd.blank)
+dim(sce.blank)
+```
+
+```{r sce.bulk}
+idx.bulk<- pheno$Status == "BULK"
+pd.bulk <- new("AnnotatedDataFrame", data = droplevels(pheno[idx.bulk,]))
+sce.bulk <- newSCESet(countData = RG$counts[,idx.bulk], phenoData = pd.bulk)
+dim(sce.bulk)
+```
+
+```{r sce.sc}
+idx.sc <- pheno$Status %in% c("exposed","infected","uninfected")
+pd.sc <- new("AnnotatedDataFrame", data = droplevels(pheno[idx.sc,]))
+sce.sc <- newSCESet(countData = RG$counts[,idx.sc], phenoData = pd.sc)
+dim(sce.sc)
+```
+
+We may then free some memory by removing unused objects:
+
+```{r cleanup_SCESet}
+rm(pd.all, pd.blank, pd.bulk, pd.sc, pheno, RG)
+```
+
+**Note:**
+In particular, `SCESet` objects have a much smaller memory footprint than
+the equivalent data stored in a `DGEList`.
+
+# QC metrics
+## _MultiQC_
+### Import QC metrics
+
+Importantly, _MultiQC_ collated metrics for each sample at each step of
+preprocessing---from raw reads to assignmed counts---; those QC metrics
+already provide an idea of technical issues in certain samples.
+
+Let us import the QC metrics produced by _MultiQC_:
+
+```{r importMultiQC}
+multiqc <- read.delim("MultiQC/final_pipeline_data/multiqc_general_stats.txt")
+multiqc$Sample <- gsub("WTCHG_[[:digit:]]+_", "", multiqc$Sample)
+```
+
+Let us annotated those metrics with phenotype information:
+
+```{r addPhenoMultiQC}
+multiqc <- merge(
+  pData(sce.all), multiqc, by.x = "sample", by.y = "Sample",
+  sort = FALSE
+)
+```
+
+Let us confirm that the samples are ordered identically to the `sce.all`
+object:
+
+```{r checkOrder}
+all(multiqc$sample == rownames(pData(sce.all)))
+```
+
+### Assigned read pairs / Library size (_featureCounts_) {#featureCounts}
+
+Excessively small library size may indicate to technial issues during
+library preparation or low quality sample.
+Moreover, library size excessively different from the
+majority of samples may introduce bias due to under- or over-sampling of
+RNA fragments.
+
+Let us identify as outliers single cells
+for which the number of assigned read pairs (_i.e._ library size)
+is further than `3` MADs (median absolute deviations) from the median
+of _single cell_ samples:
+
+```{r multiQC_outliers_assigned}
+metric <- log10(multiqc$featureCounts_Assigned[idx.sc])
+multiqc.assigned.M <- median(metric)
+multiqc.assigned.MAD <- mad(metric)
+multiqc.assigned.outliers <-
+  abs(metric - multiqc.assigned.M) > 3 * multiqc.assigned.MAD
+table(multiqc.assigned.outliers)
+```
+
+In particular, the lower cut-off value is:
+
+```{r assigned_lowerCutOff}
+10^(multiqc.assigned.M - 3 * multiqc.assigned.MAD)
+```
+
+Let us visualise those outliers, along with blank and bulk samples
+for reference:
+
+```{r multiQC_ggplot_assigned}
+ggplot(multiqc) +
+  geom_point(aes(
+    sample, featureCounts_Assigned, colour = Status, shape = Infection
+  )) +
+  geom_hline(
+    yintercept = 10^(multiqc.assigned.M + 3*c(1,-1)*multiqc.assigned.MAD),
+    colour = "red"
+  ) +
+  geom_hline(yintercept = 10^(multiqc.assigned.M)) +
+  theme(
+    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
+    legend.position = "bottom", legend.box = "vertical"
+  )
+```
+
+### GC content (_FastQC_)
+
+GC content is species-specific; it can be estimated from the annotated transcriptome or the sequenced data. Therefore, GC content excessively
+different from the majority of samples can indicate issues during
+library preparation or contamination.
+
+Let us identify as outliers samples for which GC content is
+further than 3 MADs (median absolute deviations) from the median
+of _single cell_ samples:
+
+```{r multiQC_outliers_GC}
+metric <- multiqc$FastQC_percent_gc[idx.sc]
+multiqc.GC.M <- median(metric)
+multiqc.GC.MAD <- mad(metric)
+multiqc.GC.outliers <-
+  abs(metric - multiqc.GC.M) > 3 * multiqc.GC.MAD
+table(multiqc.GC.outliers)
+```
+
+Let us visualise the outlier, along with blank and bulk samples
+for reference:
+
+```{r multiQC_ggplot_GC}
+ggplot(multiqc) +
+  geom_point(aes(
+    sample, FastQC_percent_gc, colour = Status, shape = Infection
+  )) +
+  geom_hline(
+    yintercept = multiqc.GC.M + 3*c(1,-1)*multiqc.GC.MAD,
+    colour = "red"
+  ) +
+  geom_hline(yintercept = multiqc.GC.M) +
+  theme(
+    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
+    legend.position = "bottom", legend.box = "vertical"
+  )
+```
+
+### Alignment rate (_HISAT2_ / _bowtie2_)
+
+Technical issues introduced during library preparation may also result
+in excessively _low_ alignment rate.
+Nevertheless, libraries with slightly lower alignment rates may still yield
+a library size comparable to the majority of samples.
+For that reason, let us apply a slightly more relaxed cut-off of `5` MADs
+to identify as outliers _single cells_ with excessively _low_ alignment rate:
+
+```{r multiQC_outliers_align}
+metric <- multiqc$Bowtie.2_overall_alignment_rate[idx.sc]
+multiqc.aligned.M <- median(metric)
+multiqc.aligned.MAD <- mad(metric)
+multiqc.aligned.outliers <-
+  metric < multiqc.aligned.M - 5 * multiqc.aligned.MAD
+table(multiqc.aligned.outliers)
+```
+
+Let us visualise the outlier, along with blank and bulk samples
+for reference:
+
+```{r multiQC_ggplot_align}
+ggplot(multiqc) +
+  geom_point(aes(
+    sample, Bowtie.2_overall_alignment_rate, colour = Status, shape = Infection
+  )) +
+  geom_hline(
+    yintercept = multiqc.aligned.M + 5*c(1,-1)*multiqc.aligned.MAD,
+    colour = "red",
+    linetype = 2:1
+  ) +
+  geom_hline(yintercept = multiqc.aligned.M) +
+  theme(
+    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
+    legend.position = "bottom", legend.box = "vertical"
+  ) +
+  ylab("HISAT.2_overall_alignment_rate")
+```
+
+### Percentage assigned (_HISAT2_ / _bowtie2_)
+
+After alignment, unusually _low_ assignment rate of reads to annotated genomic
+features may be indicative of technical issue; for instance during
+poly-A selection.
+
+Let us identify as outliers _single cells_ with excessively _low_
+assignment rate:
+
+```{r multiQC_outliers_assign}
+metric <- multiqc$featureCounts_percent_assigned[idx.sc]
+multiqc.assignedPerc.M <- median(metric)
+multiqc.assignedPerc.MAD <- mad(metric)
+multiqc.assignedProp.outliers <-
+  metric < multiqc.assignedPerc.M - 3 * multiqc.assignedPerc.MAD
+table(multiqc.assigned.outliers)
+```
+
+Let us visualise the outlier, along with blank and bulk samples
+for reference:
+
+```{r multiQC_ggplot_assign}
+ggplot(multiqc) +
+  geom_point(aes(
+    sample, featureCounts_percent_assigned, colour = Status, shape = Infection
+  )) +
+  geom_hline(
+    yintercept = multiqc.assignedPerc.M + 3*c(1,-1)*multiqc.assignedPerc.MAD,
+    colour = "red",
+    linetype = 2:1
+  ) +
+  geom_hline(yintercept = multiqc.assignedPerc.M) +
+  theme(
+    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
+    legend.position = "bottom", legend.box = "vertical"
+  )
+```
+
+### _MultiQC_ summary
+
+```{r multiQC_summary}
+outlier.vars <- ls(pattern = "outliers")
+colSums(sapply(outlier.vars, function(x){get(x)}))
+table(rowSums(sapply(outlier.vars, function(x){get(x)})))
+```
+
+## Blanks
+### Highest expressed features
+
+Blank samples are designed to detected technical issues during library
+preparation; in particular contamination, as only ERCC spike-in features are
+expected in those samples.
+
+First, let us obtain the identifier of ERCC spike-in features:
+
+```{r ERCC_ids}
+ERCCs <- grep("^ERCC-[[:digit:]]+$", featureNames(sce.blank), value = TRUE)
+```
+
+The `r Biocpkg("scater")` `calculateQCMetrics` may then be used to calculate
+the relevant QC metrics:
+
+```{r blank_QC}
+sce.blank <- calculateQCMetrics(sce.blank, list(ERCC = ERCCs))
+```
+
+In the `SCESet` object augmnented by QC metrics, let us visualise the
+most abundant features which displays the expected over-representation of
+ERCC spike-in features:
+
+```{r blank_highExprs}
+plotQC(sce.blank, type = "highest-expression")
+```
+
+## _scater_
+### Calculation of QC metrics
+
+The following sections require the estimation of several QC metrics that
+leverage control features and control samples, as means to identify
+outliers among single cells.
+For this purpose, let us first obtain the identifier of mitochondrial gene
+features; those will be used in a [later section](#MTcontent):
+
+```{r MT_ids}
+MTs <- ensembldb::select(
+  EnsDb.Hsapiens.v79, "MT", c("GENEID", "GENENAME"), "SEQNAME"
+)
+```
+
+Let us apply the `r Biocpkg("scater")` `calculateQCMetrics` to calculate
+the relevant QC metrics in the _single cell_ data set:
+
+```{r sc_QC}
+sce.sc <- calculateQCMetrics(
+  sce.sc,
+  feature_controls = list(ERCC = ERCCs, MT = MTs$GENEID)
+)
+```
+
+For reference purpose only, let us also calculate
+the relevant QC metrics in the complete data set:
+
+```{r all_QC}
+sce.all <- calculateQCMetrics(
+  sce.all,
+  feature_controls = list(ERCC = ERCCs, MT = MTs$GENEID),
+  cell_controls = list(
+    Bulk = which(sce.all$Status == "BULK"),
+    Blank = which(sce.all$Status == "Blank")
+  )
+)
+```
+
+### Library size
+
+The _library size_ refers to the total count of reads assigned to 
+annotated features in each individua sample.
+As an internal validation, let us verify that identifying outliers
+using the counts imported into the `SCESet` produce the same results as
+the [earlier](#featureCounts) use of _MultiQC_ reports of read pairs
+assignment by _featureCounts_.
+
+First let us identify as outliers single cells
+for which the library size
+is further than `3` MADs (median absolute deviations) from the median
+of _single cell_ samples:
+
+```{r multiQC_outliers_totalCounts}
+metric <- sce.sc$log10_total_counts
+multiqc.totalCounts.M <- median(metric)
+multiqc.totalCounts.MAD <- mad(metric)
+multiqc.totalCounts.outliers <-
+  abs(metric - multiqc.totalCounts.M) > 3 * multiqc.totalCounts.MAD
+table(multiqc.totalCounts.outliers)
+```
+
+In particular, the lower cut-off value is:
+
+```{r totalCounts_lowerCutOff}
+10^(multiqc.totalCounts.M - 3 * multiqc.totalCounts.MAD)
+```
+
+Let us visualise those outliers, along with blank and bulk samples
+for reference:
+
+```{r multiQC_ggplot_totalCounts}
+ggplot(pData(sce.all)) +
+  geom_point(aes(
+    sample, log10_total_counts, colour = Status, shape = Infection
+  )) +
+  geom_hline(
+    yintercept = multiqc.totalCounts.M + 3*c(1,-1)*multiqc.totalCounts.MAD,
+    colour = "red"
+  ) +
+  geom_hline(yintercept = multiqc.totalCounts.M) +
+  theme(
+    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
+    legend.position = "bottom", legend.box = "vertical"
+  )
+```
+
+### Library complexity: bulks, single cells, blanks {#libraryComplexity}
+
+_Library complexity_ refers to the proportion of assigned reads accounted for
+by the _N_ most abundant features within each individual sample, with values
+for _N_ usually ranging from tens to hundreds.
+It is expected to observe a lower library complexity in single cells relative
+to bulk samples, due to higher dropout events in single cells, and the union of
+multiple phenotypes within bulk samples.
+In contrast, blank samples are expected to have extremely low library
+complexity, as only `92` ERCC spike-ins sequences are expected in those
+libraries, in contrast to thousands of genomic features in biological samples.
+
+In the `SCESet` object augmnented by QC metrics, let us visualise the
+library complexity profile against experimental phenotype information:
+
+```{r all_libraryComplexity}
+plot(
+  sce.all, block1 = "Status", block2 = "Infection",
+  colour_by = "Time", nfeatures = 300, exprs_values = "counts"
+)
+```
+
+First, from a QC perspective:
+
+* Blanks samples show a very low library complexity, as expected.
+* Bulk samples show a generally high library complexity, as expected.
+* Single cells generally show a complexity profile comparable to that of bulk
+  samples.
+* A small subset of single cells (_e.g._, `exposed:D23580:6h`,`exposed:LT2:4h`, 
+  `infected:D23580:4h`, `infected:D23580:6h`, `infected:LT2:6h`) show
+  suspiciously low library complexity.
+  Those single cells must therefore be treated as outliers, and be removed from
+  the data set prior to feature selection, normalisation, and subsequent
+  analyses.
+
+Now, from a biological perspective, an interesting observation may be made:
+
+* Library complexity seems to decrease with `Time` in `exposed` and `infected`
+  samples in cells exposed to or infected by bacteria, in contrast to
+  control uninfected cells.
+  This _may_ indicate a polarisation of single cells toward
+  specialised phenotype(s) after infection or exposure.
+  + `Mock` (_i.e._, `uninfected`) single cells tend to show a consistent,
+    relatively high library complexity
+  + Both `LT2` and `D23580` infections show a gradual decrease of library
+    complexity over time. This observation _might_ be more pronounced
+    for `D23580`.
+
+### Proportion of library assigned to the most abundant features
+
+Although abundantly expressed features are an expected aspect of cell biology
+(_e.g._, myosin in muscle cells, clusters of differentiation in immune cells)
+which may contribute to the identification and classification of cell types, overly abundant feature in RNA-Seq libraries
+may indicate issues during library preparation; for instance, cDNA
+amplification bias.
+Moreover, when the most abundant features account for an excessive proportion
+of the library, expression levels for the majority of genes may not be
+estimated with sufficient accuracy.
+
+Let us identify as outliers single cells
+for which the `50`, `100`, and `200` most abundant features account for an
+excessively _high_ proportion of the library size:
+
+```{r scater_outliers_top50}
+metric <- sce.sc$pct_counts_top_50_features
+scater.top50.M <- median(metric)
+scater.top50.MAD <- mad(metric)
+scater.top50.outliers <-
+  metric > scater.top50.M + 3 * scater.top50.MAD
+table(scater.top50.outliers)
+```
+
+```{r scater_outliers_top100}
+metric <- sce.sc$pct_counts_top_100_features
+scater.top100.M <- median(metric)
+scater.top100.MAD <- mad(metric)
+scater.top100.outliers <-
+  metric > scater.top100.M + 3 * scater.top100.MAD
+table(scater.top100.outliers)
+```
+
+```{r scater_outliers_top200}
+metric <- sce.sc$pct_counts_top_200_features
+scater.top200.M <- median(metric)
+scater.top200.MAD <- mad(metric)
+scater.top200.outliers <-
+  metric > scater.top200.M + 3 * scater.top200.MAD
+table(scater.top200.outliers)
+```
+
+Let us visualise those outliers, along with blank and bulk samples
+for reference:
+
+```{r scater_ggplot_top50}
+ggplot(pData(sce.all)) +
+  geom_point(aes(
+    sample, pct_counts_top_50_features, colour = Status, shape = Infection
+  )) +
+  geom_hline(
+    yintercept = scater.top50.M + 3 * c(-1,1) * scater.top50.MAD,
+    colour = "red", linetype = 2:1
+  ) +
+  geom_hline(yintercept = scater.top50.M) +
+  theme(
+    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
+    legend.position = "bottom", legend.box = "vertical"
+  )
+```
+
+```{r scater_ggplot_top100}
+ggplot(pData(sce.all)) +
+  geom_point(aes(
+    sample, pct_counts_top_100_features, colour = Status, shape = Infection
+  )) +
+  geom_hline(
+    yintercept = scater.top100.M + 3 * c(-1,1) * scater.top100.MAD,
+    colour = "red", linetype = 2:1
+  ) +
+  geom_hline(yintercept = scater.top100.M) +
+  theme(
+    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
+    legend.position = "bottom", legend.box = "vertical"
+  )
+```
+
+```{r scater_ggplot_top200}
+ggplot(pData(sce.all)) +
+  geom_point(aes(
+    sample, pct_counts_top_200_features, colour = Status, shape = Infection
+  )) +
+  geom_hline(
+    yintercept = scater.top200.M + 3 * c(-1,1) * scater.top200.MAD,
+    colour = "red", linetype = 2:1
+  ) +
+  geom_hline(yintercept = scater.top200.M) +
+  theme(
+    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
+    legend.position = "bottom", legend.box = "vertical"
+  )
+```
+
+In this last figure (_i.e._, `200` most abundant features),
+note how two `infected:D23580` samples appear near the cut-off threshold.
+This observation can be related to the overall library complexity figure
+shown [earlier](#libraryComplexity).
+
+### Count of detected features
+
+A notion closely related to library complexity is the count of features
+detected within each individual sample. Although the definition of "detection
+level" may be debated, we will accept here any feature with non-zero count.
+
+Abnormal counts of detected features may be indicative of technical issue
+during RNA capture and library preparation; for instance,
+excessively _low_ counts of detected features may indicate RNA degradation,
+while excessively _high_ counts of detected features may indicate capture of
+multiple cells.
+
+Due to the considerable amount of variation that results from the relaxed
+definition of detection level above, let us apply a somewhat stringent cut-off
+of `2` MADs to identify as outliers _single cells_ with excessively _low_
+counts of detected features:
+
+```{r scater_outliers_features}
+metric <- sce.sc$total_features
+scater.features.M <- median(metric)
+scater.features.MAD <- mad(metric)
+scater.features.outliers <-
+  metric < scater.features.M - 2 * scater.features.MAD
+table(scater.features.outliers)
+```
+
+Let us visualise those outliers, along with blank and bulk samples
+for reference:
+
+```{r scater_ggplot_features}
+ggplot(pData(sce.all)) +
+  geom_point(aes(
+    sample, total_features, colour = Status, shape = Infection
+  )) +
+  geom_hline(
+    yintercept = scater.features.M + 2 * c(-1,1) * scater.features.MAD,
+    colour = "red", linetype = 1:2
+  ) +
+  geom_hline(yintercept = scater.features.M) +
+  theme(
+    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
+    legend.position = "bottom", legend.box = "vertical"
+  )
+```
+
+### ERCC content
+
+An identical quantity of ERCC spike-in features is added to each sample
+prior to library preparation. As a result, technical variation and issues
+during library preparation may be estimated from the proportion of reads
+assigned to those spike-in features; an excessive proportion of reads
+assigned to ERCC spike-in features may indicate eukaryotic RNA degradation,
+while excessive variation may indicate cDNA amplication bias.
+
+Due to the limited amount of variation that results from the very low levels
+of ERCC spike-in features generally detected,
+let us apply a somewhat relaxed cut-off of `5` MADs
+to identify as outliers _single cells_ with excessively _high_ ERCC content:
+
+```{r scater_outliers_ercc}
+metric <- sce.sc$pct_counts_feature_controls_ERCC
+scater.ERCC.M <- median(metric)
+scater.ERCC.MAD <- mad(metric)
+scater.ERCC.outliers <- metric > scater.ERCC.M + 5 * scater.ERCC.MAD
+table(scater.ERCC.outliers)
+```
+
+Let us visualise those outliers, along with blank and bulk samples
+for reference:
+
+```{r scater_ggplot_ERCC}
+ggplot(pData(sce.all)) +
+  geom_point(aes(
+      sample, pct_counts_feature_controls_ERCC,
+      colour = Status, shape = Infection
+  )) +
+  geom_hline(
+    yintercept = scater.ERCC.M + 5 * c(-1,1) * scater.ERCC.MAD,
+    colour = "red", linetype = 2:1
+  ) +
+  geom_hline(yintercept = scater.ERCC.M) +
+  theme(
+    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
+    legend.position = "bottom", legend.box = "vertical"
+  )
+```
+
+### Mitochondrial content {#MTcontent}
+
+Similarly to the ERCC spike-in features, mitochondrial RNA may be used
+as an endogenous source of control features.
+Albeit mitochondrial gene expression levels may be altered by physiological
+processes, the limited count of genes encoded on the mitochondrial chromosome
+implies a similarly limited proportion of reads assigned to those gene
+features.
+Consequently, abnormal proportions of reads assigned to mitochondrial gene
+features may be indicative of technical issue during RNA capture and
+library preparation, or abnormal count of mitochondria within the single cells.
+
+Let us identify as outliers single cells for which the proportion of reads
+assigned to mitochondrial gene features is is further than `3` MADs
+from the median of _single cell_ samples:
+
+```{r scater_outliers_MT}
+metric <- sce.sc$pct_counts_feature_controls_MT
+scater.MT.M <- median(metric)
+scater.MT.MAD <- mad(metric)
+scater.MT.outliers <-
+  metric > scater.MT.M + 5 * scater.MT.MAD
+table(scater.MT.outliers)
+```
+
+Let us visualise those outliers, along with blank and bulk samples
+for reference:
+
+```{r scater_ggplot_MT}
+ggplot(pData(sce.all)) +
+  geom_point(aes(
+      sample, pct_counts_feature_controls_MT, colour = Status, shape = Infection
+  )) +
+  geom_hline(
+    yintercept = scater.MT.M + 5 * c(-1,1) * scater.MT.MAD,
+    colour = "red", linetype = 2:1
+  ) +
+  geom_hline(yintercept = scater.MT.M) +
+  theme(
+    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
+    legend.position = "bottom", legend.box = "vertical"
+  )
+```
+
+## Global summary of sample-level QC metrics
+### Collection of QC filters
+
+First, let us collect the QC filters described in the previous sections as
+into a single summary `data.frame`:
+
+```{r QC_collectOutliers}
+outlier.vars <- ls(pattern = "\\.outliers$")
+outliers.df <- data.frame(lapply(
+  outlier.vars,
+  function(x){ifelse(get(x), "Fail", "Pass")}
+))
+colnames(outliers.df) <- gsub("\\.outliers$", "", outlier.vars)
+rownames(outliers.df) <- sampleNames(sce.sc)
+```
+
+Let us also define an order of sample that groups single cells by
+experimental phenotypes:
+
+```{r sampleSupervisedOrder}
+sample.order.supervised <- order(sce.sc$Time, sce.sc$Status, sce.sc$Infection)
+```
+
+### Counts of outliers across filters
+
+First, let us examine the count of _single cells_ that fail each of the QC
+metrics described in the previous sections:
+
+```{r QC_countByMetric}
+colSums(outliers.df == "Fail")
+```
+
+Secondly, we may also examine the count of _single cells_, according to the
+number of QC filters that they have failed:
+
+```{r QC_countByFailed}
+table(rowSums(outliers.df == "Fail"))
+```
+
+Let us define the single cells that did not fail any of the QC filter:
+
+```{r QC_finalOutliers}
+idx.pass <- rowSums(outliers.df == "Fail") == 0
+table(idx.pass)
+```
+
+### Heat map summary view
+
+Let us visually summarise _single cells_ that pass each filter as a heat map.
+
+First, let us define colours used to indicate phenotype information:
+
+```{r palette9}
+col9 <- brewer.pal(10, "Set3")[c(1:8, 10)]
+```
+
+We may then display the QC metrics failed by each single cell as red cells
+in an heat map:
+
+```{r QC_heatmap}
+hm_row <- rowAnnotation(
+  df = pData(sce.sc)[sample.order.supervised,c("Time", "Status", "Infection")],
+  col = list(
+    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
+    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+  )
+)
+hm <- Heatmap(
+  as.matrix(outliers.df)[sample.order.supervised,],
+  name = "Filter",
+  col = c("Pass" = "lightblue", "Fail" = "red"),
+  cluster_rows = FALSE, show_column_dend = FALSE, show_row_names = FALSE
+)
+draw(hm + hm_row)
+```
+
+### Phenotype information of single cell outliers
+
+We may summarise experimental phenotype information for the outliers samples:
+
+```{r QC_summary}
+varLabels(sce.sc)[1:10]
+summary(pData(sce.sc)[
+  !idx.pass,c("Infection","Status","Time","Lane","Plate","Well")
+])
+```
+
+Or alternatively display the full information in a table:
+
+```{r QC_tableOutliers, results='asis'}
+pander::pandoc.table(
+  arrange(
+    cbind(
+      pData(sce.sc)[
+        !idx.pass,c("Infection","Status","Time","Lane","Plate","Well")
+      ],
+      Filters = rowSums(outliers.df == "Fail")[!idx.pass]
+    ),
+    desc(Filters)
+  ),
+  "Experimental phenotype information for single cell outliers."
+)
+```
+
+# Single cells selection
+### Subsetting
+
+Let us select the single cells that passed all QC metrics into a new `SCESet`:
+
+```{r subset_goodCells}
+sce.pass <- sce.sc[,idx.pass]
+```
+
+```{r save_sce.pass, include=FALSE}
+saveRDS(sce.pass, file.path("rds", "sce.pass.rds"))
+```
+
+### Experimental phenotype information
+
+Let us examine the count of cells remaining in each experimental group:
+
+```{r goodCells_pheno}
+table(pData(sce.pass)[,c("Infection","Status","Time")])
+```
+
+# Saved session
+
+Let us save the current session state for later use:
+
+```{r saveSession}
+save.image(file = "01_Preprocessing_QC.RData")
+```
+
+
+# Session info
+
+Here is the output of `sessionInfo()` on the system on which this
+document was compiled:
+
+```{r sessionInfo, echo=FALSE}
+sessionInfo()
+```
+
+
+[R]: http://r-project.org
+[RStudio]: http://www.rstudio.com/
+[^1]: References needed.

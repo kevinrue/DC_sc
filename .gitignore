@@ -3,7 +3,11 @@
 *.html
 *.zip
 
-# Data folders
+# Data folders / files
+samples.csv
+samples.xlsx
+MultiQC
+counts
 quant
 expData
 qc
@@ -20,7 +24,7 @@ trimgalore
 .Rapp.history
 
 # Session Data files
-.RData
+*.RData
 
 # Example code in package build process
 *-Ex.R

@@ -67,16 +67,16 @@ A composite genome was assembled by concatenating the ERCC92 sequences to
 the GRCh38 build:
 
 ```
-wget http://ftp.ensembl.org/pub/release-86/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.toplevel.fa.gz
-gunzip Homo_sapiens.GRCh38.dna.toplevel.fa.gz
-cat Homo_sapiens.GRCh38.dna.toplevel.fa ERCC92.fa > genome_with_ERCC92.fa
+wget ftp://ftp.ensembl.org/pub/release-86/fasta/homo_sapiens/dna/Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
+gunzip Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz
+cat Homo_sapiens.GRCh38.dna.primary_assembly.fa ERCC92.fa > GRCh38.dna.primary_assembly_with_ERCC92.fa
 ```
 A composite genome annotation file was assembled by concatenating the ERCC92 annotations to the the GRCh38 GTF file:
 
 ```
-wget http://ftp.ensembl.org/pub/release-86/gtf/homo_sapiens/Homo_sapiens.GRCh38.86.gtf.gz
-gunzip Homo_sapiens.GRCh38.86.gtf.gz
-cat Homo_sapiens.GRCh38.86.gtf ERCC92.gtf > genes_with_ERCC.gtf
+wget ftp://ftp.ensembl.org/pub/release-86/gtf/homo_sapiens/Homo_sapiens.GRCh38.86.chr.gtf.gz
+gunzip Homo_sapiens.GRCh38.86.chr.gtf.gz
+cat Homo_sapiens.GRCh38.86.chr.gtf ERCC92.gtf > GRCh38.86.chr_with_ERCC.gtf
 ```
 
 #### Genome index
