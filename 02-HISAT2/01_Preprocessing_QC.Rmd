@@ -1268,8 +1268,8 @@ Overall, the observations above suggest different transcriptional *paths* taken
 by cells in their experimental stimuli.
 
 The analysis may be extended to more principal components; however, by
-definition those principal will report decreasing amount of variance in the
-data set:
+definition those principal components will report decreasing amount of variance
+in the data set:
 
 ```{r plotPCASCESet_PC1to3}
 plotPCASCESet(
@@ -1341,6 +1341,48 @@ plotDiffusionMapSCESet(
   rand_seed = 1794
 )
 ```
+
+# Highly variable genes (HVGs)
+## Identifying variable genes
+
+```{r}
+dm <- model.matrix(~Time+Infection+Status, data = pData(sce.filtered))
+colnames(dm)
+```
+
+
+```{r}
+var.fit <- trendVar(
+  sce.filtered, assay = "norm_exprs", trend = "loess", design = dm,
+  use.spikes=FALSE, span = 0.2
+)
+names(var.fit)
+```
+
+```{r}
+var.out <- decomposeVar(sce.filtered, var.fit)
+var.out
+```
+
+```{r}
+plot(var.out$mean, var.out$total, pch=16, cex=0.6, xlab="Mean log-expression",
+ylab="Variance of log-expression")
+points(var.fit$mean, var.fit$var, col="red", pch=16)
+o <- order(var.out$mean)
+lines(var.out$mean[o], var.out$tech[o], col="red", lwd=2)
+```
+
+
+
+```{r}
+plot(var.out$mean, var.out$total, pch=16, cex=0.6, xlab="Mean log-expression",
+ylab="Variance of log-expression")
+o <- order(var.out$mean)
+lines(var.out$mean[o], var.out$tech[o], col="dodgerblue", lwd=2)
+spike.fit <- trendVar(sce.filtered, use.spikes=TRUE) # To compute spike-in variances.
+points(spike.fit$mean, spike.fit$var, col="red", pch=16)
+```
+
 
 # Saved session
 
