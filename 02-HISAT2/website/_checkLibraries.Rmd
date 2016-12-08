@@ -1,0 +1,19 @@
+```{r pkgs, message=FALSE}
+stopifnot(
+  requireNamespace("xlsx"),
+  requireNamespace("edgeR"),
+  requireNamespace("scater"),
+  requireNamespace("ggplot2"),
+  requireNamespace("RColorBrewer"),
+  requireNamespace("ComplexHeatmap"),
+  requireNamespace("pander"),
+  requireNamespace("dplyr"),
+  requireNamespace("ggrepel"),
+  requireNamespace("scran"),
+  requireNamespace("rtracklayer"),
+  requireNamespace("rmarkdown"),
+  requireNamespace("pander"),
+  requireNamespace("SummarizedExperiment")
+)
+```
+

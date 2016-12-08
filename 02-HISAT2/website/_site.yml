@@ -1,0 +1,31 @@
+name: "SC / DC"
+navbar:
+  title: "SC/DC"
+  right:
+    - text: "Home"
+      href: index.html
+    - text: "Preprocessing"
+      icon: fa-link
+      menu:
+      - text: "RNA-Seq Read Counts"
+        href: 01_preprocessing.html
+      - text: "Data Import"
+        href: 02_import.html
+    - text: "Quality Control"
+      icon: fa-check-square-o
+      menu:
+      - text: "Sample QC"
+        href: 03_sampleQC.html
+      - text: "Feature QC"
+        href: 04_featureSelection.html
+    - text: "About"
+      href: about.html
+output:
+  html_document:
+    theme: cosmo
+    highlight: textmate
+    toc: true
+    toc_float:
+      collapsed: false
+      smooth_scroll: true
+exclude: ["rds", "counts", "expdata"]

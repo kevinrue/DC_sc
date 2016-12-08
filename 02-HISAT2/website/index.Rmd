@@ -1,0 +1,31 @@
+---
+title: "Home"
+date: '`r sub("^0", "", format(Sys.Date(), "%d %B %Y"))`'
+---
+<!-- date field above copied from BiocStyle to dynamically update it.-->
+
+Welcome !
+
+# Introduction
+
+This *R Markdown Website* presents a single-cell RNA-sequencing experiment
+and analysis of dendritic cells following *Salmonella* infection.
+
+*Add more details, such as:*
+
+* Figure of experimental design.
+* Figure of computational analysis pipeline
+
+# Requirements
+
+The following packages were require to perform the analysis and produce
+those HTML pages from the count files:
+
+```{r checkPkgs, child="_checkLibraries.Rmd"}
+```
+
+<!-- Create necessary directories -->
+
+```{r dir.create, include=FALSE}
+dir.create("rds", showWarnings = FALSE)
+```

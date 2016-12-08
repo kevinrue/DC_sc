@@ -16,6 +16,14 @@ boot
 featureCounts
 trimgalore
 
+# R Markdown website
+*_cache
+*_files
+*.html
+*.png
+css
+site_libs
+
 # osx
 .DS_Store
 

@@ -1,0 +1,132 @@
+---
+title: "Import of RNA-Sequencing read counts and associated metadata"
+---
+
+```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
+```
+
+<!-- Enable caching -->
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+library(xlsx)
+library(edgeR)
+library(Biobase)
+library(scater)
+library(rtracklayer)
+library(pander)
+```
+
+# Phenotype information
+
+Let us import experimental information:
+
+```{r importPheno, results='asis'}
+pheno <- read.xlsx("expdata/samples.xlsx", sheetName = "pheno")
+pandoc.table(head(pheno))
+```
+
+To facilitate later use, let us retype some fields, reorder some factor levels,
+and add an additional field `Sample` field that contains a shortened unique
+identifier derived from the count file name for each sample:
+
+```{r editPheno}
+pheno$File <- as.character(pheno$File)
+pheno$Infection <- factor(pheno$Infection, c("Mock","D23580","LT2","Blank"))
+pheno$Status <-
+  factor(pheno$Status, c("uninfected","exposed","infected","Blank","BULK"))
+pheno$Lane <- as.factor(pheno$Lane)
+pheno$Sample <- gsub("WTCHG_[[:digit:]]+_", "", pheno$File)
+pheno$sampleAnnotated <-
+  with(pheno, paste(Time, Infection, Status, Sample, sep = "_"))
+```
+
+# Counts {#Counts}
+
+To import count data that is stored in a separate file for each sample,
+let us use the [edgeR](http://bioconductor.org/packages/edgeR)
+`readDGE` method and the above `data.frame` of phenotype information:
+
+```{r readDGE}
+RG <- readDGE(
+  pheno$File,
+  "counts",
+  c(1, 3),
+  paste(pheno$Time, pheno$Infection, pheno$Status, sep = "_"),
+  pheno$Sample
+)
+dim(RG)
+```
+
+# `SCESet`
+
+Let us assemble the phenotype information and count data above into
+[scater](http://bioconductor.org/packages/scater) `SCESet` objects:
+
+* one `SCESet` that contains all samples together
+* one for the blank samples
+* one for the bulk samples
+* one for the single cells
+
+**Note:**
+This distinction will be important later, to compute QC metrics within
+particular sets of samples.
+
+First, let us set the `rownames` of the phenotypes information `data.frame` to
+the unique sample identifier for consistency with the sample identifier
+associated with the count data imported [above](#Counts):
+
+```{r renamePheno}
+rownames(pheno) <- pheno$Sample
+```
+
+We may then create the four data sets:
+
+```{r sce.all}
+pd.all <- new("AnnotatedDataFrame", data = pheno)
+sce.all <- newSCESet(countData = RG$counts, phenoData = pd.all)
+dim(sce.all)
+```
+```{r sce.blank}
+idx.blank <- pheno$Status == "Blank"
+pd.blank <- new("AnnotatedDataFrame", data = droplevels(pheno[idx.blank,]))
+sce.blank <- newSCESet(countData = RG$counts[,idx.blank], phenoData = pd.blank)
+dim(sce.blank)
+```
+```{r sce.bulk}
+idx.bulk<- pheno$Status == "BULK"
+pd.bulk <- new("AnnotatedDataFrame", data = droplevels(pheno[idx.bulk,]))
+sce.bulk <- newSCESet(countData = RG$counts[,idx.bulk], phenoData = pd.bulk)
+dim(sce.bulk)
+```
+```{r sce.sc}
+idx.sc <- pheno$Status %in% c("exposed","infected","uninfected")
+pd.sc <- new("AnnotatedDataFrame", data = droplevels(pheno[idx.sc,]))
+sce.sc <- newSCESet(countData = RG$counts[,idx.sc], phenoData = pd.sc)
+dim(sce.sc)
+```
+
+# Gene annotations
+
+To ensure coherence between gene annotations and gene expression data,
+let us also import the `gene` records from the same GTF file that was supplied
+to *featureCounts*:
+
+```{r import.gff}
+gtfData <- import.gff("expdata/genes_with_ERCC.gtf", feature.type = "gene")
+```
+
+**Note:** the above code does *not* import records that relate to ERCC
+spike-in features, as these are annotated with `exon` *type* (GTF column 2)
+from the `ERCC` *soure* (GTF column 3).
+
+<!-- As HTML pages are built independently, objects need to be saved to disk
+and imported as needed by the other R mardown files -->
+
+```{r saveRDS, include=FALSE}
+saveRDS(sce.all, "rds/sce.all.rds")
+saveRDS(sce.blank, "rds/sce.blank.rds")
+saveRDS(sce.bulk, "rds/sce.bulk.rds")
+saveRDS(sce.sc, "rds/sce.sc.rds")
+saveRDS(gtfData, "rds/gtfData.rds")
+```
+

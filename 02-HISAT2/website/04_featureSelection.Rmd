@@ -1,0 +1,118 @@
+---
+title: "Feature selection"
+---
+
+```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
+```
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+library(scater)
+library(SummarizedExperiment)
+sce.pass <- readRDS("rds/sce.pass.rds")
+gtfData <- readRDS("rds/gtfData.rds")
+ERCCs <- grep("^ERCC-[[:digit:]]+$", featureNames(sce.pass), value = TRUE)
+MTs <- mcols(gtfData)[seqnames(gtfData) == "MT", "gene_id"]
+```
+
+# Overview of feature detection levels
+
+Having selected single cells that pass all quality control criteria in the
+previous sections, let us identify features that are robustly detected across
+single cells in the data set.
+Indeed, features detected in a small count of cells, or expressed at very
+low levels carry limited information for differential expression analyses;
+moreover, those features negatively affect the performance of normalisation
+algorithms, due to the large number of dropout events (zero count).
+
+**Cite paper 67 from Lun, McCarthy et Marioni; Brennecke et al., 2013**
+
+For this purpose, let us first calculate updated QC metrics in the subsetted
+data set using once more the [scater](http://bioconductor.org/packages/scater)
+`calculateQCMetrics` method:
+
+```{r pass_calculateQCMetrics}
+sce.pass <- calculateQCMetrics(
+  sce.pass, feature_controls = list(ERCC = ERCCs, MT = MTs)
+)
+```
+
+We may then examine for each feature the proportion of cells in which it is
+detected (non-zero expression level) against its average expression level
+across all cells:
+
+```{r plotExprsFreqVsMean}
+plotExprsFreqVsMean(
+  sce.pass,
+  feature_controls = fData(sce.pass)$is_feature_control_ERCC
+)
+```
+
+# Definition of detected feature
+
+Let us set define low-abundance features as those with an average count below a
+filter threshold of `1`:
+
+```{r ave.counts}
+ave.counts <- rowMeans(counts(sce.pass))
+keep <- ave.counts >= 1
+sum(keep)
+```
+
+To check whether the chosen threshold is suitable, let us examine the
+distribution of log-means across all genes:
+
+```{r detectVsMean_hist}
+hist(
+  log10(ave.counts), breaks = 100,
+  main = "", xlab = expression(Log[10]~"average count", col="grey80")
+)
+abline(v = log10(1), col = "blue", lwd = 2, lty = 2)
+```
+
+We may compare the above figure with the a smoother representation of the
+count of cells in which each feature is detected against the average
+log~10~-transformed count of reads assigned to that same feature, while
+marking the same cut-off threshold of an average `1` count across all cells:
+
+```{r smoothScatter}
+numcells <- nexprs(sce.pass, byrow = TRUE)
+is.ercc <- fData(sce.pass)$is_feature_control_ERCC
+smoothScatter(
+  log10(ave.counts), numcells, xlab=expression(Log[10]~"average count"),
+  ylab="Number of expressing cells"
+)
+points(
+  log10(ave.counts[is.ercc]), numcells[is.ercc],
+  col = "red", pch = 16, cex = 0.5
+)
+abline(v = log10(1), col = "blue", lwd = 2, lty = 2)
+```
+
+# Selection of detected features
+
+Let us now select the features defined as detected in the above sections
+into a new `SCESet`:
+
+```{r subset_features}
+sce.filtered <- sce.pass[keep,]
+dim(sce.filtered)
+```
+
+To facilitate later interpretation, let us annotate endogenous feature
+identifiers in the `SCESet` with gene symbols extracted from the same GTF file
+that was supplied to _featureCounts_ for quantitation:
+
+```{r annotateSymbol_sce.filtered}
+fData(sce.filtered)$gene_name <-
+  gtfData$gene_name[match(rownames(sce.filtered), gtfData$gene_id)]
+```
+
+<!-- As HTML pages are built independently, objects need to be saved to disk
+and imported as needed by the other R mardown files -->
+
+```{r save_sce.pass, include=FALSE}
+saveRDS(sce.filtered, "rds/sce.filtered.rds")
+```

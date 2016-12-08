@@ -275,7 +275,7 @@ all(multiqc$sample == rownames(pData(sce.all)))
 
 ### Assigned read pairs / Library size (_featureCounts_) {#featureCounts}
 
-Excessively small library size may indicate technial issues during
+Excessively small library size may indicate technical issues during
 library preparation or low quality sample.
 Moreover, library size excessively different from the
 majority of samples may introduce bias due to under- or over-sampling of
@@ -403,7 +403,7 @@ ggplot(multiqc, aes(sample, Bowtie.2_overall_alignment_rate)) +
   ylab("HISAT.2_overall_alignment_rate")
 ```
 
-### Percentage assigned (_HISAT2_ / _bowtie2_)
+### Percentage assigned (_featureCounts_)
 
 After alignment, unusually _low_ assignment rate of reads to annotated genomic
 features may be indicative of technical issue; for instance during
@@ -1360,7 +1360,7 @@ plotDiffusionMapSCESet(
 
 ### Using ERCC spike-in features
 
-Let us trend fit a trend to the variance of spike-in features while accounting
+Let us fit a trend to the variance of spike-in features while accounting
 for the minor effect of technical factors described
 [earlier](#explanatoryVariables).
 We do not block on the key experimental factors `Time`, `Infection`, and
@@ -1426,7 +1426,7 @@ experimental design:
 ```{r trendVar_endo}
 var.fit.endo <- trendVar(
   sce.filtered, assay = "norm_exprs", trend = "loess", design = dm,
-  use.spikes = FALSE
+  use.spikes = FALSE, span = 0.1
 )
 names(var.fit.endo)
 ```
@@ -1436,7 +1436,7 @@ biological components:
 
 ```{r decomposeVar_endo}
 var.out.endo <- decomposeVar(sce.filtered, var.fit.endo)
-var.out.endo
+names(var.out.endo)
 ```
 
 We assess the suitability of the trend fitted to the endogenous variances by examining whether it is consistent with the
@@ -1539,6 +1539,9 @@ a progressive *up*-regulation of gene expression over time:
 
 ```{r top.hvg_Time}
 top.hvg <- rownames(hvg.out)[1:10]
+top.hvg <- rownames(hvg.out)[11:20]
+top.hvg <- rownames(hvg.out)[21:30]
+top.hvg <- rownames(hvg.out)[31:40]
 plotExpressionSCESet(
   sce.filtered, top.hvg, exprs_values = "norm_exprs", colour_by = "Time"
 ) +
@@ -1550,7 +1553,6 @@ We may also relate the biological variance observed in those same HVGs to the
 the differences between bacteria-stimulated and mock-infected cells:
 
 ```{r top.hvg_Infection}
-top.hvg <- rownames(hvg.out)[1:10]
 plotExpressionSCESet(
   sce.filtered, top.hvg, exprs_values = "norm_exprs", colour_by = "Infection"
 ) +
@@ -1562,7 +1564,6 @@ Finally, we may also relate the biological variance in the same HVGs to the
 stimulated by bacterial infection or exposure and `uninfected` cells:
 
 ```{r top.hvg_Status}
-top.hvg <- rownames(hvg.out)[1:10]
 plotExpressionSCESet(
   sce.filtered, top.hvg, exprs_values = "norm_exprs", colour_by = "Status"
 ) +
