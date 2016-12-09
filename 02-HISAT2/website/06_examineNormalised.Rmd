@@ -52,7 +52,7 @@ Having normalised the expression data for detected features
 in single cells that passed quality control, let us examine the unsupervised
 clustering of those cells using different approaches.
 
-## Principal component analysis (PCA)
+## Principal component analysis (PCA) {.tabset}
 
 Let us initially focus our attention on the two principal components that
 explain the largest amount of variance in the endogenous features.
@@ -95,6 +95,8 @@ The analysis may be extended to more principal components; however, by
 definition those principal components will report decreasing amount of variance
 in the data set:
 
+### Status
+
 ```{r plotPCASCESet_PC1to3}
 plotPCASCESet(
   sce.norm, ncomponents = 3, exprs_values = "norm_exprs",
@@ -103,8 +105,7 @@ plotPCASCESet(
 )
 ```
 
-We may also use the `shape` aesthetic to examine the clustering of samples
-according to their `Infection` phenotype:
+### Infection
 
 ```{r plotPCASCESet_infection}
 plotPCASCESet(
@@ -114,10 +115,12 @@ plotPCASCESet(
 )
 ```
 
-## t-distributed stochastic neighbour embedding (t-SNE)
+## t-distributed stochastic neighbour embedding (t-SNE) {.tabset}
 
 Let us apply the t-distributed stochastic neighbour embedding (t-SNE) dimensionality reduction technique on the normalised expression of the
 `500` most variable endogenous features to check for substructure in the data set:
+
+### Status
 
 ```{r plotTSNE_status}
 sce.norm <- plotTSNE(
@@ -128,8 +131,7 @@ sce.norm <- plotTSNE(
 )
 ```
 
-While the `Status` factor is investigated in the above figure,
-we may also examine the `Infection` factor below:
+### Infection
 
 ```{r plotTSNE_infection}
 plotReducedDim.SCESet(
@@ -137,6 +139,7 @@ plotReducedDim.SCESet(
 )
 ```
 
+### Gene: TNF
 
 Alternatively, we may overlay the expression level of a particular gene onto
 the data points.
