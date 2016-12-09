@@ -1,0 +1,143 @@
+---
+title: "Normalisation"
+---
+
+```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
+```
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+library(scran)
+library(scater)
+library(ggplot2)
+sce.filtered <- readRDS("rds/sce.filtered.rds")
+```
+
+# Sum factors
+
+Having identified the cells of good quality and the features robustly
+detected across those cells, we may now normalise expression levels between
+cells using an approach suitable for single cell data sets.
+
+Considering the multifactorial experimental design of this data set, and the
+expected differential expression in `exposed` and `infected` cells,
+let us cluster similar cells together prior to normalising the cells in each
+cluster using the deconvolution method implemented in the
+[scran](http://bioconductor.org/packages/scran) package:
+
+```{r quickCluster}
+clusters <- quickCluster(sce.filtered)
+```
+
+In this case, none of the cells were assigned to any cluster, which suggests
+that despite the expected differences between experimental groups, the data set
+is sufficiently homogenous for the normalisation procedure to be applied to
+all cells equally:
+
+```{r computeSumFactors}
+sce.filtered <- computeSumFactors(sce.filtered, clusters = clusters)
+summary(sizeFactors(sce.filtered))
+```
+
+In this case, the size factors are somewhat correlated with library size,
+while significant scatter is visible around the trend;
+augmenting the figure with experimental phenotype information emphasises
+how the effect of library size on the size factor of individual cells is
+subject to factors related to the experimental design of the experiment.
+
+In particular, the figure below emphasises how the effect of library size is
+more important in `uninfected` cells, and at the earliest time point
+(*i.e.*, `2h`), when the biological effect of infection may not have fully
+affect the transcriptome of most cells yet.
+
+In contrast, at later time points (*i.e.*, `4h` and `6h`), trends indicate a
+markedly weaker effect of library size on size factor.
+This suggest that other sources of systematic differences between cells
+arose, and that differential expression is to be expected
+between experimental groups at those time points:
+
+```{r sizeFactor_librarySize}
+ggplot(
+  pData(sce.filtered), aes(total_counts / 1E6, size_factor)) +
+  geom_point(aes(colour = Time, shape = Status)) +
+  labs(x = "Library size (millions)", y = "Size factor") +
+  stat_smooth(
+    aes(colour = Time, linetype = Status),
+    method = "lm", se = TRUE, size = 0.5, alpha = 0.1
+  )
+```
+
+Let us examine further the effect of experimental covariates on the size
+factors:
+
+```{r sizeFactor_expFactors}
+ggplot(
+  pData(sce.filtered),
+  aes(interaction(Infection, Status, Time, sep = " - "), size_factor)) +
+  geom_boxplot(aes(alpha = Time, fill = Infection, linetype = Status)) +
+  coord_flip() +
+  labs(y = "Size factor", x = "")
+```
+
+In a different perspective, the above figure emphasises again how
+size factors are affected by experimental factors in this data set;
+in particular at the later time points, size factors for cells infected by
+or exposed to bacteria display markedly distinct size factors,
+irrespective of library size.
+This suggests that `Infection`, and `Status` drive more important
+systematic differences between cells than library size at those time points,
+having likely reshaped the transcriptional profile of stimulated cells.
+
+# Spike factors
+
+To ensure normalization is performed correctly, let us compute a separate set
+of size factors for the spike-in set. This assumes
+that none of the spike-in transcripts are differentially expressed.
+
+```{r computeSpikeFactors}
+setSpike(sce.filtered) <- "ERCC"
+sce.filtered <- computeSpikeFactors(
+  sce.filtered, type = "ERCC", general.use = FALSE
+)
+```
+
+We may then examine the spike factors calculated:
+
+```{r spikeFactors_ggplot}
+ggplot(pData(sce.filtered), aes(total_counts / 1E6, size_factor_ERCC)) +
+  geom_point(aes(colour = Time, shape = Status)) +
+  stat_smooth(method = "lm") +
+  labs(x = "Library size", y = "Spike factor")
+```
+
+In contrast to size factors calculated using endogenous features, spike factors
+calculated using ERCC spike-in display a much weaker correlation with
+library size, and no trend with experimental factors.
+This reinforces the absence of extreme outliers after the removal
+of cells with abnormal ERCC content in an [earlier section](#ERCCoutliers);
+moreover, it suggests that counts assigned to individual ERCC spike-in features
+are similar across all the cells retained after quality control.
+
+# Apply size factors to normalise
+
+The count data are used to compute normalized log-expression values for use in
+downstream analyses.
+Each value is defined as the log-ratio of each count to the size factor for the
+corresponding cell, after adding a prior count of `1` to avoid undefined values
+at zero counts.
+Division by the size factor ensures that any cell-specific biases are removed.
+Spike-in-specific size factors present are applied to normalize the spike-in
+transcripts separately from the endogenous features:
+
+```{r normalise}
+sce.norm <- normalize(sce.filtered)
+```
+
+<!-- As HTML pages are built independently, objects need to be saved to disk
+and imported as needed by the other R mardown files -->
+
+```{r saveRDS, include=FALSE}
+saveRDS(sce.norm, "rds/sce.norm.rds")
+```

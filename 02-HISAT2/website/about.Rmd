@@ -1,20 +1,20 @@
 ---
-title: "About This Website"
+title: "About This Project"
 author:
   - name: Anna Aulicino
     email: anna.aulicino@ndm.ox.ac.uk
-    affiliation: MRC,Human Immunology Unit, Weatherall Institute of Molecular
+    affiliation: MRC, Human Immunology Unit, Weatherall Institute of Molecular
         Medicine, NIHR Biomedical research centre, University of Oxford,
         John Radcliffe Hospital, Oxford, UK.
   - name: Kévin Rue-Albrecht
     email: kevinrue67@gmail.com
-    affiliation: Department of Medicine, Imperial College London,
-        Hammersmith Campus, Du Cane Road, London, W12 0NN, UK
+    affiliation: Target Discovery Institute, University of Oxford,
+        Oxford OX3 7FZ, UK.
 ---
 
 # Authors and contributions
 
-Authors of the analysis presented in this website are listed above.
+Corresponding authors of the analysis presented in this website are listed above.
 Respective contributions include:
 
 ## Dr. Anna Aulicino
@@ -23,4 +23,24 @@ Experimental design, experimental work, writing of manuscript.
 
 ## Dr. Kévin Rue-Albrecht
 
-Computational analysis, writing of manuscript.
+Computational analyses, writing of manuscript.
+
+## Dr. Lorena Preciado
+
+Experimental work and experimental design.
+
+## Dr. Adam Cribbs
+
+Computational analysis support.
+
+## Dr. Neil Ashley
+
+Experimental work.
+
+## Dr. Giorgio Napolitani
+
+Experimental design and support.
+
+## Prof. Alison Simmons
+
+Experimental design, funding, and project supervision.

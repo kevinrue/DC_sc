@@ -1,0 +1,165 @@
+---
+title: "Overview of normalised expression data"
+---
+
+```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
+```
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+library(scater)
+library(scran)
+library(ggplot2)
+library(SummarizedExperiment)
+sce.norm <- readRDS("rds/sce.norm.rds")
+```
+
+# Relative importance of experimental factors {#explanatoryVariables}
+
+Having normalised the expression data for detected features in cells that
+passed quality control, the relative importance of experimental factors---both
+technical and biological---provides insight into uninteresting technical
+factors that may need to be accounted for when explaining variance in the
+expression data.
+
+Let us examine the proportion of variance explained by known experimental
+factors, as well as the total spike-in count in each cell:
+
+```{r plotExplanatoryVariables}
+plotExplanatoryVariables(
+  sce.norm,
+  exprs_values = "norm_exprs",
+  variables = c(
+    "counts_feature_controls_ERCC",
+    "log10_counts_feature_controls_ERCC",
+    "Plate", "Lane", "Time", "Status", "Infection"
+    )
+)
+```
+
+The above figure reinforces the effect of `Time` as the primary source of
+variance in this expression data set, with substantial proportion of variance
+explained for a subset of features. Next are `Status` and `Infection`
+factors, while other technical factors share explanation of lower amount
+of the residual variance in the data set.
+
+# Clustering
+
+Having normalised the expression data for detected features
+in single cells that passed quality control, let us examine the unsupervised
+clustering of those cells using different approaches.
+
+## Principal component analysis (PCA)
+
+Let us initially focus our attention on the two principal components that
+explain the largest amount of variance in the endogenous features.
+
+**Note 1:** Some important default values are:
+
+* `ntop=500`: only the `500` most variable features are used
+* `scale_features=TRUE`: standardises expression values so that each feature
+  has unit variance; normalises the relative importance of features expressed
+  at high and low levels in the calculation of principal components.
+
+**Note 2:** Some important non-default values are:
+
+* `exprs_values`: the normalised log~2~-transformed CPM are used.
+* `feature_set`: only endogenous features are used.
+
+```{r plotPCASCESet_PC1and2}
+plotPCASCESet(
+  sce.norm, ncomponents = 2, exprs_values = "norm_exprs",
+  colour_by = "Status", shape_by = "Time",
+  feature_set = !isSpike(sce.norm)
+)
+```
+
+The above figure emphasises the importance of the `Time` factor, significantly
+associated with `PC1`; in the figure, cells progress from the earliest time
+points at the lowest coordinates on `PC1` to the latest time points at the
+highest coordinates of `PC1`.
+
+In addition, `PC2` contributes to the increasingly marked separation of
+stimulated cells (*i.e.*, `infected` and `stimulated`) from `uninfected` cells;
+`uninfected` cells generally appear at lower coordinates than their stimulated
+counterparts on both `PC2` and `PC1`, with this trend becoming increasingly
+apparent over time.
+
+Overall, the observations above suggest different transcriptional *paths* taken
+by cells in their experimental stimuli.
+
+The analysis may be extended to more principal components; however, by
+definition those principal components will report decreasing amount of variance
+in the data set:
+
+```{r plotPCASCESet_PC1to3}
+plotPCASCESet(
+  sce.norm, ncomponents = 3, exprs_values = "norm_exprs",
+  colour_by = "Status", shape_by = "Time",
+  feature_set = !isSpike(sce.norm)
+)
+```
+
+We may also use the `shape` aesthetic to examine the clustering of samples
+according to their `Infection` phenotype:
+
+```{r plotPCASCESet_infection}
+plotPCASCESet(
+  sce.norm, ncomponents = 3, exprs_values = "norm_exprs",
+  colour_by = "Infection", shape_by = "Time",
+  feature_set = !isSpike(sce.norm)
+)
+```
+
+## t-distributed stochastic neighbour embedding (t-SNE)
+
+Let us apply the t-distributed stochastic neighbour embedding (t-SNE) dimensionality reduction technique on the normalised expression of the
+`500` most variable endogenous features to check for substructure in the data set:
+
+```{r plotTSNE_status}
+sce.norm <- plotTSNE(
+  sce.norm, ncomponents = 2, exprs_values = "norm_exprs",
+  colour_by = "Status", shape_by = "Time", return_SCESet = TRUE,
+  feature_set = !isSpike(sce.norm),
+  rand_seed = 1794
+)
+```
+
+While the `Status` factor is investigated in the above figure,
+we may also examine the `Infection` factor below:
+
+```{r plotTSNE_infection}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, colour_by = "Infection", shape_by = "Time"
+)
+```
+
+
+Alternatively, we may overlay the expression level of a particular gene onto
+the data points.
+
+```{r plotTSNE_TNF}
+plotGeneId <-
+  rownames(fData(sce.norm))[which(fData(sce.norm)$gene_name == "TNF")]
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2,
+  colour_by = plotGeneId, shape_by = "Time"
+  ) +
+  guides(colour = guide_colourbar(title = "TNF"))
+```
+
+## Diffusion map
+
+Finally, let us also produce a diffusion map plot of two components as a
+dimensionality reduction of the endogenous features:
+
+```{r plotDiffusionMapSCESet}
+plotDiffusionMapSCESet(
+  sce.norm, exprs_values = "norm_exprs",
+  colour_by = "Status", shape_by = "Time",
+  feature_set = !isSpike(sce.norm),
+  rand_seed = 1794
+)
+```

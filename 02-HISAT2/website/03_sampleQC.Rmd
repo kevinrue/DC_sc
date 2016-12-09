@@ -351,7 +351,7 @@ ggplot(pData(sce.all), aes(Sample, log10_total_counts)) +
   )
 ```
 
-## Library complexity: bulks, single cells, blanks {#libraryComplexity}
+## Library complexity {#libraryComplexity}
 
 *Library complexity* refers to the proportion of assigned reads accounted for
 by the *N* most abundant features within each individual sample, with values
@@ -399,7 +399,7 @@ Now, from a biological perspective, an interesting observation may be made:
     complexity over time. This observation *might* be more pronounced
     for `D23580`.
 
-## Proportion of library assigned to the most abundant features
+## Most abundant features
 
 Although abundantly expressed features are an expected aspect of cell biology
 (*e.g.*, myosin in muscle cells, clusters of differentiation in immune cells)
@@ -639,7 +639,7 @@ ggplot(pData(sce.all), aes(Sample, pct_counts_feature_controls_MT)) +
   )
 ```
 
-# Global summary of sample-level QC metrics
+# Global summary of QC metrics
 ## Collection of QC filters
 
 First, let us collect the QC filters described in the previous sections as

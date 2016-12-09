@@ -1,0 +1,233 @@
+---
+title: "Overview of normalised expression data"
+---
+
+```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
+```
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+library(scater)
+library(scran)
+library(ggplot2)
+library(SummarizedExperiment)
+sce.norm <- readRDS("rds/sce.norm.rds")
+```
+
+# Highly variable genes (HVGs)
+## Identifying variable genes
+
+### Using ERCC spike-in features
+
+Let us fit a trend to the variance of spike-in features while accounting
+for the minor effect of technical factors described
+[earlier](#explanatoryVariables).
+We do not block on the key experimental factors `Time`, `Infection`, and
+`Status`, as doing so may regress out biological effects of interest.
+
+```{r model.matrix_technical}
+dm <- model.matrix(~Plate+Lane, data = pData(sce.norm))
+colnames(dm)
+```
+
+Having defined the design matrix, we fit the mean-dependent trend to the
+gene-specific variances in the data set:
+
+```{r trendVar_ercc}
+var.fit.ercc <- trendVar(
+  sce.norm, assay = "norm_exprs", trend = "loess", design = dm,
+  span = 0.4
+)
+names(var.fit.ercc)
+```
+
+We may then decompose the gene-specific variance into biological and technical
+components using the ERCC spike-in trend as an estimate of technical variance:
+
+```{r decomposeVar_ercc}
+var.out.ercc <- decomposeVar(sce.norm, var.fit.ercc, assay = "norm_exprs")
+names(var.out.ercc)
+```
+
+Finally, we may plot the fitted trend, while highlighting ERCC spike-in
+features used to obtain it:
+
+```{r plot_var.out.ercc}
+plot(
+  var.out.ercc$mean, var.out.ercc$total, pch = 16, cex = 0.6,
+  xlab = "Mean log-expression", ylab = "Variance of log-expression"
+)
+points(var.fit.ercc$mean, var.fit.ercc$var, col="red", pch=16)
+o <- order(var.out.ercc$mean)
+lines(var.out.ercc$mean[o], var.out.ercc$tech[o], col="red", lwd=2)
+```
+
+While the above figure suggests that the trend fits accurately spike-in
+features at extreme values the detection range, it also indicate substantial
+scatter around the trend for feature at intermediate levels of detection,
+and likely understimates technical variance in both ERCC spike-in and
+endogenous features at moderately high levels of detection
+(*i.e.*, mean log-expression in the range `5<X<10`).
+
+### Using endogenous features
+
+Considering the technical variance in ERCC spike-in detection levels observed
+in the previous section, an alternate method of estimating technical variation
+across the dynamic range of expression uses endogenous features expression
+levels under the assumption that most endogenous features exhibit mostly
+technical variation, in contrast to little biological variation.
+
+Similarly to the use of ERCC spike-in features, let us use the
+[scran](http://bioconductor.org/packages/scran) `trendVar` method
+to estimate technical variation under the assumption stated above,
+accouting for the same technical factors of the experimental design:
+
+```{r trendVar_endo}
+var.fit.endo <- trendVar(
+  sce.norm, assay = "norm_exprs", trend = "loess", design = dm,
+  use.spikes = FALSE, span = 0.1
+)
+names(var.fit.endo)
+```
+
+Similarly, the estimate variance is decomposed into its technical and
+biological components:
+
+```{r decomposeVar_endo}
+var.out.endo <- decomposeVar(sce.norm, var.fit.endo)
+names(var.out.endo)
+```
+
+We assess the suitability of the trend fitted to the endogenous variances by examining whether it is consistent with the
+spike-in variances
+
+
+```{r plot_var.out.endo}
+plot(
+  var.out.endo$mean, var.out.endo$total, pch=16, cex=0.6,
+  xlab="Mean log-expression", ylab="Variance of log-expression"
+)
+o <- order(var.out.endo$mean)
+lines(var.out.endo$mean[o], var.out.endo$tech[o], col="dodgerblue", lwd=2)
+spike.fit <- trendVar(sce.norm, use.spikes=TRUE) # To compute spike-in variances.
+points(spike.fit$mean, spike.fit$var, col="red", pch=16)
+```
+
+\bioccomment{
+The help page for `trendVar` suggests fiddling with arguments for smoothing
+such as `span`, `degree`, or `family` or using `semiloess` to produce the
+trend. I haved tried the `gaussian` family which barely affects the smoothing
+of the ERCC spike-in features, and the `semiloess` trend which does not
+converge for ERCC spike-in features.
+}
+
+## Model selection
+
+The two methods (*i.e.*, ERCC spike-in and endogenous features) yield markedly
+distinct trends.
+
+In particular, the limited count of spike-in features robustly detected
+across cells (*i.e.*, `44` ERCC spike-in features with an average count greater
+than `1` were retained), scarcer at moderate levels of expression, may
+explain to some extent the substantial scatter around the trend at moderate
+levels of expression (*i.e.*, mean log-expression in the range `2.5<X<7.5`).
+Nevertheless, this trend matches closely observations at low detection levels
+dense in ERCC spike-in features, and high detection levels that show limited
+variability.
+
+In contrast, the use of endogenous features---under the assumption that most
+genes exhibit technical variation and little biological variation---yields a
+trend that may understimate technical variation at low levels of detection and
+overestimate technical variation at high levels of detection, considering
+ERCC spike-in for reference. However, at moderate detection levels,
+the overall trend provides a more representative average estimate of variance
+matching both ERCC spike-in and endogenous features (always under the
+assumption that most spike-in and endogenous features only show technical
+variation).
+
+Let us adopt a conservative approach and use the latter trend (*i.e.*,
+estimated from the endogenous features) as it is consistent with the spike-in
+variances, and as such supporting the assumption that most genes have low
+levels of biological variability is valid in this data set.
+
+## Top endogenous features
+
+HVGs are defined as genes with biological components that are significantly
+greater than zero at a false discovery rate (FDR) of 5%.
+These genes are interesting as they are most likely to drive differences in the
+expression profiles between cells that belong to different experimental groups,
+while more generally explaining a substantial proportion of the
+transcriptional variance across all cells in the data set.
+
+In addition to the definition above, let us define as HVGs endogenous features
+with an estimated biological component of variance greater than or equal to
+`0.5`
+For transformed expression values on the log2 scale, this means that the
+average difference in true expression between any two cells will be at least
+`2`-fold. (This reasoning assumes that the true log-expression
+values are Normally distributed with variance of 0.5) (**cite paper 67**).
+
+```{r hvg.out}
+hvg.out <- var.out.endo[which(
+  var.out.endo$FDR <= 0.05 & var.out.endo$bio >= 0.5
+  ),]
+hvg.out <- hvg.out[order(hvg.out$bio, decreasing=TRUE),]
+nrow(hvg.out)
+```
+
+```{r annotated_hvg.out}
+hvg.out <- cbind(
+  gene_name = fData(sce.norm)[rownames(hvg.out),]$gene_name,
+  hvg.out
+)
+```
+
+```{r pandoc_topBioVariance, results='asis'}
+pander::pandoc.table(head(hvg.out, n = 30))
+```
+
+## Examination of HVGs
+
+Let us examine the distribution of expression values for the top HVGs across
+cells to ensure that the variance estimate is not being dominated by a small
+count of extreme outliers.
+
+We may highlight the relation between `Time` and those HVGs
+(irrespective of other key experimental factors), generally indicating
+a progressive *up*-regulation of gene expression over time:
+
+```{r top.hvg_Time}
+top.hvg <- rownames(hvg.out)[1:10]
+plotExpressionSCESet(
+  sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Time"
+) +
+  scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name)
+```
+
+We may also relate the biological variance observed in those same HVGs to the
+`Infection` factor, further linking the high variance of those genes to
+the differences between bacteria-stimulated and mock-infected cells:
+
+```{r top.hvg_Infection}
+plotExpressionSCESet(
+  sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Infection"
+) +
+  scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name)
+```
+
+Finally, we may also relate the biological variance in the same HVGs to the 
+`Status` factor, which reinforces clear-cut differences between cells
+stimulated by bacterial infection or exposure and `uninfected` cells:
+
+```{r top.hvg_Status}
+plotExpressionSCESet(
+  sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Status"
+) +
+  scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name)
+```
+
+## Identification of HGV clusters
+
+TBD.

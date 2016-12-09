@@ -18,6 +18,15 @@ navbar:
         href: 03_sampleQC.html
       - text: "Feature QC"
         href: 04_featureSelection.html
+    - text: Normalisation
+      href: 05_normalisation.html
+    - text: Overview
+      icon: fa-pie-chart
+      menu:
+      - text: "Clustering"
+        href: 06_examineNormalised.html
+      - text: "HVGs"
+        href: 07_highlyVariableGenes.html
     - text: "About"
       href: about.html
 output:
