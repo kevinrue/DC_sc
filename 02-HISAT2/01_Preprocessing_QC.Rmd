@@ -1539,9 +1539,6 @@ a progressive *up*-regulation of gene expression over time:
 
 ```{r top.hvg_Time}
 top.hvg <- rownames(hvg.out)[1:10]
-top.hvg <- rownames(hvg.out)[11:20]
-top.hvg <- rownames(hvg.out)[21:30]
-top.hvg <- rownames(hvg.out)[31:40]
 plotExpressionSCESet(
   sce.filtered, top.hvg, exprs_values = "norm_exprs", colour_by = "Time"
 ) +
