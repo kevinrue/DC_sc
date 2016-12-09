@@ -9,6 +9,7 @@ title: "Overview of normalised expression data"
 reimported from disk, and smaller ones quickly recomputed. -->
 
 ```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
 library(scater)
 library(scran)
 library(ggplot2)

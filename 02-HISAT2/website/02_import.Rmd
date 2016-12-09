@@ -13,16 +13,20 @@ library(edgeR)
 library(Biobase)
 library(scater)
 library(rtracklayer)
-library(pander)
+library(DT)
 ```
 
 # Phenotype information
 
 Let us import experimental information:
 
-```{r importPheno, results='asis'}
+```{r importPheno}
 pheno <- read.xlsx("expdata/samples.xlsx", sheetName = "pheno")
-pandoc.table(head(pheno))
+datatable(
+  pheno,
+  options = list(pageLength = 10, searching = TRUE), filter = "top",
+  rownames = FALSE
+)
 ```
 
 To facilitate later use, let us retype some fields, reorder some factor levels,

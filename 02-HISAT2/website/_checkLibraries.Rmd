@@ -13,7 +13,8 @@ stopifnot(
   requireNamespace("rtracklayer"),
   requireNamespace("rmarkdown"),
   requireNamespace("pander"),
-  requireNamespace("SummarizedExperiment")
+  requireNamespace("SummarizedExperiment"),
+  requireNamespace("DT")
 )
 ```
 

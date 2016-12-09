@@ -109,7 +109,6 @@ endo_sc <- endo_sc[keep,]
 rm(keep)
 ```
 
-
 Let us also reorder samples by `Time`, `Status`, and `Infection`:
 
 ```{r orderSamples}

@@ -6,8 +6,9 @@ title: "Sample-level quality control"
 ```
 
 ```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
 library(Biobase)
-library(pander)
+library(DT)
 library(ggplot2)
 library(scater)
 library(rtracklayer)
@@ -642,8 +643,8 @@ ggplot(pData(sce.all), aes(Sample, pct_counts_feature_controls_MT)) +
 # Global summary of QC metrics
 ## Collection of QC filters
 
-First, let us collect the QC filters described in the previous sections as
-into a single summary `data.frame`:
+First, let us collect results of the ``r length(ls(pattern="\\.outliers$"))``
+QC filters described in the previous sections into a summary `data.frame`:
 
 ```{r QC_collectOutliers}
 outlier.vars <- ls(pattern = "\\.outliers$")
@@ -727,10 +728,10 @@ summary(pData(sce.sc)[
 ])
 ```
 
-Or alternatively display the full information in a table:
+Or alternatively display the full list of outliers in a table:
 
-```{r QC_tableOutliers, results='asis'}
-pander::pandoc.table(
+```{r QC_tableOutliers}
+datatable(
   arrange(
     cbind(
       pData(sce.sc)[
@@ -740,7 +741,8 @@ pander::pandoc.table(
     ),
     desc(Filters)
   ),
-  "Experimental phenotype information for single cell outliers."
+  options = list(pageLength = 50, searching = TRUE), filter = "top",
+  rownames = FALSE
 )
 ```
 

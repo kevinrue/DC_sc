@@ -9,6 +9,7 @@ title: "Normalisation"
 reimported from disk, and smaller ones quickly recomputed. -->
 
 ```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
 library(scran)
 library(scater)
 library(ggplot2)
