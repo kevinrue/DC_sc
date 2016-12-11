@@ -22,9 +22,32 @@ sce.norm <- readRDS("rds/sce.norm.rds")
 ```
 
 # Highly variable genes (HVGs)
+
+We identify HVGs to focus on the genes that are driving heterogeneity across
+the population of cells.
+This requires estimation of the variance in expression for each gene, followed
+by decomposition of the variance into biological and technical components.
+HVGs are then identified as those genes with the highest biological components.
+This avoids prioritizing genes that are highly variable due to technical
+factors such as sampling noise during RNA capture and library preparation.
+
 ## Identifying variable genes {#identifyHVGs}
 
 ### Using ERCC spike-in features
+
+Ideally, the technical component would be estimated by fitting a mean-variance
+trend to the ERCC spike-in feature using the
+[scran](http://bioconductor.org/packages/scran) `trendVar` function.
+Recall that the same set of spike-ins was added in the same quantity to each
+cell.
+This means that the spike-in transcripts should exhibit no biological
+variability, *i.e.*, any variance in their counts should be technical
+in origin.
+Given the mean abundance of a gene, the fitted value of the trend can be used
+as an estimate of the technical component for that gene.
+The biological component of the variance can then be calculated by subtracting
+the technical component from the total variance of each gene with the
+[scran](http://bioconductor.org/packages/scran) `decomposeVar` function.
 
 Let us fit a trend to the variance of spike-in features while accounting
 for the minor effect of technical factors described
@@ -105,9 +128,16 @@ var.out.endo <- decomposeVar(sce.norm, var.fit.endo)
 names(var.out.endo)
 ```
 
-We assess the suitability of the trend fitted to the endogenous variances by examining whether it is consistent with the
-spike-in variances
-
+We assess the suitability of the trend fitted to the endogenous variances by examining whether it is consistent with the spike-in variances.
+The trend passes through or close to most of the spike-in variances, indicating
+that our assumption (that most genes have low levels of biological variability)
+is valid.
+This strategy exploits the large number of endogenous genes to obtain a stable
+trend, with the ERCC spike-in feature used as diagnostic features rather than
+in the trend fitting itself.
+However, if our assumption did not hold, we would instead use the trend fitted to the ERCC spike-in variances with the default `use.spikes=TRUE`. This would 
+sacrifice stability to reduce systematic errors in the estimate of
+the biological component for each gene.
 
 ```{r plot_var.out.endo}
 plot(
@@ -332,7 +362,7 @@ draw(ht.scaled)
 
 # Pairwise distances between samples
 
-## Euclidian distance between HVGs
+## Euclidian distance
 
 ### Estimate distances
 

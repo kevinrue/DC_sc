@@ -14,12 +14,13 @@ author:
 
 # Authors and contributions
 
-Corresponding authors of the analysis presented in this website are listed above.
-Respective contributions include:
+Corresponding authors of the analysis presented in this website are listed
+above. Respective contributions include:
 
 ## Dr. Anna Aulicino
 
-Experimental design, experimental work, writing of manuscript.
+Project conception, experimental design, experimental work,
+manuscript preparation and editing.
 
 ## Dr. Kévin Rue-Albrecht
 
@@ -27,7 +28,8 @@ Computational analyses, writing of manuscript.
 
 ## Dr. Lorena Preciado-Lianes
 
-Experimental work and experimental design.
+Project conception, experimental work, manuscript preparation
+and editing.
 
 ## Dr. Adam Cribbs
 
@@ -43,4 +45,4 @@ Experimental design and support.
 
 ## Prof. Alison Simmons
 
-Experimental design, funding, and project supervision.
+Experimental design, project conception, and project supervision.
