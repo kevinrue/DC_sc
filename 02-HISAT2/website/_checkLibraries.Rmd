@@ -15,7 +15,9 @@ stopifnot(
   requireNamespace("pander"),
   requireNamespace("SummarizedExperiment"),
   requireNamespace("DT"),
-  requireNamespace("MKmisc")
+  requireNamespace("MKmisc"),
+  requireNamespace("org.Hs.eg.db"),
+  requireNamespace("goseq")
 )
 ```
 

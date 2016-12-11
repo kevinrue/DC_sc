@@ -18,6 +18,8 @@ library(DT)
 library(RColorBrewer)
 library(ComplexHeatmap)
 library(MKmisc)
+library(org.Hs.eg.db)
+library(goseq)
 sce.norm <- readRDS("rds/sce.norm.rds")
 ```
 
@@ -51,7 +53,7 @@ the technical component from the total variance of each gene with the
 
 Let us fit a trend to the variance of spike-in features while accounting
 for the minor effect of technical factors described
-[earlier](#explanatoryVariables).
+[earlier](06_examineNormalised.html#explanatoryVariables).
 We do not block on the key experimental factors `Time`, `Infection`, and
 `Status`, as doing so may regress out biological effects of interest.
 
@@ -239,45 +241,54 @@ datatable(
 )
 ```
 
-## Expression levels
+## Expression levels {.tabset}
 
 Let us examine the distribution of expression values for the top HVGs across
 cells to ensure that the variance estimate is not being dominated by a small
 count of extreme outliers.
 
-We may highlight the relation between `Time` and those HVGs
-(irrespective of other key experimental factors), generally indicating
-a progressive *up*-regulation of gene expression over time:
+We may highlight the relationship between those HVGs and experimental factors
+such as `Time`, `Infection`, and `Status`.
 
-```{r top.hvg_Time}
+```{r top.hvg}
 top.hvg <- rownames(hvg.out)[1:10]
-plotExpressionSCESet(
-  sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Time"
-) +
-  scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name)
 ```
 
-We may also relate the biological variance observed in those same HVGs to the
-`Infection` factor, further linking the high variance of those genes to
-the differences between bacteria-stimulated and mock-infected cells:
+### Time
+
+```{r top.hvg_Time}
+plotExpressionSCESet(
+  sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Time"
+) + scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
+  theme(legend.position = "bottom", legend.box = "vertical")
+```
+
+Tne figure above generally indicates a progressive *up*-regulation of gene
+expression over time.
+
+### Infection
 
 ```{r top.hvg_Infection}
 plotExpressionSCESet(
   sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Infection"
-) +
-  scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name)
+) + scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
+  theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
-Finally, we may also relate the biological variance in the same HVGs to the 
-`Status` factor, which reinforces clear-cut differences between cells
-stimulated by bacterial infection or exposure and `uninfected` cells:
+The figure above further links the high variance of those genes to
+the differences between bacteria-stimulated and mock-infected cells.
+
+### Status
 
 ```{r top.hvg_Status}
 plotExpressionSCESet(
   sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Status"
-) +
-  scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name)
+) + scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
+  theme(legend.position = "bottom", legend.box = "vertical")
 ```
+
+The figure above reinforces clear-cut differences between cells
+stimulated by bacterial infection or exposure and `uninfected` cells.
 
 # Expression heatmap {.tabset}
 
@@ -305,8 +316,8 @@ Let us prepare colours to indicate phenotype levels:
 col9 <- brewer.pal(10, "Set3")[c(1:8, 10)]
 ```
 
-First let us define a heat map annotation panel that indicates key phenotype
-levels for each cell:
+In preparation for the heat map, let us define a heat map annotation panel
+that indicates key phenotype levels for each cell:
 
 ```{r h_column}
 h_column <- HeatmapAnnotation(
@@ -319,19 +330,19 @@ h_column <- HeatmapAnnotation(
 )
 ```
 
-We may now examine the expression data of the `r nrow(sce.endo)`
-endogenous HVGs:
+We may now examine the expression data of the ``r nrow(sce.endo)``
+endogenous HVGs identified [above](#identifyHVGs):
 
 ```{r topHVG.norm}
-hvg.norm <- norm_exprs(sce.endo)[rownames(hvg.out),]
-dim(hvg.norm)
+hvg.endo <- norm_exprs(sce.endo)[rownames(hvg.out),]
+dim(hvg.endo)
 ```
 
 Let us prepare the heat map of normalised and normalised-scaled data:
 
 ```{r prepHeatMaps}
 ht.norm <- Heatmap(
-  hvg.norm,
+  hvg.endo,
   name = "norm_exprs", column_title = "Normalised expression",
   top_annotation = h_column,
   cluster_rows = TRUE, cluster_columns = FALSE,
@@ -339,7 +350,7 @@ ht.norm <- Heatmap(
   show_row_dend = TRUE
 )
 ht.scaled <- Heatmap(
-  t(scale(t(hvg.norm))),
+  t(scale(t(hvg.endo))),
   name = "scaled_exprs", column_title = "Scaled expression",
   top_annotation = h_column,
   cluster_rows = TRUE, cluster_columns = FALSE,
@@ -348,16 +359,64 @@ ht.scaled <- Heatmap(
 )
 ```
 
+Let us use the [goseq](http://bioconductor.org/packages/goseq) package to
+identify the most enriched gene ontologies among the HVGs:
+
+```{r GO.out}
+hvgs <- as.integer(rownames(sce.endo) %in% rownames(hvg.endo))
+names(hvgs) <- rownames(sce.endo)
+table(hvgs)
+geneLengths <- read.delim(
+  "counts/WTCHG_305264_201201", row.names = 1)[,1, drop = FALSE]
+pwf <- nullp(hvgs, bias.data = geneLengths[names(hvgs),], plot.fit = FALSE)
+GO.out <- goseq(pwf, "hg38", "ensGene")
+datatable(
+  subset(GO.out, over_represented_pvalue < 0.001),
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+Let us retrieve the identifier of genes associated with the most enriched
+category ``r GO.out$term[1]`` with identifier ``r GO.out$category[1]``:
+
+```{r genes.top, message=FALSE}
+genes.top <- unique(AnnotationDbi::select(
+  org.Hs.eg.db, GO.out$category[1], "ENSEMBL", "GOALL")$ENSEMBL
+)
+table(rownames(hvg.endo) %in% genes.top)
+```
+
+Let us also annotated genes relating to the
+*type I interferon signaling pathway* in the same way:
+
+```{r genes.ifn, message=FALSE}
+genes.ifn <- unique(AnnotationDbi::select(
+  org.Hs.eg.db, "GO:0060337", "ENSEMBL", "GOALL")$ENSEMBL
+)
+table(rownames(hvg.endo) %in% genes.ifn)
+```
+
+Let us annotate genes associated with the above GO categories on the heat map:
+
+```{r heatmap_GO_annotations}
+top_l <- rownames(hvg.endo) %in% genes.top
+h_top <- Heatmap(top_l + 0, name = GO.out$term[1], col = c("0" = "white", "1" = "purple"),
+        show_heatmap_legend = FALSE, width = unit(5, "mm"))
+ifn_l <- rownames(hvg.endo) %in% genes.ifn
+h_ifn <- Heatmap(ifn_l + 0, name = "IFN-I", col = c("0" = "white", "1" = "red"), 
+        show_heatmap_legend = FALSE, width = unit(5, "mm"))
+```
+
 ## Normalised
 
-```{r ht.norm, fig.height=6}
-draw(ht.norm)
+```{r ht.norm, fig.height=7}
+draw(ht.norm + h_top + h_ifn)
 ```
 
 ## Normalised-scaled
 
-```{r ht.scaled, fig.height=6}
-draw(ht.scaled)
+```{r ht.scaled, fig.height=7}
+draw(ht.scaled + h_top + h_ifn)
 ```
 
 # Pairwise distances between samples
@@ -369,10 +428,10 @@ draw(ht.scaled)
 Calculate the Euclidian distance between samples using the
 scaled normalised expression data calculated in a
 [previous section](05_normalisation.html#normalize) for the
-``r nrow(hvg.norm)`` HVGs identified [above](#HVGs):
+``r nrow(hvg.endo)`` HVGs identified [above](#HVGs):
 
 ```{r distEuclidScaled}
-hvg.scaled <- t(scale(t(hvg.norm)))
+hvg.scaled <- t(scale(t(hvg.endo)))
 d.e.s <- dist(t(hvg.scaled), diag = TRUE, upper = TRUE)
 mat.e.s <- as.matrix(d.e.s)
 ```
@@ -380,7 +439,7 @@ mat.e.s <- as.matrix(d.e.s)
 For comparison purposes, let us do the same with normalised (unscaled) values:
 
 ```{r distEuclidNorm}
-d.e.n <- dist(t(hvg.norm), diag = TRUE, upper = TRUE)
+d.e.n <- dist(t(hvg.endo), diag = TRUE, upper = TRUE)
 mat.e.n <- as.matrix(d.e.n)
 ```
 
@@ -450,11 +509,11 @@ draw(hs)
 draw(hn)
 ```
 
-## Correlation-based distance
+## Spearman correlation
 
-### Spearman
+### Estimate distances
 
-Estimate distance between sample using Spearman's (rank) correlation.
+Estimate distance between cells using Spearman's (rank) correlation.
 
 **Note:**
 The rank correlation is insensitive to the scaling process (the order
@@ -463,7 +522,7 @@ no need to compare the identical heat maps produced for the two data sets.
 }
 
 ```{r distSpearman}
-c.s <- corDist(t(hvg.norm), "spearman", diag = TRUE, upper = TRUE)
+c.s <- corDist(t(hvg.endo), "spearman", diag = TRUE, upper = TRUE)
 mat.c.s <- as.matrix(c.s)
 ```
 
@@ -475,16 +534,21 @@ ord.c.s <- mat.c.s[h.c.s$order, h.c.s$order]
 rm(c.s)
 ```
 
-### Pearson
+The heat map is shown along with those using Pearson correlation further
+[below](#correlationHeatMaps).
 
-Estimate distance between sample using Pearson's correlation.
+## Pearson correlation
+
+### Estimate distances
+
+Estimate distance between cells using Pearson's correlation.
 Let us compare the effect of scaling the expression data (by gene)
 on the correlation between samples.
 
 We start calculating the sample correlation using the unscaled normalised data:
 
 ```{r distPearsonNorm}
-c.p.n <- corDist(t(hvg.norm), diag = TRUE, upper = TRUE)
+c.p.n <- corDist(t(hvg.endo), diag = TRUE, upper = TRUE)
 mat.c.p.n <- as.matrix(c.p.n)
 ```
 
@@ -511,7 +575,7 @@ ord.c.p.s <- mat.c.p.s[h.c.p.s$order, h.c.p.s$order]
 rm(c.p.s)
 ```
 
-### Heat maps {.tabset}
+### Heat maps {#correlationHeatMaps .tabset}
 
 Let us prepare the heat map using Spearman's $\rho$ correlation:
 
