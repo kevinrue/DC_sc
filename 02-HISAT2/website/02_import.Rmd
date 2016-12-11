@@ -113,10 +113,12 @@ dim(sce.sc)
 
 To ensure coherence between gene annotations and gene expression data,
 let us also import the `gene` records from the same GTF file that was supplied
-to *featureCounts*:
+to *featureCounts* as `GRanges` of the
+[GenomicRanges](http://bioconductor.org/packages/GenomicRanges) package:
 
 ```{r import.gff}
 gtfData <- import.gff("expdata/genes_with_ERCC.gtf", feature.type = "gene")
+names(as.data.frame(gtfData))
 ```
 
 **Note:** the above code does *not* import records that relate to ERCC

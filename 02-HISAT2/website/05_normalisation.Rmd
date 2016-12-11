@@ -121,7 +121,7 @@ of cells with abnormal ERCC content in an [earlier section](#ERCCoutliers);
 moreover, it suggests that counts assigned to individual ERCC spike-in features
 are similar across all the cells retained after quality control.
 
-# Apply size factors to normalise
+# Apply size factors to normalise {#normalize}
 
 The count data are used to compute normalized log-expression values for use in
 downstream analyses.

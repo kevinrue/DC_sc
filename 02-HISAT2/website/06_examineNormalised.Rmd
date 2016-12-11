@@ -61,8 +61,9 @@ explain the largest amount of variance in the endogenous features.
 
 * `ntop=500`: only the `500` most variable features are used
 * `scale_features=TRUE`: standardises expression values so that each feature
-  has unit variance; normalises the relative importance of features expressed
-  at high and low levels in the calculation of principal components.
+  has unit variance; this procedure normalises the relative importance of
+  features expressed at high and low levels in the calculation of principal
+  components.
 
 **Note 2:** Some important non-default values are:
 
@@ -70,10 +71,10 @@ explain the largest amount of variance in the endogenous features.
 * `feature_set`: only endogenous features are used.
 
 ```{r plotPCASCESet_PC1and2}
-plotPCASCESet(
+sce.norm <- plotPCASCESet(
   sce.norm, ncomponents = 2, exprs_values = "norm_exprs",
   colour_by = "Status", shape_by = "Time",
-  feature_set = !isSpike(sce.norm)
+  feature_set = !isSpike(sce.norm), return_SCESet = TRUE
 )
 ```
 
@@ -98,21 +99,15 @@ in the data set:
 ### Status
 
 ```{r plotPCASCESet_PC1to3}
-plotPCASCESet(
-  sce.norm, ncomponents = 3, exprs_values = "norm_exprs",
-  colour_by = "Status", shape_by = "Time",
-  feature_set = !isSpike(sce.norm)
-)
+plotReducedDim.SCESet(sce.norm, 3, colour_by = "Status", shape_by = "Time") +
+  theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
 ### Infection
 
 ```{r plotPCASCESet_infection}
-plotPCASCESet(
-  sce.norm, ncomponents = 3, exprs_values = "norm_exprs",
-  colour_by = "Infection", shape_by = "Time",
-  feature_set = !isSpike(sce.norm)
-)
+plotReducedDim.SCESet(sce.norm, 3, colour_by="Infection", shape_by="Time") +
+  theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
 ## t-distributed stochastic neighbour embedding (t-SNE) {.tabset}
@@ -120,23 +115,27 @@ plotPCASCESet(
 Let us apply the t-distributed stochastic neighbour embedding (t-SNE) dimensionality reduction technique on the normalised expression of the
 `500` most variable endogenous features to check for substructure in the data set:
 
-### Status
-
-```{r plotTSNE_status}
+```{r plotTSNE}
 sce.norm <- plotTSNE(
   sce.norm, ncomponents = 2, exprs_values = "norm_exprs",
   colour_by = "Status", shape_by = "Time", return_SCESet = TRUE,
   feature_set = !isSpike(sce.norm),
   rand_seed = 1794
-)
+) 
+```
+
+### Status
+
+```{r plotTSNE_status}
+plotReducedDim.SCESet(sce.norm, 2, colour_by = "Status", shape_by = "Time") +
+  theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
 ### Infection
 
 ```{r plotTSNE_infection}
-plotReducedDim.SCESet(
-  sce.norm, ncomponents = 2, colour_by = "Infection", shape_by = "Time"
-)
+plotReducedDim.SCESet(sce.norm, 2, colour_by = "Infection", shape_by = "Time") +
+  theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
 ### Gene: TNF
@@ -150,8 +149,8 @@ plotGeneId <-
 plotReducedDim.SCESet(
   sce.norm, ncomponents = 2,
   colour_by = plotGeneId, shape_by = "Time"
-  ) +
-  guides(colour = guide_colourbar(title = "TNF"))
+  ) + guides(colour = guide_colourbar(title = "TNF")) +
+  theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
 ## Diffusion map
@@ -165,5 +164,5 @@ plotDiffusionMapSCESet(
   colour_by = "Status", shape_by = "Time",
   feature_set = !isSpike(sce.norm),
   rand_seed = 1794
-)
+) + theme(legend.position = "bottom", legend.box = "vertical")
 ```

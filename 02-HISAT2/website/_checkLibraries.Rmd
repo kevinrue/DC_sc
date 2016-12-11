@@ -14,7 +14,8 @@ stopifnot(
   requireNamespace("rmarkdown"),
   requireNamespace("pander"),
   requireNamespace("SummarizedExperiment"),
-  requireNamespace("DT")
+  requireNamespace("DT"),
+  requireNamespace("MKmisc")
 )
 ```
 

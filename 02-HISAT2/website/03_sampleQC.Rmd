@@ -26,18 +26,20 @@ gtfData <- readRDS("rds/gtfData.rds")
 # _MultiQC_
 ## Import QC metrics
 
-Importantly, *MultiQC* collated metrics for each sample at each step of
-preprocessing---from raw reads to assignmed counts---; those QC metrics
-already provide an idea of technical issues in certain samples.
+Importantly, [MultiQC](http://multiqc.info) was used to collate metrics
+for each sample at each step of preprocessing---from raw reads to assignment
+counts---; those QC metrics already provide an idea of technical issues
+in certain samples.
 
-Let us import the QC metrics produced by *MultiQC* :
+Let us import the QC metrics produced by [MultiQC](http://multiqc.info):
 
 ```{r importMultiQC}
 multiqc <- read.delim("MultiQC/final_pipeline_data/multiqc_general_stats.txt")
 names(multiqc)
 ```
 
-Let us shorten the sample identifier used by *MultiQC* to a minimal unique identifier (identically to the phenotype information in
+Let us shorten the sample identifier used by [MultiQC](http://multiqc.info)
+to a minimal unique identifier (identically to the phenotype information in
 [Data imports](02_import.html)):
 
 ```{r gsub_Sample}
@@ -59,8 +61,8 @@ all(multiqc$Sample == rownames(pData(sce.all)))
 
 ## Assigned read pairs / Library size (*featureCounts*) {#featureCounts}
 
-Excessively small library size may indicate technical issues during
-library preparation or low quality sample.
+An excessively small library size may indicate technical issues during
+library preparation or low quality samples.
 Moreover, library size excessively different from the
 majority of samples may introduce bias due to under- or over-sampling of
 RNA fragments.
@@ -79,7 +81,7 @@ multiqc.assigned.outliers <-
 table(multiqc.assigned.outliers)
 ```
 
-In particular, the lower cut-off value is:
+For the record, the lower cut-off value is:
 
 ```{r assigned_lowerCutOff}
 10^(multiqc.assigned.M - 3 * multiqc.assigned.MAD)
@@ -308,8 +310,9 @@ The *library size* refers to the total count of reads assigned to
 annotated features in each individua sample.
 As an internal validation, let us verify that identifying outliers
 using the counts imported into the `SCESet` produce the same results as
-the [earlier](#featureCounts) use of *MultiQC* reports of read pairs
-assignment by *featureCounts*.
+the [earlier](#featureCounts) use of [MultiQC](http://multiqc.info) reports
+of read pairs assignment by
+[featureCounts](http://bioinf.wehi.edu.au/featureCounts).
 
 First let us identify as outliers single cells
 for which the library size
@@ -400,7 +403,7 @@ Now, from a biological perspective, an interesting observation may be made:
     complexity over time. This observation *might* be more pronounced
     for `D23580`.
 
-## Most abundant features
+## Most abundant features {.tabset}
 
 Although abundantly expressed features are an expected aspect of cell biology
 (*e.g.*, myosin in muscle cells, clusters of differentiation in immune cells)
@@ -445,58 +448,55 @@ table(scater.top200.outliers)
 Let us visualise those outliers, along with blank and bulk samples
 for reference:
 
+### 50
+
 ```{r scater_ggplot_top50}
 ggplot(pData(sce.all), aes(Sample, pct_counts_top_50_features)) +
   geom_point(aes(colour = Status, shape = Infection)) +
   geom_text_repel(
     aes(label = Sample), subset(pData(sce.sc), scater.top50.outliers),
-    alpha = 0.4
-  ) +
+    alpha = 0.4) +
   geom_hline(
     yintercept = scater.top50.M + 3 * c(-1,1) * scater.top50.MAD,
-    colour = "red", linetype = 2:1
-  ) +
+    colour = "red", linetype = 2:1) +
   geom_hline(yintercept = scater.top50.M) +
   theme(
     axis.ticks.x = element_blank(), axis.text.x = element_blank(),
-    legend.position = "bottom", legend.box = "vertical"
-  )
+    legend.position = "bottom", legend.box = "vertical")
 ```
+
+### 100
 
 ```{r scater_ggplot_top100}
 ggplot(pData(sce.all), aes(Sample, pct_counts_top_100_features)) +
   geom_point(aes(colour = Status, shape = Infection)) +
   geom_text_repel(
     aes(label = Sample), subset(pData(sce.sc), scater.top100.outliers),
-    alpha = 0.4
-  ) +
+    alpha = 0.4) +
   geom_hline(
     yintercept = scater.top100.M + 3 * c(-1,1) * scater.top100.MAD,
-    colour = "red", linetype = 2:1
-  ) +
+    colour = "red", linetype = 2:1) +
   geom_hline(yintercept = scater.top100.M) +
   theme(
     axis.ticks.x = element_blank(), axis.text.x = element_blank(),
-    legend.position = "bottom", legend.box = "vertical"
-  )
+    legend.position = "bottom", legend.box = "vertical")
 ```
+
+### 200
 
 ```{r scater_ggplot_top200}
 ggplot(pData(sce.all), aes(Sample, pct_counts_top_200_features)) +
   geom_point(aes(colour = Status, shape = Infection)) +
   geom_text_repel(
     aes(label = Sample), subset(pData(sce.sc), scater.top200.outliers),
-    alpha = 0.4
-  ) +
+    alpha = 0.4) +
   geom_hline(
     yintercept = scater.top200.M + 3 * c(-1,1) * scater.top200.MAD,
-    colour = "red", linetype = 2:1
-  ) +
+    colour = "red", linetype = 2:1) +
   geom_hline(yintercept = scater.top200.M) +
   theme(
     axis.ticks.x = element_blank(), axis.text.x = element_blank(),
-    legend.position = "bottom", legend.box = "vertical"
-  )
+    legend.position = "bottom", legend.box = "vertical")
 ```
 
 In this last figure (*i.e.*, `200` most abundant features),
@@ -699,7 +699,7 @@ col9 <- brewer.pal(10, "Set3")[c(1:8, 10)]
 We may then display the QC metrics failed by each single cell as red cells
 in an heat map:
 
-```{r QC_heatmap}
+```{r QC_heatmap, fig.height=7}
 hm_row <- rowAnnotation(
   df = pData(sce.sc)[sample.order.supervised,c("Time", "Status", "Infection")],
   col = list(
@@ -741,7 +741,7 @@ datatable(
     ),
     desc(Filters)
   ),
-  options = list(pageLength = 50, searching = TRUE), filter = "top",
+  options = list(pageLength = 10, searching = TRUE), filter = "top",
   rownames = FALSE
 )
 ```

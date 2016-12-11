@@ -15,6 +15,9 @@ library(scran)
 library(ggplot2)
 library(SummarizedExperiment)
 library(DT)
+library(RColorBrewer)
+library(ComplexHeatmap)
+library(MKmisc)
 sce.norm <- readRDS("rds/sce.norm.rds")
 ```
 
@@ -154,7 +157,7 @@ estimated from the endogenous features) as it is consistent with the spike-in
 variances, and as such supporting the assumption that most genes have low
 levels of biological variability is valid in this data set.
 
-## Top endogenous features
+## Ranked HVGs {#HVGs}
 
 HVGs are defined as genes with biological components that are significantly
 greater than zero at a false discovery rate (FDR) of 5%.
@@ -189,11 +192,19 @@ hvg.out <- cbind(
 ```
 
 We may then examine the HVGs in a table initially ordered by decreasing
-biological variance:
+biological variance. For convenience, let us first create a copy of the table
+in which the numeric values are trimmed to two significant decimal places:
 
-```{r pandoc_topBioVariance}
+```{r}
+hvg.trim <- hvg.out
+for (cname in c("mean","total","bio","tech","p.value","FDR")){
+  hvg.trim[,cname] <- round(hvg.trim[,cname], 2)
+}
+```
+
+```{r pandoc_topBioVariance, results='asis'}
 datatable(
-  hvg.out,
+  hvg.trim,
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -282,14 +293,13 @@ We may now examine the expression data of the `r nrow(sce.endo)`
 endogenous HVGs:
 
 ```{r topHVG.norm}
-hvg.norm <- assayData(sce.endo)[["norm_exprs"]][
-    rownames(hvg.out)[order(hvg.out$bio, decreasing = TRUE)],
-  ]
+hvg.norm <- norm_exprs(sce.endo)[rownames(hvg.out),]
+dim(hvg.norm)
 ```
 
-## Normalised
+Let us prepare the heat map of normalised and normalised-scaled data:
 
-```{r ht.norm, fig.height=7}
+```{r prepHeatMaps}
 ht.norm <- Heatmap(
   hvg.norm,
   name = "norm_exprs", column_title = "Normalised expression",
@@ -298,12 +308,6 @@ ht.norm <- Heatmap(
   show_row_names = FALSE, show_column_names = FALSE,
   show_row_dend = TRUE
 )
-draw(ht.norm)
-```
-
-## Normalised-scaled
-
-```{r ht.scaled, fig.height=7}
 ht.scaled <- Heatmap(
   t(scale(t(hvg.norm))),
   name = "scaled_exprs", column_title = "Scaled expression",
@@ -312,9 +316,243 @@ ht.scaled <- Heatmap(
   show_row_names = FALSE, show_column_names = FALSE,
   show_row_dend = TRUE
 )
+```
+
+## Normalised
+
+```{r ht.norm, fig.height=6}
+draw(ht.norm)
+```
+
+## Normalised-scaled
+
+```{r ht.scaled, fig.height=6}
 draw(ht.scaled)
 ```
 
+# Pairwise distances between samples
+
+## Euclidian distance between HVGs
+
+### Estimate distances
+
+Calculate the Euclidian distance between samples using the
+scaled normalised expression data calculated in a
+[previous section](05_normalisation.html#normalize) for the
+``r nrow(hvg.norm)`` HVGs identified [above](#HVGs):
+
+```{r distEuclidScaled}
+hvg.scaled <- t(scale(t(hvg.norm)))
+d.e.s <- dist(t(hvg.scaled), diag = TRUE, upper = TRUE)
+mat.e.s <- as.matrix(d.e.s)
+```
+
+For comparison purposes, let us do the same with normalised (unscaled) values:
+
+```{r distEuclidNorm}
+d.e.n <- dist(t(hvg.norm), diag = TRUE, upper = TRUE)
+mat.e.n <- as.matrix(d.e.n)
+```
+
+We may then cluster samples according to their Euclidian distance for scaled
+values, using Ward's criterion to minimize the total variance within each
+cluster (**cite paper 67 Lun and McCarthy**):
+
+```{r clustEuclidScaled}
+h.e.s <- hclust(d.e.s) #, method = "ward.D2"
+ord.e.s <- mat.e.s[h.e.s$order, h.e.s$order]
+rm(mat.e.s)
+```
+
+Again, do the same for unscaled values:
+
+```{r clustEuclidNorm}
+h.e.n <- hclust(d.e.n) #, method = "ward.D2"
+ord.e.n <- mat.e.n[h.e.n$order, h.e.n$order]
+rm(mat.e.n)
+```
+
+### Heat maps {.tabset}
+
+Draw the heatmaps using Euclidian distance for normalised or
+normalised-scaled data:
+
+```{r heatEuclid}
+hs_column <- HeatmapAnnotation(
+  df = pData(sce.endo)[h.e.s$order,c("Time", "Status", "Infection")],
+  col = list(
+    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
+    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+  )
+)
+hs <- Heatmap(
+  ord.e.s, name = "distance", column_title = "Normalised scaled",
+  top_annotation = hs_column,
+  cluster_rows = FALSE, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE
+)
+hn_column <- HeatmapAnnotation(
+  df = pData(sce.endo)[h.e.n$order,c("Time", "Status", "Infection")],
+  col = list(
+    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
+    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+  )
+)
+hn <- Heatmap(
+  ord.e.n, name = "distance", column_title = "Normalised unscaled",
+  top_annotation = hn_column,
+  cluster_rows = FALSE, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE
+)
+```
+
+#### Scaled
+
+```{r heatEuclidNorm, fig.height=6}
+draw(hs)
+```
+
+#### Normalised
+
+```{r heatEuclidScaled, fig.height=6}
+draw(hn)
+```
+
+## Correlation-based distance
+
+### Spearman
+
+Estimate distance between sample using Spearman's (rank) correlation.
+
+**Note:**
+The rank correlation is insensitive to the scaling process (the order
+of samples are preserved by the scaling procedure). Therefore, there is
+no need to compare the identical heat maps produced for the two data sets.
+}
+
+```{r distSpearman}
+c.s <- corDist(t(hvg.norm), "spearman", diag = TRUE, upper = TRUE)
+mat.c.s <- as.matrix(c.s)
+```
+
+Cluster samples:
+
+```{r clustSpearman}
+h.c.s <- hclust(c.s)
+ord.c.s <- mat.c.s[h.c.s$order, h.c.s$order]
+rm(c.s)
+```
+
+### Pearson
+
+Estimate distance between sample using Pearson's correlation.
+Let us compare the effect of scaling the expression data (by gene)
+on the correlation between samples.
+
+We start calculating the sample correlation using the unscaled normalised data:
+
+```{r distPearsonNorm}
+c.p.n <- corDist(t(hvg.norm), diag = TRUE, upper = TRUE)
+mat.c.p.n <- as.matrix(c.p.n)
+```
+
+We then do the same with the scaled data:
+
+```{r distPearsonScaled}
+c.p.s <- corDist(t(hvg.scaled), diag = TRUE, upper = TRUE)
+mat.c.p.s <- as.matrix(c.p.s)
+```
+
+Cluster samples using Pearson's correlation for the unscaled data:
+
+```{r clustPearsonNorm}
+h.c.p.n <- hclust(c.p.n)
+ord.c.p.n <- mat.c.p.n[h.c.p.n$order, h.c.p.n$order]
+rm(c.p.n)
+```
+
+And the same for the scaled data:
+
+```{r clustPearsonScaled}
+h.c.p.s <- hclust(c.p.s)
+ord.c.p.s <- mat.c.p.s[h.c.p.s$order, h.c.p.s$order]
+rm(c.p.s)
+```
+
+### Heat maps {.tabset}
+
+Let us prepare the heat map using Spearman's $\rho$ correlation:
+
+```{r heatSpearman}
+ht_column <- HeatmapAnnotation(
+  df = pData(sce.endo)[h.c.s$order,c("Time", "Status", "Infection")],
+  col = list(
+    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
+    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+  )
+)
+ht_s <- Heatmap(
+  ord.c.s, name = "distance", column_title = "Spearman distance",
+  top_annotation = ht_column,
+  cluster_rows = FALSE, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE
+)
+```
+
+Followed by the heat maps using Pearson's _r_ correlation
+(*i.e.*, normalised, and normalised scaled):
+
+```{r heatPearson}
+hn_column <- HeatmapAnnotation(
+  df = pData(sce.endo)[h.c.p.n$order,c("Time", "Status", "Infection")],
+  col = list(
+    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
+    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+  )
+)
+ht_pn <- Heatmap(
+  ord.c.p.n, name = "distance", column_title = "Normalised unscaled",
+  top_annotation = hn_column,
+  cluster_rows = FALSE, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE
+)
+hs_column <- HeatmapAnnotation(
+  df = pData(sce.endo)[h.c.p.s$order,c("Time", "Status", "Infection")],
+  col = list(
+    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
+    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+  )
+)
+ht_ps <- Heatmap(
+  ord.c.p.s, name = "distance", column_title = "Normalised scaled",
+  top_annotation = hs_column,
+  cluster_rows = FALSE, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE
+)
+```
+
+#### Spearman
+
+```{r ht_s, fig.height=6}
+draw(ht_s)
+```
+
+#### Pearson (normalised)
+
+```{r heatPearsonNorm, fig.height=6}
+draw(ht_pn)
+```
+
+#### Pearson (scaled)
+
+```{r heatPearsonScaled, fig.height=6}
+draw(ht_ps)
+```
 
 <!-- As HTML pages are built independently, objects need to be saved to disk
 and imported as needed by the other R mardown files -->

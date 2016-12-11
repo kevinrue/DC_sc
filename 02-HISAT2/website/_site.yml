@@ -34,6 +34,7 @@ output:
     theme: cosmo
     highlight: textmate
     toc: true
+    toc_depth: 2
     toc_float:
       collapsed: false
       smooth_scroll: true
