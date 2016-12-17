@@ -378,7 +378,6 @@ for (groupIndex in seq_len(nrow(expGroups))){
   sample.index <- with(pData(sce.endo), which(
     Time == time & Infection == infection & Status == status
   ))
-  message(sprintf( "%i samples", length(sample.index)))
   hvg.sample.d <- dist(t(hvg.endo[,sample.index]))
   local.order <- sample.index[hclust(hvg.sample.d)$order]
   sample.order <- c(sample.order, local.order)
