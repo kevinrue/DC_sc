@@ -15,6 +15,7 @@ library(scran)
 library(ggplot2)
 library(SummarizedExperiment)
 library(DT)
+library(dplyr)
 library(RColorBrewer)
 library(ComplexHeatmap)
 library(MKmisc)
@@ -263,7 +264,7 @@ plotExpressionSCESet(
   theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
-Tne figure above generally indicates a progressive *up*-regulation of gene
+The figure above generally indicates a progressive *up*-regulation of gene
 expression over time.
 
 ### Infection
@@ -300,6 +301,7 @@ Let us first subset the normalised data set to retain only endogenous features:
 
 ```{r excludeERCC}
 sce.endo <- sce.norm[!fData(sce.norm)$is_feature_control_ERCC,]
+dim(sce.endo)
 ```
 
 In addition, let us also reorder samples by `Time`, `Status`, and `Infection`,
@@ -310,13 +312,21 @@ sce.endo <- sce.endo[,with(pData(sce.endo), order(Time, Status, Infection))]
 dim(sce.endo)
 ```
 
+We may now examine the expression data of the ``r nrow(sce.endo)``
+endogenous HVGs identified [above](#identifyHVGs):
+
+```{r topHVG.norm}
+hvg.endo <- norm_exprs(sce.endo)[rownames(hvg.out),]
+dim(hvg.endo)
+```
+
 Let us prepare colours to indicate phenotype levels:
 
 ```{r palette9}
 col9 <- brewer.pal(10, "Set3")[c(1:8, 10)]
 ```
 
-In preparation for the heat map, let us define a heat map annotation panel
+In preparation for the heat map, let us define an annotation panel
 that indicates key phenotype levels for each cell:
 
 ```{r h_column}
@@ -330,32 +340,65 @@ h_column <- HeatmapAnnotation(
 )
 ```
 
-We may now examine the expression data of the ``r nrow(sce.endo)``
-endogenous HVGs identified [above](#identifyHVGs):
+Let us first cluster HVGs according to their expression profile across *all*
+single cells:
 
-```{r topHVG.norm}
-hvg.endo <- norm_exprs(sce.endo)[rownames(hvg.out),]
-dim(hvg.endo)
+```{r hvg.endo.clust}
+hvg.endo.d <- dist(hvg.endo)
+hvg.endo.clust <- hclust(hvg.endo.d)
+rm(hvg.endo.d)
 ```
 
-Let us prepare the heat map of normalised and normalised-scaled data:
+We may immediately produce a heat map that uses the above gene clustering,
+while grouping samples arbitrarily according to their respective
+`Time`, `Status`, and `Infection` phenotype:
 
-```{r prepHeatMaps}
-ht.norm <- Heatmap(
+```{r heatmap_supervised}
+ht_supervised <- Heatmap(
   hvg.endo,
   name = "norm_exprs", column_title = "Normalised expression",
   top_annotation = h_column,
-  cluster_rows = TRUE, cluster_columns = FALSE,
-  show_row_names = FALSE, show_column_names = FALSE,
-  show_row_dend = TRUE
+  row_order = hvg.endo.clust$order,
+  cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE
 )
-ht.scaled <- Heatmap(
-  t(scale(t(hvg.endo))),
-  name = "scaled_exprs", column_title = "Scaled expression",
+```
+
+Now, let us cluster single cells according to their expression profile,
+*within each of the experimental groups* (*i.e.*, `Time:Infection:Status`):
+
+```{r sample.order}
+sample.order <- c()
+expGroups <- unique(pData(sce.endo)[,c("Time","Infection","Status")])
+expGroups <- arrange(expGroups, Time, Status, Infection)
+for (groupIndex in seq_len(nrow(expGroups))){
+  time <- expGroups$Time[groupIndex]
+  infection <- expGroups$Infection[groupIndex]
+  status <- expGroups$Status[groupIndex]
+  sample.index <- with(pData(sce.endo), which(
+    Time == time & Infection == infection & Status == status
+  ))
+  message(sprintf( "%i samples", length(sample.index)))
+  hvg.sample.d <- dist(t(hvg.endo[,sample.index]))
+  local.order <- sample.index[hclust(hvg.sample.d)$order]
+  sample.order <- c(sample.order, local.order)
+  rm(sample.index, local.order, time, infection, status)
+}
+rm(expGroups, groupIndex)
+```
+
+We may then produce a heat map that uses the above semi-supervised sample
+clustering in combination with the earlier gene clustering, to reveal potential
+sub-structure within the otherwise homogeneous experimental groups:
+
+```{r heatmap_semiSupervised}
+ht_semisupervised <- Heatmap(
+  hvg.endo,
+  name = "norm_exprs", column_title = "Normalised expression",
   top_annotation = h_column,
-  cluster_rows = TRUE, cluster_columns = FALSE,
-  show_row_names = FALSE, show_column_names = FALSE,
-  show_row_dend = TRUE
+  row_order = hvg.endo.clust$order, column_order = sample.order,
+  cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE
 )
 ```
 
@@ -370,7 +413,8 @@ geneLengths <- read.delim(
   "counts/WTCHG_305264_201201", row.names = 1)[,1, drop = FALSE]
 pwf <- nullp(hvgs, bias.data = geneLengths[names(hvgs),], plot.fit = FALSE)
 GO.out <- goseq(pwf, "hg38", "ensGene")
-datatable(
+GO.out$ontology <- as.factor(GO.out$ontology)
+DT::datatable(
   subset(GO.out, over_represented_pvalue < 0.001),
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
@@ -380,10 +424,10 @@ Let us retrieve the identifier of genes associated with the most enriched
 category ``r GO.out$term[1]`` with identifier ``r GO.out$category[1]``:
 
 ```{r genes.top, message=FALSE}
-genes.top <- unique(AnnotationDbi::select(
+genes.topCategory <- unique(AnnotationDbi::select(
   org.Hs.eg.db, GO.out$category[1], "ENSEMBL", "GOALL")$ENSEMBL
 )
-table(rownames(hvg.endo) %in% genes.top)
+table(rownames(hvg.endo) %in% genes.topCategory)
 ```
 
 Let us also annotated genes relating to the
@@ -399,7 +443,7 @@ table(rownames(hvg.endo) %in% genes.ifn)
 Let us annotate genes associated with the above GO categories on the heat map:
 
 ```{r heatmap_GO_annotations}
-top_l <- rownames(hvg.endo) %in% genes.top
+top_l <- rownames(hvg.endo) %in% genes.topCategory
 h_top <- Heatmap(top_l + 0, name = GO.out$term[1], col = c("0" = "white", "1" = "purple"),
         show_heatmap_legend = FALSE, width = unit(5, "mm"))
 ifn_l <- rownames(hvg.endo) %in% genes.ifn
@@ -407,16 +451,16 @@ h_ifn <- Heatmap(ifn_l + 0, name = "IFN-I", col = c("0" = "white", "1" = "red"),
         show_heatmap_legend = FALSE, width = unit(5, "mm"))
 ```
 
-## Normalised
+## Supervised
 
-```{r ht.norm, fig.height=7}
-draw(ht.norm + h_top + h_ifn)
+```{r ht_supervised, fig.height=7}
+draw(ht_supervised + h_top + h_ifn)
 ```
 
-## Normalised-scaled
+## Semi-supervised
 
-```{r ht.scaled, fig.height=7}
-draw(ht.scaled + h_top + h_ifn)
+```{r ht_semisupervised, fig.height=7}
+draw(ht_semisupervised + h_top + h_ifn)
 ```
 
 # Pairwise distances between samples
