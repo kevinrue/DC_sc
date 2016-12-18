@@ -1,5 +1,6 @@
 # Web folder
 .htaccess
+_site
 
 # Compiled vignettes
 *.pdf
