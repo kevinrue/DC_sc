@@ -91,7 +91,7 @@ This suggests that `Infection`, and `Status` drive more important
 systematic differences between cells than library size at those time points,
 having likely reshaped the transcriptional profile of stimulated cells.
 
-# Spike factors
+# Spike factors {#setSpike}
 
 To ensure normalization is performed correctly, let us compute a separate set
 of size factors for the spike-in set. This assumes

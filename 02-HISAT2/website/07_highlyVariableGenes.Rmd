@@ -102,7 +102,7 @@ features at extreme values the detection range, it also indicate substantial
 scatter around the trend for feature at intermediate levels of detection,
 and likely understimates technical variance in both ERCC spike-in and
 endogenous features at moderately high levels of detection
-(*i.e.*, mean log-expression in the range `5<X<10`).
+(*i.e.*, mean log-expression in the range \approx 5-10).
 
 ### Using endogenous features
 
@@ -125,8 +125,8 @@ var.fit.endo <- trendVar(
 names(var.fit.endo)
 ```
 
-Similarly, the estimate variance is decomposed into its technical and
-biological components:
+Similarly, the estimated variance is decomposed into its technical and
+biological components (using only the endogenous features processed above):
 
 ```{r decomposeVar_endo}
 var.out.endo <- decomposeVar(sce.norm, var.fit.endo)
@@ -142,7 +142,7 @@ trend, with the ERCC spike-in feature used as diagnostic features rather than
 in the trend fitting itself.
 However, if our assumption did not hold, we would instead use the trend fitted to the ERCC spike-in variances with the default `use.spikes=TRUE`. This would 
 sacrifice stability to reduce systematic errors in the estimate of
-the biological component for each gene.
+the biological component for each gene [@67].
 
 ```{r plot_var.out.endo}
 plot(
@@ -169,10 +169,13 @@ The two methods (*i.e.*, ERCC spike-in and endogenous features) yield markedly
 distinct trends.
 
 In particular, the limited count of spike-in features robustly detected
-across cells (*i.e.*, `44` ERCC spike-in features with an average count greater
-than `1` were retained), scarcer at moderate levels of expression, may
-explain to some extent the substantial scatter around the trend at moderate
-levels of expression (*i.e.*, mean log-expression in the range `2.5<X<7.5`).
+across cells
+(*i.e.*, `r sum(grepl("^ERCC-",rownames(sce.norm)))`
+ERCC spike-in features were retained in the `sce.norm` object),
+scarcer at moderate levels of expression,
+may explain to some extent the substantial scatter around the trend at moderate
+levels of expression
+(*i.e.*, mean log-expression in the range \approx 2.5-7.5).
 Nevertheless, this trend matches closely observations at low detection levels
 dense in ERCC spike-in features, and high detection levels that show limited
 variability.

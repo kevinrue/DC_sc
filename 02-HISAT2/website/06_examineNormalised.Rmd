@@ -52,7 +52,7 @@ Having normalised the expression data for detected features
 in single cells that passed quality control, let us examine the unsupervised
 clustering of those cells using different approaches.
 
-## Principal component analysis (PCA) {.tabset}
+## Principal component analysis (PCA) {#PCA .tabset}
 
 Let us initially focus our attention on the two principal components that
 explain the largest amount of variance in the endogenous features.
@@ -67,8 +67,10 @@ explain the largest amount of variance in the endogenous features.
 
 **Note 2:** Some important non-default values are:
 
-* `exprs_values`: the normalised log~2~-transformed CPM are used.
-* `feature_set`: only endogenous features are used.
+* `exprs_values="norm_exprs"`: the normalised log~2~-transformed CPM are used.
+* `feature_set=!isSpike(sce.norm)`: ERCC spike-in features are not considered
+  (see this [earlier section](05_normalisation.html#setSpike) for the
+  definition of spike-in features).
 
 ```{r plotPCASCESet_PC1and2}
 sce.norm <- plotPCASCESet(
@@ -110,6 +112,82 @@ plotReducedDim.SCESet(sce.norm, 3, colour_by="Infection", shape_by="Time") +
   theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
+## Time-independent PCA analyses {.tabset}
+
+In the above [section](#PCA), the overwhelming influence of the `Time` factor
+likely shadows the relatively weaker effect of biologically relevant
+`Infection` and `Status` factors.
+
+Let us perform PCA at each time point:
+
+**Note:** the panel name states the experimental factor used to *colour*
+single cells (*i.e.*, `Infection` or `Status`); the other factor is then
+used to *shape* each data point.
+
+```{r}
+time.sce <- list()
+for (time in levels(sce.norm$Time)){
+  tmp.sce <- sce.norm[,sce.norm$Time == time]
+  keep_feature <- (rowMeans(counts(tmp.sce)) >= 1)
+  tmp.sce <- tmp.sce[keep_feature,]
+  tmp.sce <- plotPCASCESet(
+    tmp.sce, exprs_values = "norm_exprs",
+    feature_set = !isSpike(tmp.sce), return_SCESet = TRUE, draw_plot = FALSE
+  )
+  time.sce[[time]] <- tmp.sce
+  rm(tmp.sce)
+}
+rm(time)
+```
+
+### 2h-Infection
+
+```{r}
+plotReducedDim.SCESet(
+  time.sce[["2h"]], 3, colour_by="Infection", shape_by = "Status") +
+  theme(legend.position = "bottom", legend.box = "vertical")
+```
+
+### 2h-Status
+
+```{r}
+plotReducedDim.SCESet(
+  time.sce[["2h"]], 3, colour_by="Status", shape_by = "Infection") +
+  theme(legend.position = "bottom", legend.box = "vertical")
+```
+
+### 4h-Infection
+
+```{r}
+plotReducedDim.SCESet(
+  time.sce[["4h"]], 3, colour_by="Infection", shape_by = "Status") +
+  theme(legend.position = "bottom", legend.box = "vertical")
+```
+
+### 4h-Status
+
+```{r}
+plotReducedDim.SCESet(
+  time.sce[["4h"]], 3, colour_by="Status", shape_by = "Infection") +
+  theme(legend.position = "bottom", legend.box = "vertical")
+```
+
+### 6h-Infection
+
+```{r}
+plotReducedDim.SCESet(
+  time.sce[["6h"]], 3, colour_by="Infection", shape_by = "Status") +
+  theme(legend.position = "bottom", legend.box = "vertical")
+```
+
+### 6h-Status
+
+```{r}
+plotReducedDim.SCESet(
+  time.sce[["6h"]], 3, colour_by="Status", shape_by = "Infection") +
+  theme(legend.position = "bottom", legend.box = "vertical")
+```
+
 ## t-distributed stochastic neighbour embedding (t-SNE) {.tabset}
 
 Let us apply the t-distributed stochastic neighbour embedding (t-SNE) dimensionality reduction technique on the normalised expression of the
@@ -120,7 +198,7 @@ sce.norm <- plotTSNE(
   sce.norm, ncomponents = 2, exprs_values = "norm_exprs",
   colour_by = "Status", shape_by = "Time", return_SCESet = TRUE,
   feature_set = !isSpike(sce.norm),
-  rand_seed = 1794
+  rand_seed = 1794, draw_plot = FALSE
 ) 
 ```
 
