@@ -241,7 +241,7 @@ for (cname in c("mean","total","bio","tech","p.value","FDR")){
 ```
 
 ```{r pandoc_topBioVariance, results='asis'}
-datatable(
+DT::datatable(
   hvg.trim,
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )

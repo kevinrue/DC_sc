@@ -1,0 +1,295 @@
+---
+title: "Differential expression"
+bibliography:
+  bibtex.bib
+---
+
+```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
+```
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+library(scater)
+library(scran)
+library(scde)
+library(dplyr)
+library(EnsDb.Hsapiens.v79)
+sce.norm <- readRDS("rds/sce.norm.rds")
+```
+
+# Prepare data
+
+The analysis starts with a matrix of read counts,
+filtered based on gene and cell requirements.
+In this case, let us use the raw numbers of reads mapped to each endogenous
+feature, recast as `integer` type:
+
+```{r}
+cd <- clean.counts(
+  counts(sce.norm)[!isSpike(sce.norm),],
+  min.lib.size = 1000, min.reads = 1, min.detected = 1
+)
+cd <- apply(cd, 2, function(x){storage.mode(x) <- 'integer'; x})
+dim(cd)
+```
+
+Let us also define a factor that separate cells from each experimental group:
+
+```{r}
+sg <- as.factor(
+  with(pData(sce.norm), paste(Time, Infection, Status, sep = "_"))
+)
+names(sg) <- colnames(sce.norm)  
+```
+
+# Fitting error models
+
+As a next step we fit the error models on which all subsequent calculations
+will rely. The fitting process relies on a subset of robust genes that are
+detected in multiple cross-cell comparisons. Here we supply the `groups=sg`
+argument, so that the error models for each experimental group of cells
+are fit independently
+(using two different sets of "robust" genes). If the groups argument is
+omitted, the models will be fit using a common set.
+
+**Note:** this step takes a considerable amount of time, even when multiple
+cores are used (\approx 1h using 4 cores to fit error models to each of the
+``r length(levels(sg))``).
+For this purpose, the chunk of code below is not executed during
+automated compilation; instead it is manually recomputed as necessary.
+
+```{r, message=FALSE, eval=FALSE}
+o.ifm <- scde.error.models(
+  counts = cd, groups = sg, n.cores = 4, threshold.segmentation = TRUE,
+  save.crossfit.plots = FALSE, save.model.plots = FALSE, verbose = 1
+)
+saveRDS(o.ifm, "rds/o.ifm.rds")
+```
+
+During automated compilation, manually computed error models are imported
+to save execution time:
+
+```{r}
+o.ifm <- readRDS("rds/o.ifm.rds")
+```
+
+The `o.ifm` is a `data.frame` with error model coefficients for each cell.
+
+```{r}
+o.ifm.trim <- apply(o.ifm, 2, round, digits = 2)
+DT::datatable(
+  o.ifm.trim,
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+Here, `corr.a` and `corr.b` are slope and intercept of the correlated component
+fit, `conc.*` refer to the concomitant fit, `corr.theta` is the NB
+over-dispersion, and `fail.r` is the background Poisson rate (fixed).
+
+Particularly poor cells may result in abnormal fits, most commonly showing negative corr.a, and should be removed.
+
+```{r}
+valid.cells <- o.ifm$corr.a > 0
+table(valid.cells)
+```
+
+```{r}
+o.ifm <- o.ifm[valid.cells, ]
+```
+
+Here, all the fits were valid.
+
+Finally, we need to define an expression magnitude prior for the genes.
+Its main function, however, is to define a grid of expression magnitude values
+on which the numerical calculations will be carried out.
+
+```{r}
+o.prior <- scde.expression.prior(
+  models = o.ifm, counts = cd, length.out = 400, show.plot = FALSE
+)
+```
+
+Here we used a grid of `400` points, and let the maximum expression magnitude
+be determined by the default `0.999` quantile
+(use `max.value` parameter to specify the maximum expression magnitude
+explicitly --- on log10 scale).
+
+# Testing for differential expression {.tabset}
+
+To test for differential expression, we first define for each comparison a
+factor that specifies
+which two groups of cells are to be compared. The factor elements correspond to
+the rows of the model matrix (`o.ifm`), and can contain `NA` values (*i.e.*,
+cells that won't be included in either group).
+
+Let us start at the `6h` time point, when the differences between cells
+stimulated with bacteria and uninfected are expected to be the most marked:
+
+```{r, eval=FALSE, message=FALSE}
+batch <- sce.norm$Plate
+DE.res <- list()
+for (time in levels(sce.norm$Time)){
+  for (infection in levels(sce.norm$Infection)[-1]){
+    for (status in levels(sce.norm$Status)[-1]){
+      sg.ref <- paste(
+        time,
+        levels(sce.norm$Infection)[1],
+        levels(sce.norm$Status)[1],
+        sep = "_"
+      )
+      sg.target <- paste(time, infection, status, sep = "_")
+      contrast <- rep(NA, nrow(o.ifm))
+      contrast[which(sg == sg.ref)] <- sg.ref
+      contrast[which(sg == sg.target)] <- sg.target
+      contrast <- factor(contrast, c(sg.ref, sg.target))
+      names(contrast) <- row.names(o.ifm)
+      de.res <- scde.expression.difference(
+        o.ifm, cd, o.prior, groups = contrast,
+        batch = batch,
+        n.randomizations = 100,
+        n.cores  =  2, verbose  =  1
+      )
+      de.res <-
+        de.res$batch.adjusted[order(de.res$batch.adjusted$Z, decreasing = TRUE),]
+      de.res <- cbind(
+        GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.res),"GENENAME","GENEID"),
+        de.res
+      )
+      DE.res[[sg.target]] <- de.res[de.res$cZ != 0,]
+    }
+  }
+}
+```
+
+```{r}
+saveRDS(DE.res, "rds/DE.res.rds")
+```
+
+
+```{r}
+for (n in names(DE.res)){
+  message(sprintf("%s\t%i genes", n, nrow(DE.res[[n]])))
+}
+```
+
+
+## 2h_D23580_exposed
+
+```{r}
+DT::datatable(
+  DE.res[["2h_D23580_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+## 2h_D23580_infected
+
+```{r}
+DT::datatable(
+  DE.res[["2h_D23580_infected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+## 2h_LT2_exposed
+
+```{r}
+DT::datatable(
+  DE.res[["2h_LT2_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+## 2h_LT2_infected
+
+```{r}
+DT::datatable(
+  DE.res[["2h_LT2_infected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+## 4h_D23580_exposed
+
+```{r}
+DT::datatable(
+  DE.res[["4h_D23580_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+## 4h_D23580_infected
+
+```{r}
+DT::datatable(
+  DE.res[["4h_D23580_infected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+## 4h_LT2_exposed
+
+```{r}
+DT::datatable(
+  DE.res[["4h_LT2_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+## 4h_LT2_infected
+
+```{r}
+DT::datatable(
+  DE.res[["4h_LT2_infected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+## 6h_D23580_exposed
+
+```{r}
+DT::datatable(
+  DE.res[["6h_D23580_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+## 6h_D23580_infected
+
+```{r}
+DT::datatable(
+  DE.res[["6h_D23580_infected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+## 6h_LT2_exposed
+
+```{r}
+DT::datatable(
+  DE.res[["6h_LT2_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+## 6h_LT2_infected
+
+```{r}
+DT::datatable(
+  DE.res[["6h_LT2_infected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+<!-- As HTML pages are built independently, objects need to be saved to disk
+and imported as needed by the other R mardown files -->
+
+```{r saveRDS, include=FALSE}
+saveRDS(hvg.out, "rds/hvg.out.rds")
+```
+
+# References

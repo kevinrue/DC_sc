@@ -38,4 +38,4 @@ output:
     toc_float:
       collapsed: false
       smooth_scroll: true
-exclude: ["rds", "counts", "expdata"]
+exclude: ["rds", "counts", "expdata", "*.R"]
