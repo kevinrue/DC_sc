@@ -722,7 +722,6 @@ draw(hm + hm_row)
 We may summarise experimental phenotype information for the outliers samples:
 
 ```{r QC_summary}
-varLabels(sce.sc)[1:10]
 summary(pData(sce.sc)[
   !idx.pass,c("Infection","Status","Time","Lane","Plate","Well")
 ])
@@ -753,6 +752,15 @@ Let us select the single cells that passed all QC metrics into a new `SCESet`:
 ```{r subset_goodCells}
 sce.pass <- sce.sc[,idx.pass]
 ```
+
+Let us finally examine the phenotype information of the selected single cells:
+
+```{r goodCells_summary}
+summary(pData(sce.pass)[
+  !idx.pass,c("Infection","Status","Time","Lane","Plate","Well")
+])
+```
+
 
 <!-- As HTML pages are built independently, objects need to be saved to disk
 and imported as needed by the other R mardown files -->
