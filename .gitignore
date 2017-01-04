@@ -8,8 +8,8 @@ _site
 *.zip
 
 # Data folders / files
-samples.csv
-samples.xlsx
+*.csv
+*.xlsx
 MultiQC
 counts
 quant

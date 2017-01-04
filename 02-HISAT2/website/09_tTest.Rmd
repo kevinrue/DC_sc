@@ -1,0 +1,122 @@
+---
+title: "Differential expression"
+bibliography:
+  bibtex.bib
+---
+
+```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
+```
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+library(broom)
+library(EnsDb.Hsapiens.v79)
+library(ggplot2)
+sce.norm <- readRDS("rds/sce.norm.rds")
+```
+
+# Prepare data
+
+This analysis uses the expression data set normalised in a separate
+[section](05_normalisation.html).
+
+```{r}
+dim(sce.norm)
+names(assayData(sce.norm))
+dim(norm_exprs(sce.norm))
+levels(sce.norm$Time)
+levels(sce.norm$Infection)
+levels(sce.norm$Status)
+```
+
+# *t*-test
+
+Let us start with a simple *t*-test to evaluate differential expression
+between groups of single cells.
+
+First, let us initialise the list of DE results and the function:
+
+```{r}
+tTest.single <- function(x, idx.r, idx.t){
+  tidy(t.test(x[idx.target], x[idx.ref]))
+}
+DE.list <- list()
+```
+
+We may then compare each group of stimulated single cells to their matching
+control uninfected group of single cells, and store the resulting table of
+results as an accoridingly named element of the list initialised above:
+
+```{r}
+for (time in levels(sce.norm$Time)){
+  for (inf.target in levels(sce.norm$Infection)[-1]){
+    for (sta.target in levels(sce.norm$Status)[-1]){
+      inf.ref <- levels(sce.norm$Infection)[1]
+      sta.ref <- levels(sce.norm$Status)[1]
+      contrast <- sprintf(
+        "%s_%s_%s-%s_%s_%s",
+        time, inf.target, sta.target, time, inf.ref, sta.ref)
+      message(contrast)
+      idx.ref <- with(
+        pData(sce.norm),
+        which(Time == time & Infection == inf.ref & Status == sta.ref))
+      idx.target <- with(
+        pData(sce.norm),
+        which(Time == time & Infection == inf.target & Status == sta.target))
+      de.res <- do.call(
+        "rbind",
+        apply(norm_exprs(sce.norm), 1, tTest.single, idx.ref, idx.target))
+      de.res <- de.res[order(de.res$p.value),]
+      de.res$adj.p.value <- p.adjust(de.res$p.value, "bonferroni")
+      de.res$symbol <-
+        mapIds(EnsDb.Hsapiens.v79, rownames(de.res), "GENENAME", "GENEID")
+      message(sprintf("Bonf < 0.05: %i", sum(de.res$adj.p.value < 0.05)))
+      DE.list[[contrast]] <- de.res
+    }
+  }
+}
+```
+
+# Display tables of results
+
+TODO
+
+```{r}
+DE.list[["6h_LT2_infected-6h_Mock_uninfected"]]
+```
+
+
+# Display expression profile for DE genes
+
+Let us 
+
+```{r}
+geneId <- rownames(DE.list[["6h_LT2_infected-6h_Mock_uninfected"]])[5]
+geneName <- mapIds(EnsDb.Hsapiens.v79, geneId, "GENENAME", "GENEID")
+geneExpr <- norm_exprs(sce.norm)[geneId,]
+sampleAes <- pData(sce.norm)[,c("Time","Infection","Status")]
+ggData <- cbind(norm_exprs = geneExpr, sampleAes)
+ggplot(ggData, aes(Time, norm_exprs)) +
+  geom_violin(draw_quantiles = c(0.25,0.5,0.75)) + geom_jitter(width = 0.1) +
+  facet_grid(Infection ~ Status) +
+  ggtitle(sprintf("%s (symbol: %s)", geneId, geneName))
+```
+
+
+<!-- Let us export the DE tables in CSV files. -->
+
+```{r, include=FALSE}
+for (contrast in names(DE.list)){
+  message(contrast)
+  print(dim(DE.list[[contrast]]))
+  write.csv(DE.list[[contrast]], sprintf("t-test/%s.csv", contrast))
+}
+```
+
+#
+
+<!-- As HTML pages are built independently, objects need to be saved to disk
+and imported as needed by the other R mardown files -->
