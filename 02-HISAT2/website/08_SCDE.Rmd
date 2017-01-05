@@ -69,10 +69,6 @@ o.ifm <- scde.error.models(
 saveRDS(o.ifm, "rds/o.ifm.rds")
 ```
 
-\fixme{
-Next run, save plots (TRUE).
-}
-
 During automated compilation, manually computed error models are imported
 to save execution time:
 
@@ -106,7 +102,8 @@ table(valid.cells)
 o.ifm <- o.ifm[valid.cells, ]
 ```
 
-Here, all the fits were valid.
+Here, all the fits were valid; the above chunk of code does not actually do
+anything to the data.
 
 Finally, we need to define an expression magnitude prior for the genes.
 Its main function, however, is to define a grid of expression magnitude values
@@ -125,16 +122,31 @@ explicitly --- on log~10~ scale).
 
 # Testing for differential expression {.tabset}
 
-To test for differential expression, we first define for each comparison a
-factor that specifies which two groups of cells are to be compared.
-The factor elements correspond to the rows of the matrix of counts (`cd`),
-and can contain `NA` values
-(*i.e.*, cells that won't be included in either group).
+To test for differential expression:
 
-Let us start at the `2h` time point, when the differences between cells
-stimulated with bacteria and uninfected are expected to be the most marked:
+* first, we match the order of single cells in the fitted error models to the
+  order of the single cells in the original count matrix;
+* we use the above mapping to identify the experimental group and batch of each
+  single cell in the order of the fitted error models,
+* we define for each comparison a factor in the form of a vector that specifies
+  which two groups of single cells are to be compared; the factor elements
+  correspond to the rows of the fitted error models, and contain `NA` values
+  for single cells that are not included in either group,
+* we let [scde](http://bioconductor.org/packages/scde) estimate differential
+  expression between the two groups of single cells, after batch correction;
+  *Note that results without batch corrections are also available in this way*,
+* we sort genes by decreasing absolute (uncorrected) Z-score of expression
+  difference; this order highlights the most significantly DE genes at the top
+  of the table, regardless of their direction of differential expression,
+* we annotate genes with their gene name (at this stage, genes were only
+  identified by their Ensembl gene identifier).
+* we store in two separate `list` objects *only* genes that have a
+  expression difference Z-score corrected for multiple hypothesis
+  different than zero (*i.e.* significantly DE):
+  + without batch correction
+  + with batch correction applied by plate processed:
 
-```{r scdeExprDiff, eval=FALSE}
+```{r scdeExprDiff, eval=FALSE, results='hold'}
 newOrder <- match(rownames(o.ifm), colnames(sce.norm))
 sg.all <- sg[newOrder]
 batch <- sce.norm$Plate[newOrder]
@@ -150,7 +162,7 @@ for (time in levels(sce.norm$Time)){
         sep = "_"
       )
       sg.tar <- paste(time, infection, status, sep = "_")
-      contrast <- sprintf("%s-%s", sg.tar, sg.ref)
+      contrast <- sprintf("%s - %s", sg.tar, sg.ref)
       message(contrast)
       groups <- rep(NA, length(sg.all))
       names(groups) <- names(sg.all)
@@ -164,10 +176,10 @@ for (time in levels(sce.norm$Time)){
         n.randomizations = 10,
         n.cores  =  1, verbose  =  1
       )
-      de.res <- scde.res$results
-      de.raw <- de.res[order(de.res$Z, decreasing = TRUE),]
+      de.raw <- scde.res$results
       de.batch <- scde.res$batch.adjusted
-      de.batch <- de.batch[order(de.batch$Z, decreasing = TRUE),]
+      de.raw <- de.raw[order(abs(de.raw$Z), decreasing = TRUE),]
+      de.batch <- de.batch[order(abs(de.batch$Z), decreasing = TRUE),]
       de.raw <- cbind(
         GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.raw),"GENENAME","GENEID"),
         de.raw
@@ -183,7 +195,7 @@ for (time in levels(sce.norm$Time)){
 }
 ```
 
-```{r saveRdsDE}
+```{r saveRdsDE, include=FALSE}
 saveRDS(DE.res.raw, "rds/DE.res.raw.rds")
 saveRDS(DE.res.batch, "rds/DE.res.batch.rds")
 ```
@@ -196,17 +208,29 @@ DE.res.raw <- readRDS("rds/DE.res.raw.rds")
 DE.res.batch <- readRDS("rds/DE.res.batch.rds")
 ```
 
-```{r numDeRaw}
-for (n in names(DE.res.raw)){
-  message(sprintf("%s\t%i genes", n, nrow(DE.res.raw[[n]])))
-}
+# Count of of DE genes
+
+Let us display the count of differentially expressed genes:
+
+* Without batch correction (`Raw`)
+* With batch correction applied by plate processed (`Batch`). *Note that
+  all samples of any of the `4` plates were processed on the same of the `2`
+  sequencing lanes; as a result, accounting for a plate batch implicitely
+  accounts for a lane batch.*
+
+```{r countDE}
+DT::datatable(data.frame(
+  "Raw" = sapply(names(DE.res.raw), function(n){nrow(DE.res.raw[[n]])}),
+  "Batch" = sapply(names(DE.res.batch), function(n){nrow(DE.res.batch[[n]])})
+  ),
+  options = list(pageLength = 12)
+)
 ```
 
-```{r numDeBatch}
-for (n in names(DE.res.batch)){
-  message(sprintf("%s\t%i genes", n, nrow(DE.res.batch[[n]])))
-}
-```
+# Tables of differentially expressed genes {.tabset}
+
+Let us display the tables of DE genes for the various contrasts calculated
+above.
 
 ## 2h_D23580_exposed
 
