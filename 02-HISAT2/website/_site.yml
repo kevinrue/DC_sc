@@ -29,6 +29,8 @@ navbar:
         href: 07_highlyVariableGenes.html
       - text: "SCDE"
         href: 08_SCDE.html
+    - text: "Themes"
+      href: 00a_themes.html
     - text: "About"
       href: about.html
 output:
@@ -40,4 +42,4 @@ output:
     toc_float:
       collapsed: false
       smooth_scroll: true
-exclude: ["rds", "counts", "expdata", "*.R", "09_tTest.Rmd"]
+exclude: ["rds", "counts", "expdata", "*.R", "t-test"]

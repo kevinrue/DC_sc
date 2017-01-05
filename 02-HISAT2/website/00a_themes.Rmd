@@ -1,0 +1,19 @@
+---
+title: "Themes"
+---
+
+```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
+```
+
+```{r setup, include=FALSE}
+library(ggplot2)
+```
+
+# `ggplot2` figure themes
+
+Let us define and store a theme recurrently used for
+[ggplot2](https://cran.r-project.org/web/packages/ggplot2)
+figures, to limit redundancy:
+
+```{r legendBottomTheme, child="_legendBottomTheme.Rmd"}
+```

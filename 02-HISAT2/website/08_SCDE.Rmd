@@ -56,23 +56,28 @@ are fit independently
 omitted, the models will be fit using a common set.
 
 **Note:** this step takes a considerable amount of time, even when multiple
-cores are used (\approx 1h using 4 cores to fit error models to each of the
-``r length(levels(sg))``).
+cores are used (~ 1 h using 4 cores to fit error models to each of the
+``r length(levels(sg))`` experimental groups).
 For this purpose, the chunk of code below is not executed during
 automated compilation; instead it is manually recomputed as necessary.
 
-```{r oifm, message=FALSE, eval=FALSE}
+<!--
+During automated compilation, only load manually pre-computed error models
+saved to file.
+-->
+
+```{r oifm, eval=FALSE}
 o.ifm <- scde.error.models(
   counts = cd, groups = sg, n.cores = 4, threshold.segmentation = TRUE,
   save.crossfit.plots = FALSE, save.model.plots = FALSE, verbose = 1
 )
+```
+
+```{r saveRdsOifm, eval=FALSE, include=FALSE}
 saveRDS(o.ifm, "rds/o.ifm.rds")
 ```
 
-During automated compilation, manually computed error models are imported
-to save execution time:
-
-```{r readOIfm}
+```{r readOIfm, include=FALSE}
 o.ifm <- readRDS("rds/o.ifm.rds")
 ```
 
@@ -146,7 +151,19 @@ To test for differential expression:
   + without batch correction
   + with batch correction applied by plate processed:
 
-```{r scdeExprDiff, eval=FALSE, results='hold'}
+**Note:** this step takes a considerable amount of time, even when multiple
+cores are used (~ 1 h using a single core to estimate batch effect and
+differential expression between each group of stimulated single cells and
+their matched control).
+For this purpose, the chunk of code below is not executed during
+automated compilation; instead it is manually recomputed as necessary.
+
+<!--
+During automated compilation, only load manually pre-computed DE statistics
+saved to file.
+-->
+
+```{r scdeExprDiff, eval=FALSE}
 newOrder <- match(rownames(o.ifm), colnames(sce.norm))
 sg.all <- sg[newOrder]
 batch <- sce.norm$Plate[newOrder]
@@ -162,7 +179,7 @@ for (time in levels(sce.norm$Time)){
         sep = "_"
       )
       sg.tar <- paste(time, infection, status, sep = "_")
-      contrast <- sprintf("%s - %s", sg.tar, sg.ref)
+      contrast <- sprintf("%s-%s", sg.tar, sg.ref)
       message(contrast)
       groups <- rep(NA, length(sg.all))
       names(groups) <- names(sg.all)
@@ -188,22 +205,19 @@ for (time in levels(sce.norm$Time)){
         GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.batch),"GENENAME","GENEID"),
         de.batch
       )
-      DE.res.raw[[sg.tar]] <- de.res[de.raw$cZ != 0,]
-      DE.res.batch[[sg.tar]] <- de.batch[de.batch$cZ != 0,]
+      DE.res.raw[[contrast]] <- de.raw[de.raw$cZ != 0,]
+      DE.res.batch[[contrast]] <- de.batch[de.batch$cZ != 0,]
     }
   }
 }
 ```
 
-```{r saveRdsDE, include=FALSE}
+```{r saveRdsDE, eval=FALSE, include=FALSE}
 saveRDS(DE.res.raw, "rds/DE.res.raw.rds")
 saveRDS(DE.res.batch, "rds/DE.res.batch.rds")
 ```
 
-During automated compilation, manually computed differential expression results
-are imported to save execution time:
-
-```{r readRdsDe}
+```{r readRdsDe, include=FALSE}
 DE.res.raw <- readRDS("rds/DE.res.raw.rds")
 DE.res.batch <- readRDS("rds/DE.res.batch.rds")
 ```
@@ -236,7 +250,7 @@ above.
 
 ```{r 2h_D23580_exposed}
 DT::datatable(
-  DE.res.batch[["2h_D23580_exposed"]],
+  DE.res.batch[["2h_D23580_exposed-2h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -245,7 +259,7 @@ DT::datatable(
 
 ```{r 2h_D23580_infected}
 DT::datatable(
-  DE.res.batch[["2h_D23580_infected"]],
+  DE.res.batch[["2h_D23580_infected-2h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -254,7 +268,7 @@ DT::datatable(
 
 ```{r 2h_LT2_exposed}
 DT::datatable(
-  DE.res.batch[["2h_LT2_exposed"]],
+  DE.res.batch[["2h_LT2_exposed-2h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -263,7 +277,7 @@ DT::datatable(
 
 ```{r 2h_LT2_infected}
 DT::datatable(
-  DE.res.batch[["2h_LT2_infected"]],
+  DE.res.batch[["2h_LT2_infected-2h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -272,7 +286,7 @@ DT::datatable(
 
 ```{r 4h_D23580_exposed}
 DT::datatable(
-  DE.res.batch[["4h_D23580_exposed"]],
+  DE.res.batch[["4h_D23580_exposed-4h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -281,7 +295,7 @@ DT::datatable(
 
 ```{r 4h_D23580_infected}
 DT::datatable(
-  DE.res.batch[["4h_D23580_infected"]],
+  DE.res.batch[["4h_D23580_infected-4h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -290,7 +304,7 @@ DT::datatable(
 
 ```{r 4h_LT2_exposed}
 DT::datatable(
-  DE.res.batch[["4h_LT2_exposed"]],
+  DE.res.batch[["4h_LT2_exposed-4h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -299,7 +313,7 @@ DT::datatable(
 
 ```{r 4h_LT2_infected}
 DT::datatable(
-  DE.res.batch[["4h_LT2_infected"]],
+  DE.res.batch[["4h_LT2_infected-4h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -308,7 +322,7 @@ DT::datatable(
 
 ```{r 6h_D23580_exposed}
 DT::datatable(
-  DE.res.batch[["6h_D23580_exposed"]],
+  DE.res.batch[["6h_D23580_exposed-6h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -317,7 +331,7 @@ DT::datatable(
 
 ```{r 6h_D23580_infected}
 DT::datatable(
-  DE.res.batch[["6h_D23580_infected"]],
+  DE.res.batch[["6h_D23580_infected-6h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -326,7 +340,7 @@ DT::datatable(
 
 ```{r 6h_LT2_exposed}
 DT::datatable(
-  DE.res.batch[["6h_LT2_exposed"]],
+  DE.res.batch[["6h_LT2_exposed-6h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -335,9 +349,28 @@ DT::datatable(
 
 ```{r 6h_LT2_infected}
 DT::datatable(
-  DE.res.batch[["6h_LT2_infected"]],
+  DE.res.batch[["6h_LT2_infected-6h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
+```
+
+# Display expression profile for differentially expressed genes
+
+Let us display the expression level of `ISG15`,
+the most significantly DE gene at the `4h` time-point in all groups of
+stimulated cells relative to their matched group of `uninfected` single cells
+at that time-point:
+
+```{r}
+geneId <- rownames(DE.res.batch[["4h_LT2_infected-4h_Mock_uninfected"]])[1]
+geneName <- mapIds(EnsDb.Hsapiens.v79, geneId, "GENENAME", "GENEID")
+geneExpr <- norm_exprs(sce.norm)[geneId,]
+sampleAes <- pData(sce.norm)[,c("Time","Infection","Status")]
+ggData <- cbind(norm_exprs = geneExpr, sampleAes)
+ggplot(ggData, aes(Time, norm_exprs)) +
+  geom_violin(draw_quantiles = c(0.25,0.5,0.75)) + geom_jitter(width = 0.1) +
+  facet_grid(Infection ~ Status) +
+  ggtitle(sprintf("%s (symbol: %s)", geneId, geneName))
 ```
 
 <!-- As HTML pages are built independently, objects need to be saved to disk

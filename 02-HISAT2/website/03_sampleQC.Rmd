@@ -5,6 +5,9 @@ title: "Sample-level quality control"
 ```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
 ```
 
+```{r legendBottomTheme, child="_legendBottomTheme.Rmd", include=FALSE}
+```
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(cache = TRUE)
 library(Biobase)
@@ -21,16 +24,6 @@ idx.sc <- sce.all$Status %in% c("exposed","infected","uninfected")
 sce.blank <- readRDS("rds/sce.blank.rds")
 sce.sc <- readRDS("rds/sce.sc.rds")
 gtfData <- readRDS("rds/gtfData.rds")
-```
-
-# Figure themes
-
-First let us define shared components of the figures to limit redundancy:
-
-```{r topShared}
-legendBottomTheme <- theme(
-    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
-    legend.position = "bottom", legend.box = "vertical")
 ```
 
 # _MultiQC_
@@ -98,7 +91,7 @@ For the record, the lower cut-off value is:
 ```
 
 Let us visualise those outliers, along with blank and bulk samples
-for reference:
+for reference[^1]:
 
 ```{r multiQC_ggplot_assigned}
 ggplot(multiqc, aes(Sample, featureCounts_Assigned)) +
@@ -745,3 +738,6 @@ and imported as needed by the other R mardown files -->
 ```{r save_sce.pass, include=FALSE}
 saveRDS(sce.pass, "rds/sce.pass.rds")
 ```
+
+[^1]: Note that shared theme settings are defined in the
+[Themes](00a_themes.html) panel.
