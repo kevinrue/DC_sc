@@ -23,6 +23,16 @@ sce.sc <- readRDS("rds/sce.sc.rds")
 gtfData <- readRDS("rds/gtfData.rds")
 ```
 
+# Figure themes
+
+First let us define shared components of the figures to limit redundancy:
+
+```{r topShared}
+legendBottomTheme <- theme(
+    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
+    legend.position = "bottom", legend.box = "vertical")
+```
+
 # _MultiQC_
 ## Import QC metrics
 
@@ -101,11 +111,7 @@ ggplot(multiqc, aes(Sample, featureCounts_Assigned)) +
     yintercept = 10^(multiqc.assigned.M + 3*c(1,-1)*multiqc.assigned.MAD),
     colour = "red"
   ) +
-  geom_hline(yintercept = 10^(multiqc.assigned.M)) +
-  theme(
-    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
-    legend.position = "bottom", legend.box = "vertical"
-  )
+  geom_hline(yintercept = 10^(multiqc.assigned.M)) + legendBottomTheme
 ```
 
 ## GC content (*FastQC*)
@@ -141,11 +147,7 @@ ggplot(multiqc, aes(Sample, FastQC_percent_gc)) +
     yintercept = multiqc.GC.M + 3*c(1,-1)*multiqc.GC.MAD,
     colour = "red"
   ) +
-  geom_hline(yintercept = multiqc.GC.M) +
-  theme(
-    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
-    legend.position = "bottom", legend.box = "vertical"
-  )
+  geom_hline(yintercept = multiqc.GC.M) + legendBottomTheme
 ```
 
 ## Alignment rate (*HISAT2* / *bowtie2*)
@@ -182,11 +184,7 @@ ggplot(multiqc, aes(Sample, Bowtie.2_overall_alignment_rate)) +
     linetype = 2:1
   ) +
   geom_hline(yintercept = multiqc.aligned.M) +
-  theme(
-    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
-    legend.position = "bottom", legend.box = "vertical"
-  ) +
-  ylab("HISAT.2_overall_alignment_rate")
+  ylab("HISAT.2_overall_alignment_rate") + legendBottomTheme
 ```
 
 ## Percentage assigned (*featureCounts*)
@@ -446,7 +444,7 @@ table(scater.top200.outliers)
 ```
 
 Let us visualise those outliers, along with blank and bulk samples
-for reference:
+for reference.
 
 ### 50
 
@@ -459,10 +457,7 @@ ggplot(pData(sce.all), aes(Sample, pct_counts_top_50_features)) +
   geom_hline(
     yintercept = scater.top50.M + 3 * c(-1,1) * scater.top50.MAD,
     colour = "red", linetype = 2:1) +
-  geom_hline(yintercept = scater.top50.M) +
-  theme(
-    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
-    legend.position = "bottom", legend.box = "vertical")
+  geom_hline(yintercept = scater.top50.M) + legendBottomTheme
 ```
 
 ### 100
@@ -476,10 +471,7 @@ ggplot(pData(sce.all), aes(Sample, pct_counts_top_100_features)) +
   geom_hline(
     yintercept = scater.top100.M + 3 * c(-1,1) * scater.top100.MAD,
     colour = "red", linetype = 2:1) +
-  geom_hline(yintercept = scater.top100.M) +
-  theme(
-    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
-    legend.position = "bottom", legend.box = "vertical")
+  geom_hline(yintercept = scater.top100.M) + legendBottomTheme
 ```
 
 ### 200
@@ -493,10 +485,7 @@ ggplot(pData(sce.all), aes(Sample, pct_counts_top_200_features)) +
   geom_hline(
     yintercept = scater.top200.M + 3 * c(-1,1) * scater.top200.MAD,
     colour = "red", linetype = 2:1) +
-  geom_hline(yintercept = scater.top200.M) +
-  theme(
-    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
-    legend.position = "bottom", legend.box = "vertical")
+  geom_hline(yintercept = scater.top200.M) + legendBottomTheme
 ```
 
 In this last figure (*i.e.*, `200` most abundant features),
@@ -544,11 +533,7 @@ ggplot(pData(sce.all), aes(Sample, total_features)) +
     yintercept = scater.features.M + 2 * c(-1,1) * scater.features.MAD,
     colour = "red", linetype = 1:2
   ) +
-  geom_hline(yintercept = scater.features.M) +
-  theme(
-    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
-    legend.position = "bottom", legend.box = "vertical"
-  )
+  geom_hline(yintercept = scater.features.M) + legendBottomTheme
 ```
 
 ## ERCC content {#ERCCoutliers}
@@ -587,11 +572,7 @@ ggplot(pData(sce.all), aes(Sample, pct_counts_feature_controls_ERCC)) +
     yintercept = scater.ERCC.M + 5 * c(-1,1) * scater.ERCC.MAD,
     colour = "red", linetype = 2:1
   ) +
-  geom_hline(yintercept = scater.ERCC.M) +
-  theme(
-    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
-    legend.position = "bottom", legend.box = "vertical"
-  )
+  geom_hline(yintercept = scater.ERCC.M) + legendBottomTheme
 ```
 
 ## Mitochondrial content {#MTcontent}
@@ -633,11 +614,7 @@ ggplot(pData(sce.all), aes(Sample, pct_counts_feature_controls_MT)) +
     yintercept = scater.MT.M + 5 * c(-1,1) * scater.MT.MAD,
     colour = "red", linetype = 2:1
   ) +
-  geom_hline(yintercept = scater.MT.M) +
-  theme(
-    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
-    legend.position = "bottom", legend.box = "vertical"
-  )
+  geom_hline(yintercept = scater.MT.M) + legendBottomTheme
 ```
 
 # Global summary of QC metrics
