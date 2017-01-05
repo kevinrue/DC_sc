@@ -18,7 +18,7 @@ stopifnot(
   requireNamespace("MKmisc"),
   requireNamespace("org.Hs.eg.db"),
   requireNamespace("goseq"),
-  requireNamespace("scde")
+  requireNamespace("scde"),
+  requireNamespace("EnsDb.Hsapiens.v79")
 )
 ```
-
