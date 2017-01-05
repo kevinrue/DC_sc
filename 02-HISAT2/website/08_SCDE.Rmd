@@ -27,7 +27,7 @@ filtered based on gene and cell requirements.
 In this case, let us use the raw numbers of reads mapped to each endogenous
 feature, recast as `integer` type:
 
-```{r}
+```{r cleanCounts}
 cd <- clean.counts(
   counts(sce.norm)[!isSpike(sce.norm),],
   min.lib.size = 1000, min.reads = 1, min.detected = 1
@@ -38,7 +38,7 @@ dim(cd)
 
 Let us also define a factor that separate cells from each experimental group:
 
-```{r}
+```{r sg}
 sg <- as.factor(
   with(pData(sce.norm), paste(Time, Infection, Status, sep = "_"))
 )
@@ -61,7 +61,7 @@ cores are used (\approx 1h using 4 cores to fit error models to each of the
 For this purpose, the chunk of code below is not executed during
 automated compilation; instead it is manually recomputed as necessary.
 
-```{r, message=FALSE, eval=FALSE}
+```{r oifm, message=FALSE, eval=FALSE}
 o.ifm <- scde.error.models(
   counts = cd, groups = sg, n.cores = 4, threshold.segmentation = TRUE,
   save.crossfit.plots = FALSE, save.model.plots = FALSE, verbose = 1
@@ -76,13 +76,13 @@ Next run, save plots (TRUE).
 During automated compilation, manually computed error models are imported
 to save execution time:
 
-```{r}
+```{r readOIfm}
 o.ifm <- readRDS("rds/o.ifm.rds")
 ```
 
 The `o.ifm` is a `data.frame` with error model coefficients for each cell.
 
-```{r}
+```{r oIfmTrim}
 o.ifm.trim <- apply(o.ifm, 2, round, digits = 2)
 DT::datatable(
   o.ifm.trim,
@@ -97,12 +97,12 @@ over-dispersion, and `fail.r` is the background Poisson rate (fixed).
 Particularly poor cells may result in abnormal fits, most commonly showing
 negative corr.a, and should be removed.
 
-```{r}
+```{r validCells}
 valid.cells <- o.ifm$corr.a > 0
 table(valid.cells)
 ```
 
-```{r}
+```{r oIfmValid}
 o.ifm <- o.ifm[valid.cells, ]
 ```
 
@@ -112,7 +112,7 @@ Finally, we need to define an expression magnitude prior for the genes.
 Its main function, however, is to define a grid of expression magnitude values
 on which the numerical calculations will be carried out.
 
-```{r}
+```{r oPrior}
 o.prior <- scde.expression.prior(
   models = o.ifm, counts = cd, length.out = 400, show.plot = TRUE
 )
@@ -134,8 +134,10 @@ and can contain `NA` values
 Let us start at the `2h` time point, when the differences between cells
 stimulated with bacteria and uninfected are expected to be the most marked:
 
-```{r, eval=FALSE}
-batch <- sce.norm$Plate
+```{r scdeExprDiff, eval=FALSE}
+newOrder <- match(rownames(o.ifm), colnames(sce.norm))
+sg.all <- sg[newOrder]
+batch <- sce.norm$Plate[newOrder]
 DE.res.raw <- list()
 DE.res.batch <- list()
 for (time in levels(sce.norm$Time)){
@@ -147,12 +149,14 @@ for (time in levels(sce.norm$Time)){
         levels(sce.norm$Status)[1],
         sep = "_"
       )
-      sg.target <- paste(time, infection, status, sep = "_")
-      groups <- rep(NA, length(sg))
-      names(groups) <- names(sg)
-      groups[which(sg == sg.ref)] <- sg.ref
-      groups[which(sg == sg.target)] <- sg.target
-      groups <- factor(groups, c(sg.ref, sg.target))
+      sg.tar <- paste(time, infection, status, sep = "_")
+      contrast <- sprintf("%s-%s", sg.tar, sg.ref)
+      message(contrast)
+      groups <- rep(NA, length(sg.all))
+      names(groups) <- names(sg.all)
+      groups[which(sg.all == sg.ref)] <- sg.ref
+      groups[which(sg.all == sg.tar)] <- sg.tar
+      groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
       scde.res <- scde.expression.difference(
         o.ifm, cd, o.prior,
         groups = groups,
@@ -163,24 +167,23 @@ for (time in levels(sce.norm$Time)){
       de.res <- scde.res$results
       de.raw <- de.res[order(de.res$Z, decreasing = TRUE),]
       de.batch <- scde.res$batch.adjusted
-      de.raw <- de.res[order(de.res$Z, decreasing = TRUE),]
       de.batch <- de.batch[order(de.batch$Z, decreasing = TRUE),]
       de.raw <- cbind(
-        GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.batch),"GENENAME","GENEID"),
+        GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.raw),"GENENAME","GENEID"),
         de.raw
       )
       de.batch <- cbind(
         GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.batch),"GENENAME","GENEID"),
         de.batch
       )
-      DE.res.raw[[sg.target]] <- de.res[de.raw$cZ != 0,]
-      DE.res.batch[[sg.target]] <- de.batch[de.batch$cZ != 0,]
+      DE.res.raw[[sg.tar]] <- de.res[de.raw$cZ != 0,]
+      DE.res.batch[[sg.tar]] <- de.batch[de.batch$cZ != 0,]
     }
   }
 }
 ```
 
-```{r}
+```{r saveRdsDE}
 saveRDS(DE.res.raw, "rds/DE.res.raw.rds")
 saveRDS(DE.res.batch, "rds/DE.res.batch.rds")
 ```
@@ -188,18 +191,18 @@ saveRDS(DE.res.batch, "rds/DE.res.batch.rds")
 During automated compilation, manually computed differential expression results
 are imported to save execution time:
 
-```{r}
+```{r readRdsDe}
 DE.res.raw <- readRDS("rds/DE.res.raw.rds")
 DE.res.batch <- readRDS("rds/DE.res.batch.rds")
 ```
 
-```{r}
+```{r numDeRaw}
 for (n in names(DE.res.raw)){
   message(sprintf("%s\t%i genes", n, nrow(DE.res.raw[[n]])))
 }
 ```
 
-```{r}
+```{r numDeBatch}
 for (n in names(DE.res.batch)){
   message(sprintf("%s\t%i genes", n, nrow(DE.res.batch[[n]])))
 }
@@ -207,97 +210,97 @@ for (n in names(DE.res.batch)){
 
 ## 2h_D23580_exposed
 
-```{r}
+```{r 2h_D23580_exposed}
 DT::datatable(
-  DE.res[["2h_D23580_exposed"]],
+  DE.res.batch[["2h_D23580_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
 ## 2h_D23580_infected
 
-```{r}
+```{r 2h_D23580_infected}
 DT::datatable(
-  DE.res[["2h_D23580_infected"]],
+  DE.res.batch[["2h_D23580_infected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
 ## 2h_LT2_exposed
 
-```{r}
+```{r 2h_LT2_exposed}
 DT::datatable(
-  DE.res[["2h_LT2_exposed"]],
+  DE.res.batch[["2h_LT2_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
 ## 2h_LT2_infected
 
-```{r}
+```{r 2h_LT2_infected}
 DT::datatable(
-  DE.res[["2h_LT2_infected"]],
+  DE.res.batch[["2h_LT2_infected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
 ## 4h_D23580_exposed
 
-```{r}
+```{r 4h_D23580_exposed}
 DT::datatable(
-  DE.res[["4h_D23580_exposed"]],
+  DE.res.batch[["4h_D23580_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
 ## 4h_D23580_infected
 
-```{r}
+```{r 4h_D23580_infected}
 DT::datatable(
-  DE.res[["4h_D23580_infected"]],
+  DE.res.batch[["4h_D23580_infected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
 ## 4h_LT2_exposed
 
-```{r}
+```{r 4h_LT2_exposed}
 DT::datatable(
-  DE.res[["4h_LT2_exposed"]],
+  DE.res.batch[["4h_LT2_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
 ## 4h_LT2_infected
 
-```{r}
+```{r 4h_LT2_infected}
 DT::datatable(
-  DE.res[["4h_LT2_infected"]],
+  DE.res.batch[["4h_LT2_infected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
 ## 6h_D23580_exposed
 
-```{r}
+```{r 6h_D23580_exposed}
 DT::datatable(
-  DE.res[["6h_D23580_exposed"]],
+  DE.res.batch[["6h_D23580_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
 ## 6h_D23580_infected
 
-```{r}
+```{r 6h_D23580_infected}
 DT::datatable(
-  DE.res[["6h_D23580_infected"]],
+  DE.res.batch[["6h_D23580_infected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
 ## 6h_LT2_exposed
 
-```{r}
+```{r 6h_LT2_exposed}
 DT::datatable(
   DE.res.batch[["6h_LT2_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
@@ -306,9 +309,9 @@ DT::datatable(
 
 ## 6h_LT2_infected
 
-```{r}
+```{r 6h_LT2_infected}
 DT::datatable(
-  DE.res[["6h_LT2_infected"]],
+  DE.res.batch[["6h_LT2_infected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
