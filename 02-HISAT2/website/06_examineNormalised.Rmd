@@ -75,7 +75,7 @@ explain the largest amount of variance in the endogenous features.
 ```{r plotPCASCESet_PC1and2}
 sce.norm <- plotPCASCESet(
   sce.norm, ncomponents = 2, exprs_values = "norm_exprs",
-  colour_by = "Status", shape_by = "Time",
+  colour_by = "Treatment", shape_by = "Time",
   feature_set = !isSpike(sce.norm), return_SCESet = TRUE
 )
 ```
@@ -87,9 +87,9 @@ highest coordinates of `PC1`.
 
 In addition, `PC2` contributes to the increasingly marked separation of
 stimulated cells (*i.e.*, `infected` and `stimulated`) from `uninfected` cells;
-`uninfected` cells generally appear at lower coordinates than their stimulated
-counterparts on both `PC2` and `PC1`, with this trend becoming increasingly
-apparent over time.
+`uninfected` cells generally appear at lower coordinates than their `infected`
+and `exposed` counterparts on both `PC2` and `PC1`, with this trend becoming
+increasingly apparent over time.
 
 Overall, the observations above suggest different transcriptional *paths* taken
 by cells in their experimental stimuli.
@@ -108,7 +108,14 @@ plotReducedDim.SCESet(sce.norm, 3, colour_by = "Status", shape_by = "Time") +
 ### Infection
 
 ```{r plotPCASCESet_infection}
-plotReducedDim.SCESet(sce.norm, 3, colour_by="Infection", shape_by="Time") +
+plotReducedDim.SCESet(sce.norm, 3, colour_by = "Infection", shape_by = "Time") +
+  theme(legend.position = "bottom", legend.box = "vertical")
+```
+
+### Treatment
+
+```{r plotPCASCESet_Treatment}
+plotReducedDim.SCESet(sce.norm, 3, colour_by = "Treatment", shape_by = "Time") +
   theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
@@ -144,7 +151,7 @@ rm(time)
 
 ```{r}
 plotReducedDim.SCESet(
-  time.sce[["2h"]], 3, colour_by="Infection", shape_by = "Status") +
+  time.sce[["2h"]], 3, colour_by = "Infection", shape_by = "Status") +
   theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
@@ -152,7 +159,15 @@ plotReducedDim.SCESet(
 
 ```{r}
 plotReducedDim.SCESet(
-  time.sce[["2h"]], 3, colour_by="Status", shape_by = "Infection") +
+  time.sce[["2h"]], 3, colour_by = "Status") +
+  theme(legend.position = "bottom", legend.box = "vertical")
+```
+
+### 2h-Treatment
+
+```{r}
+plotReducedDim.SCESet(
+  time.sce[["2h"]], 3, colour_by = "Treatment") +
   theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
@@ -160,7 +175,7 @@ plotReducedDim.SCESet(
 
 ```{r}
 plotReducedDim.SCESet(
-  time.sce[["4h"]], 3, colour_by="Infection", shape_by = "Status") +
+  time.sce[["4h"]], 3, colour_by = "Infection", shape_by = "Status") +
   theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
@@ -168,7 +183,15 @@ plotReducedDim.SCESet(
 
 ```{r}
 plotReducedDim.SCESet(
-  time.sce[["4h"]], 3, colour_by="Status", shape_by = "Infection") +
+  time.sce[["4h"]], 3, colour_by = "Status") +
+  theme(legend.position = "bottom", legend.box = "vertical")
+```
+
+### 4h-Treatment
+
+```{r}
+plotReducedDim.SCESet(
+  time.sce[["4h"]], 3, colour_by = "Treatment") +
   theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
@@ -176,7 +199,7 @@ plotReducedDim.SCESet(
 
 ```{r}
 plotReducedDim.SCESet(
-  time.sce[["6h"]], 3, colour_by="Infection", shape_by = "Status") +
+  time.sce[["6h"]], 3, colour_by = "Infection", shape_by = "Status") +
   theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
@@ -184,7 +207,15 @@ plotReducedDim.SCESet(
 
 ```{r}
 plotReducedDim.SCESet(
-  time.sce[["6h"]], 3, colour_by="Status", shape_by = "Infection") +
+  time.sce[["6h"]], 3, colour_by="Status") +
+  theme(legend.position = "bottom", legend.box = "vertical")
+```
+
+### 6h-Status
+
+```{r}
+plotReducedDim.SCESet(
+  time.sce[["6h"]], 3, colour_by = "Treatment") +
   theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
@@ -213,6 +244,13 @@ plotReducedDim.SCESet(sce.norm, 2, colour_by = "Status", shape_by = "Time") +
 
 ```{r plotTSNE_infection}
 plotReducedDim.SCESet(sce.norm, 2, colour_by = "Infection", shape_by = "Time") +
+  theme(legend.position = "bottom", legend.box = "vertical")
+```
+
+### Treatment
+
+```{r plotTSNE_Treatment}
+plotReducedDim.SCESet(sce.norm, 2, colour_by = "Treatment", shape_by = "Time") +
   theme(legend.position = "bottom", legend.box = "vertical")
 ```
 

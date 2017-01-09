@@ -1,3 +1,4 @@
+
 ```{r legendBottomTheme}
 legendBottomTheme <- theme(
     axis.ticks.x = element_blank(), axis.text.x = element_blank(),

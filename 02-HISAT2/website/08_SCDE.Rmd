@@ -164,10 +164,14 @@ During automated compilation, only load manually pre-computed DE statistics
 saved to file.
 -->
 
-```{r scdeExprDiff, eval=FALSE}
+```{r orderSCDEphenotypes}
 newOrder <- match(rownames(o.ifm), colnames(sce.norm))
 sg.all <- sg[newOrder]
 batch <- sce.norm$Plate[newOrder]
+```
+
+
+```{r scdeExprDiff, eval=FALSE}
 DE.res.raw <- list()
 DE.res.batch <- list()
 for (time in levels(sce.norm$Time)){
@@ -460,6 +464,26 @@ DE.res.raw <- readRDS("rds/DE.res.raw.rds")
 DE.res.batch <- readRDS("rds/DE.res.batch.rds")
 ```
 
+## Count of DE genes
+
+Let us display the count of differentially expressed genes:
+
+* Without batch correction (`Raw`)
+* With batch correction applied by plate processed (`Batch`). *Note that
+  all samples of any of the `4` plates were processed on the same of the `2`
+  sequencing lanes; as a result, accounting for a plate batch implicitely
+  accounts for a lane batch.*
+
+```{r countDEbtwStimulated}
+contrastsStimulated <- grep("Mock", names(DE.res.raw), invert = TRUE, value = TRUE)
+DT::datatable(data.frame(
+  "Raw" = sapply(contrastsStimulated, function(n){nrow(DE.res.raw[[n]])}),
+  "Batch" = sapply(contrastsStimulated, function(n){nrow(DE.res.batch[[n]])})
+  ),
+  options = list(pageLength = 12)
+)
+```
+
 ## Tables of DE genes {.tabset}
 
 Let us display the tables of DE genes for the various contrasts calculated
@@ -583,3 +607,74 @@ DT::datatable(
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
+
+## Expression profile of DE genes {.tabset}
+
+Let us display the expression level of `CCL7`,
+a DE gene significantly more expressed in
+`4h_D23580_infected` than `4h_D23580_exposed`:
+
+```{r}
+geneName <- "CCL7"
+geneId <- mapIds(EnsDb.Hsapiens.v79, geneName, "GENEID", "GENENAME")
+geneExpr <- norm_exprs(sce.norm)[geneId,]
+sampleAes <- pData(sce.norm)[,c("Time","Infection","Status")]
+ggData <- cbind(norm_exprs = geneExpr, sampleAes)
+ggplot(ggData, aes(Status, norm_exprs)) +
+  geom_violin(draw_quantiles = c(0.25,0.5,0.75)) + geom_jitter(width = 0.2) +
+  facet_grid(Infection ~ Time) +
+  ggtitle(sprintf("%s (symbol: %s)", geneId, geneName))
+```
+
+Let us compare the posterior of `CCL7` for the four comparisons of interest:
+
+### 6h_D23_inf - 6h_D23_exp
+
+```{r}
+groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all);
+sg.ref <- "6h_D23580_exposed"; sg.tar <- "6h_D23580_infected";
+groups[which(sg.all==sg.ref)]<-sg.ref; groups[which(sg.all==sg.tar)]<-sg.tar;
+groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
+scde.test.gene.expression.difference(
+  geneId, models = o.ifm, counts = cd, prior = o.prior,
+  groups = groups, batch = batch, n.randomizations = 10)
+```
+
+### 6h_LT2_inf - 6h_LT2_exp
+
+```{r}
+groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all)
+sg.ref <- "6h_LT2_exposed"; sg.tar <- "6h_LT2_infected"
+groups[which(sg.all == sg.ref)] <- sg.ref; groups[which(sg.all == sg.tar)] <- sg.tar
+groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
+scde.test.gene.expression.difference(
+  geneId, models = o.ifm, counts = cd, prior = o.prior,
+  groups = groups, batch = batch, n.randomizations = 10)
+```
+
+### 6h_D23_inf - 6h_LT2_inf
+
+```{r}
+groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all)
+sg.ref <- "6h_LT2_infected"; sg.tar <- "6h_D23580_infected"
+groups[which(sg.all == sg.ref)] <- sg.ref; groups[which(sg.all == sg.tar)] <- sg.tar
+groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
+scde.test.gene.expression.difference(
+  geneId, models = o.ifm, counts = cd, prior = o.prior,
+  groups = groups, batch = batch, n.randomizations = 10)
+```
+
+### 6h_D23_exp - 6h_LT2_exp
+
+```{r}
+groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all)
+sg.ref <- "6h_LT2_exposed"; sg.tar <- "6h_D23580_exposed"
+groups[which(sg.all == sg.ref)] <- sg.ref; groups[which(sg.all == sg.tar)] <- sg.tar
+groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
+scde.test.gene.expression.difference(
+  geneId, models = o.ifm, counts = cd, prior = o.prior,
+  groups = groups, batch = batch)
+```
+
+<!-- As HTML pages are built independently, objects need to be saved to disk
+and imported as needed by the other R mardown files -->

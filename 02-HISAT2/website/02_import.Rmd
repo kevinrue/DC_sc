@@ -42,6 +42,8 @@ pheno$Lane <- as.factor(pheno$Lane)
 pheno$Sample <- gsub("WTCHG_[[:digit:]]+_", "", pheno$File)
 pheno$sampleAnnotated <-
   with(pheno, paste(Time, Infection, Status, Sample, sep = "_"))
+pheno$Treatment <-
+  droplevels(interaction(pheno$Infection, pheno$Status, sep = "_"))
 ```
 
 # Counts {#Counts}

@@ -5,9 +5,6 @@ title: "Sample-level quality control"
 ```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
 ```
 
-```{r legendBottomTheme, child="_legendBottomTheme.Rmd", include=FALSE}
-```
-
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(cache = TRUE)
 library(Biobase)
@@ -24,6 +21,9 @@ idx.sc <- sce.all$Status %in% c("exposed","infected","uninfected")
 sce.blank <- readRDS("rds/sce.blank.rds")
 sce.sc <- readRDS("rds/sce.sc.rds")
 gtfData <- readRDS("rds/gtfData.rds")
+```
+
+```{r legendBottomTheme, child="_legendBottomTheme.Rmd", include=FALSE}
 ```
 
 # _MultiQC_
