@@ -52,8 +52,8 @@ will rely. The fitting process relies on a subset of robust genes that are
 detected in multiple cross-cell comparisons. Here we supply the `groups=sg`
 argument, so that the error models for each experimental group of cells
 are fit independently
-(using two different sets of "robust" genes). If the groups argument is
-omitted, the models will be fit using a common set.
+(using '15' different sets of "robust" genes in this case).
+If the groups argument is omitted, the models will be fit using a common set.
 
 **Note:** this step takes a considerable amount of time, even when multiple
 cores are used (~ 1 h using 4 cores to fit error models to each of the
@@ -125,7 +125,8 @@ be determined by the default `0.999` quantile
 (use `max.value` parameter to specify the maximum expression magnitude
 explicitly --- on log~10~ scale).
 
-# Testing for differential expression {.tabset}
+# DE relative to uninfected cells {#DEcontrol}
+## Testing for DE genes {.tabset}
 
 To test for differential expression:
 
@@ -212,17 +213,17 @@ for (time in levels(sce.norm$Time)){
 }
 ```
 
-```{r saveRdsDE, eval=FALSE, include=FALSE}
+```{r saveRdsDEvsUninf, eval=FALSE, include=FALSE}
 saveRDS(DE.res.raw, "rds/DE.res.raw.rds")
 saveRDS(DE.res.batch, "rds/DE.res.batch.rds")
 ```
 
-```{r readRdsDe, include=FALSE}
+```{r readRdsDEvsUninf, include=FALSE}
 DE.res.raw <- readRDS("rds/DE.res.raw.rds")
 DE.res.batch <- readRDS("rds/DE.res.batch.rds")
 ```
 
-# Count of of DE genes
+## Count of DE genes
 
 Let us display the count of differentially expressed genes:
 
@@ -232,7 +233,7 @@ Let us display the count of differentially expressed genes:
   sequencing lanes; as a result, accounting for a plate batch implicitely
   accounts for a lane batch.*
 
-```{r countDE}
+```{r countDEvsUninf}
 DT::datatable(data.frame(
   "Raw" = sapply(names(DE.res.raw), function(n){nrow(DE.res.raw[[n]])}),
   "Batch" = sapply(names(DE.res.batch), function(n){nrow(DE.res.batch[[n]])})
@@ -241,120 +242,132 @@ DT::datatable(data.frame(
 )
 ```
 
-# Tables of differentially expressed genes {.tabset}
+## Tables of DE genes {.tabset}
 
 Let us display the tables of DE genes for the various contrasts calculated
 above.
+For convience, let us display only the `1000` most significant DE genes
+(*i.e.*, largest Z-score) in cases where larger counts of DE genes were
+detected (*i.e.*, corrected Z-score ≠ 0).
 
-## 2h_D23580_exposed
+```{r topDElimit}
+topDElimit <- 1000
+DE.batch.limit <- list()
+for (res.name in names(DE.res.batch)){
+  de.batch <- DE.res.batch[[res.name]]
+  DE.batch.limit[[res.name]] <- de.batch[1:min(1E3,nrow(de.batch)),]
+}
+```
+
+### 2h_D23580_exposed
 
 ```{r 2h_D23580_exposed}
 DT::datatable(
-  DE.res.batch[["2h_D23580_exposed-2h_Mock_uninfected"]],
+  DE.batch.limit[["2h_D23580_exposed-2h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-## 2h_D23580_infected
+### 2h_D23580_infected
 
 ```{r 2h_D23580_infected}
 DT::datatable(
-  DE.res.batch[["2h_D23580_infected-2h_Mock_uninfected"]],
+  DE.batch.limit[["2h_D23580_infected-2h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-## 2h_LT2_exposed
+### 2h_LT2_exposed
 
 ```{r 2h_LT2_exposed}
 DT::datatable(
-  DE.res.batch[["2h_LT2_exposed-2h_Mock_uninfected"]],
+  DE.batch.limit[["2h_LT2_exposed-2h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-## 2h_LT2_infected
+### 2h_LT2_infected
 
 ```{r 2h_LT2_infected}
 DT::datatable(
-  DE.res.batch[["2h_LT2_infected-2h_Mock_uninfected"]],
+  DE.batch.limit[["2h_LT2_infected-2h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-## 4h_D23580_exposed
+### 4h_D23580_exposed
 
 ```{r 4h_D23580_exposed}
 DT::datatable(
-  DE.res.batch[["4h_D23580_exposed-4h_Mock_uninfected"]],
+  DE.batch.limit[["4h_D23580_exposed-4h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-## 4h_D23580_infected
+### 4h_D23580_infected
 
 ```{r 4h_D23580_infected}
 DT::datatable(
-  DE.res.batch[["4h_D23580_infected-4h_Mock_uninfected"]],
+  DE.batch.limit[["4h_D23580_infected-4h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-## 4h_LT2_exposed
+### 4h_LT2_exposed
 
 ```{r 4h_LT2_exposed}
 DT::datatable(
-  DE.res.batch[["4h_LT2_exposed-4h_Mock_uninfected"]],
+  DE.batch.limit[["4h_LT2_exposed-4h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-## 4h_LT2_infected
+### 4h_LT2_infected
 
 ```{r 4h_LT2_infected}
 DT::datatable(
-  DE.res.batch[["4h_LT2_infected-4h_Mock_uninfected"]],
+  DE.batch.limit[["4h_LT2_infected-4h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-## 6h_D23580_exposed
+### 6h_D23580_exposed
 
 ```{r 6h_D23580_exposed}
 DT::datatable(
-  DE.res.batch[["6h_D23580_exposed-6h_Mock_uninfected"]],
+  DE.batch.limit[["6h_D23580_exposed-6h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-## 6h_D23580_infected
+### 6h_D23580_infected
 
 ```{r 6h_D23580_infected}
 DT::datatable(
-  DE.res.batch[["6h_D23580_infected-6h_Mock_uninfected"]],
+  DE.batch.limit[["6h_D23580_infected-6h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-## 6h_LT2_exposed
+### 6h_LT2_exposed
 
 ```{r 6h_LT2_exposed}
 DT::datatable(
-  DE.res.batch[["6h_LT2_exposed-6h_Mock_uninfected"]],
+  DE.batch.limit[["6h_LT2_exposed-6h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-## 6h_LT2_infected
+### 6h_LT2_infected
 
 ```{r 6h_LT2_infected}
 DT::datatable(
-  DE.res.batch[["6h_LT2_infected-6h_Mock_uninfected"]],
+  DE.batch.limit[["6h_LT2_infected-6h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-# Display expression profile for differentially expressed genes
+## Expression profile of DE genes
 
 Let us display the expression level of `ISG15`,
 the most significantly DE gene at the `4h` time-point in all groups of
@@ -375,3 +388,198 @@ ggplot(ggData, aes(Time, norm_exprs)) +
 
 <!-- As HTML pages are built independently, objects need to be saved to disk
 and imported as needed by the other R mardown files -->
+
+# DE between groups of stimulated cells
+## Testing for DE genes {.tabset}
+
+Similarly to the above code chunk to estimate differential expression
+relative to [uninfected cells](#DEcontrol),
+let us compare groups of stimulated cells between themselves:
+
+**Note:** this step takes a considerable amount of time, even when multiple
+cores are used (~ 5 min per comparison using a single core to estimate
+batch effect and differential expression).
+For this purpose, the chunk of code below is not executed during
+automated compilation; instead it is manually recomputed as necessary.
+
+<!--
+During automated compilation, only load manually pre-computed DE statistics
+saved to file.
+-->
+
+```{r scdeStimulated, eval=FALSE}
+contrasts <- list(
+  c("%s_D23580_infected","%s_LT2_infected"),
+  c("%s_D23580_infected","%s_D23580_exposed"),
+  c("%s_LT2_infected","%s_LT2_exposed"),
+  c("%s_D23580_exposed","%s_LT2_exposed")
+)
+for (time in levels(sce.norm$Time)){
+  for (cindex in 1:4){
+      sg.ref <- sprintf(contrasts[[cindex]][2], time)
+      sg.tar <- sprintf(contrasts[[cindex]][1], time)
+      contrast <- sprintf("%s-%s", sg.tar, sg.ref)
+      message(contrast)
+      groups <- rep(NA, length(sg.all))
+      names(groups) <- names(sg.all)
+      groups[which(sg.all == sg.ref)] <- sg.ref
+      groups[which(sg.all == sg.tar)] <- sg.tar
+      groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
+      scde.res <- scde.expression.difference(
+        o.ifm, cd, o.prior,
+        groups = groups,
+        batch = batch,
+        n.randomizations = 10,
+        n.cores  =  1, verbose  =  1
+      )
+      de.raw <- scde.res$results
+      de.batch <- scde.res$batch.adjusted
+      de.raw <- de.raw[order(abs(de.raw$Z), decreasing = TRUE),]
+      de.batch <- de.batch[order(abs(de.batch$Z), decreasing = TRUE),]
+      de.raw <- cbind(
+        GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.raw),"GENENAME","GENEID"),
+        de.raw
+      )
+      de.batch <- cbind(
+        GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.batch),"GENENAME","GENEID"),
+        de.batch
+      )
+      DE.res.raw[[contrast]] <- de.raw[de.raw$cZ != 0,]
+      DE.res.batch[[contrast]] <- de.batch[de.batch$cZ != 0,]
+  }
+}
+```
+
+```{r saveRdsDEbtwStimulated, eval=FALSE, include=FALSE}
+saveRDS(DE.res.raw, "rds/DE.res.raw.rds")
+saveRDS(DE.res.batch, "rds/DE.res.batch.rds")
+```
+
+```{r readRdsDEbtwStimulated, include=FALSE}
+DE.res.raw <- readRDS("rds/DE.res.raw.rds")
+DE.res.batch <- readRDS("rds/DE.res.batch.rds")
+```
+
+## Tables of DE genes {.tabset}
+
+Let us display the tables of DE genes for the various contrasts calculated
+above.
+
+Again, for convience, let us display only the `1000` most significant DE genes
+(*i.e.*, largest Z-score) in cases where larger counts of DE genes were
+detected (*i.e.*, corrected Z-score ≠ 0).
+
+```{r topDElimitStimulated}
+for (res.name in names(DE.res.batch)){
+  de.batch <- DE.res.batch[[res.name]]
+  DE.batch.limit[[res.name]] <- head(de.batch, min(1E3,nrow(de.batch)))
+}
+```
+
+### 2h_D23_inf-2h_LT2_inf
+
+```{r 2h_D23580_inf-2h_LT2_inf}
+DT::datatable(
+  DE.batch.limit[["2h_D23580_infected-2h_LT2_infected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 2h_D23_inf-2h_D23_exp
+
+```{r 2h_D23580_inf-2h_D23580_exp}
+DT::datatable(
+  DE.batch.limit[["2h_D23580_infected-2h_D23580_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 2h_LT2_inf-2h_LT2_exp
+
+```{r 2h_LT2_inf-2h_LT2_exp}
+DT::datatable(
+  DE.batch.limit[["2h_LT2_infected-2h_LT2_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 2h_D23_exp-2h_LT2_exp
+
+```{r 2h_D23580_exp-2h_LT2_exp}
+DT::datatable(
+  DE.batch.limit[["2h_D23580_exposed-2h_LT2_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 4h_D23_inf-4h_LT2_inf
+
+```{r 4h_D23580_inf-4h_LT2_inf}
+DT::datatable(
+  DE.batch.limit[["4h_D23580_infected-4h_LT2_infected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 4h_D23_inf-4h_D23_exp
+
+```{r 4h_D23580_inf-4h_D23580_exp}
+DT::datatable(
+  DE.batch.limit[["4h_D23580_infected-4h_D23580_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 4h_LT2_inf-4h_LT2_exp
+
+```{r 4h_LT2_inf-4h_LT2_exp}
+DT::datatable(
+  DE.batch.limit[["4h_LT2_infected-4h_LT2_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 4h_D23_exp-4h_LT2_exp
+
+```{r 4h_D23580_exp-4h_LT2_exp}
+DT::datatable(
+  DE.batch.limit[["4h_D23580_exposed-4h_LT2_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 6h_D23_inf-6h_LT2_inf
+
+```{r 6h_D23580_inf-6h_LT2_inf}
+DT::datatable(
+  DE.batch.limit[["6h_D23580_infected-6h_LT2_infected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 6h_D23_inf-6h_D23_exp
+
+```{r 6h_D23580_inf}
+DT::datatable(
+  DE.batch.limit[["6h_D23580_infected-6h_D23580_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 6h_LT2_inf-6h_LT2_exp
+
+```{r 6h_LT2_exp}
+DT::datatable(
+  DE.batch.limit[["6h_LT2_infected-6h_LT2_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 6h_D23_exp-6h_LT2_exp
+
+```{r 6h_D23580_exp-6h_LT2_exp}
+DT::datatable(
+  DE.batch.limit[["6h_D23580_exposed-6h_LT2_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
