@@ -170,7 +170,6 @@ sg.all <- sg[newOrder]
 batch <- sce.norm$Plate[newOrder]
 ```
 
-
 ```{r scdeExprDiff, eval=FALSE}
 DE.res.raw <- list()
 DE.res.batch <- list()
@@ -195,7 +194,7 @@ for (time in levels(sce.norm$Time)){
         o.ifm, cd, o.prior,
         groups = groups,
         batch = batch,
-        n.randomizations = 10,
+        n.randomizations = 100,
         n.cores  =  1, verbose  =  1
       )
       de.raw <- scde.res$results
@@ -210,8 +209,8 @@ for (time in levels(sce.norm$Time)){
         GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.batch),"GENENAME","GENEID"),
         de.batch
       )
-      DE.res.raw[[contrast]] <- de.raw[de.raw$cZ != 0,]
-      DE.res.batch[[contrast]] <- de.batch[de.batch$cZ != 0,]
+      DE.res.raw[[contrast]] <- de.raw
+      DE.res.batch[[contrast]] <- de.batch
     }
   }
 }
@@ -239,8 +238,8 @@ Let us display the count of differentially expressed genes:
 
 ```{r countDEvsUninf}
 DT::datatable(data.frame(
-  "Raw" = sapply(names(DE.res.raw), function(n){nrow(DE.res.raw[[n]])}),
-  "Batch" = sapply(names(DE.res.batch), function(n){nrow(DE.res.batch[[n]])})
+  "Raw" = sapply(names(DE.res.raw), function(n){sum(DE.res.raw[[n]]$cZ != 0)}),
+  "Batch" = sapply(names(DE.res.batch), function(n){sum(DE.res.batch[[n]]$cZ != 0)})
   ),
   options = list(pageLength = 12)
 )
@@ -259,7 +258,7 @@ topDElimit <- 1000
 DE.batch.limit <- list()
 for (res.name in names(DE.res.batch)){
   de.batch <- DE.res.batch[[res.name]]
-  DE.batch.limit[[res.name]] <- de.batch[1:min(1E3,nrow(de.batch)),]
+  DE.batch.limit[[res.name]] <- de.batch[1:min(1E3,sum(de.batch$cZ != 0)),]
 }
 ```
 
@@ -433,7 +432,7 @@ for (time in levels(sce.norm$Time)){
         o.ifm, cd, o.prior,
         groups = groups,
         batch = batch,
-        n.randomizations = 10,
+        n.randomizations = 100,
         n.cores  =  1, verbose  =  1
       )
       de.raw <- scde.res$results
@@ -448,8 +447,8 @@ for (time in levels(sce.norm$Time)){
         GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.batch),"GENENAME","GENEID"),
         de.batch
       )
-      DE.res.raw[[contrast]] <- de.raw[de.raw$cZ != 0,]
-      DE.res.batch[[contrast]] <- de.batch[de.batch$cZ != 0,]
+      DE.res.raw[[contrast]] <- de.raw
+      DE.res.batch[[contrast]] <- de.batch
   }
 }
 ```
@@ -477,8 +476,8 @@ Let us display the count of differentially expressed genes:
 ```{r countDEbtwStimulated}
 contrastsStimulated <- grep("Mock", names(DE.res.raw), invert = TRUE, value = TRUE)
 DT::datatable(data.frame(
-  "Raw" = sapply(contrastsStimulated, function(n){nrow(DE.res.raw[[n]])}),
-  "Batch" = sapply(contrastsStimulated, function(n){nrow(DE.res.batch[[n]])})
+  "Raw" = sapply(contrastsStimulated, function(n){sum(DE.res.raw[[n]]$cZ != 0)}),
+  "Batch" = sapply(contrastsStimulated, function(n){sum(DE.res.batch[[n]]$cZ != 0)})
   ),
   options = list(pageLength = 12)
 )
@@ -496,7 +495,7 @@ detected (*i.e.*, corrected Z-score ≠ 0).
 ```{r topDElimitStimulated}
 for (res.name in names(DE.res.batch)){
   de.batch <- DE.res.batch[[res.name]]
-  DE.batch.limit[[res.name]] <- head(de.batch, min(1E3,nrow(de.batch)))
+  DE.batch.limit[[res.name]] <- head(de.batch, min(1E3,sum(de.batch$cZ != 0)))
 }
 ```
 
@@ -637,7 +636,7 @@ groups[which(sg.all==sg.ref)]<-sg.ref; groups[which(sg.all==sg.tar)]<-sg.tar;
 groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
 scde.test.gene.expression.difference(
   geneId, models = o.ifm, counts = cd, prior = o.prior,
-  groups = groups, batch = batch, n.randomizations = 10)
+  groups = groups, batch = batch)
 ```
 
 ### 6h_LT2_inf - 6h_LT2_exp
@@ -649,7 +648,7 @@ groups[which(sg.all == sg.ref)] <- sg.ref; groups[which(sg.all == sg.tar)] <- sg
 groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
 scde.test.gene.expression.difference(
   geneId, models = o.ifm, counts = cd, prior = o.prior,
-  groups = groups, batch = batch, n.randomizations = 10)
+  groups = groups, batch = batch)
 ```
 
 ### 6h_D23_inf - 6h_LT2_inf
@@ -661,7 +660,7 @@ groups[which(sg.all == sg.ref)] <- sg.ref; groups[which(sg.all == sg.tar)] <- sg
 groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
 scde.test.gene.expression.difference(
   geneId, models = o.ifm, counts = cd, prior = o.prior,
-  groups = groups, batch = batch, n.randomizations = 10)
+  groups = groups, batch = batch)
 ```
 
 ### 6h_D23_exp - 6h_LT2_exp
