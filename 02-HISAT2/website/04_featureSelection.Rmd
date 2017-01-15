@@ -1,5 +1,7 @@
 ---
 title: "Feature selection"
+bibliography:
+  bibtex.bib
 ---
 
 ```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
@@ -14,6 +16,7 @@ library(scater)
 library(SummarizedExperiment)
 sce.pass <- readRDS("rds/sce.pass.rds")
 gtfData <- readRDS("rds/gtfData.rds")
+mixC <- readRDS("rds/mixC.rds")
 ERCCs <- grep("^ERCC-[[:digit:]]+$", featureNames(sce.pass), value = TRUE)
 MTs <- mcols(gtfData)[seqnames(gtfData) == "MT", "gene_id"]
 ```
@@ -26,9 +29,10 @@ single cells in the data set.
 Indeed, features detected in a small count of cells, or expressed at very
 low levels carry limited information for differential expression analyses;
 moreover, those features negatively affect the performance of normalisation
-algorithms, due to the large number of dropout events (zero count).
+algorithms, due to the large number of dropout (*i.e.*, zero count) events
+[@67; @Brennecke_2013].
 
-**Cite paper 67 from Lun, McCarthy et Marioni; Brennecke et al., 2013**
+## Detection frequency and mean expression level
 
 For this purpose, let us first calculate updated QC metrics in the subsetted
 data set using once more the [scater](http://bioconductor.org/packages/scater)
@@ -51,10 +55,25 @@ plotExprsFreqVsMean(
 )
 ```
 
+## Spike-in expectations
+
+Let us compare the expected number of spike-in molecules introduced in each
+sample (calculated in this [section](00b_moleculesERCC.html)), against the
+average count detected across all single cells:
+
+```{r}
+mixC$avgCount <- rowMeans(counts(sce.pass)[mixC$ID,])
+names(mixC)
+maxPlot <- max(mixC$avgCount, mixC$ERCCmolecules)
+ggplot(mixC) + geom_point(aes(ERCCmolecules, avgCount)) +
+  labs(x = "ERCC molecules injected", y = "Average count in cells passed QC") +
+  scale_x_log10() + scale_y_log10() + coord_fixed(ratio = 1)
+```
+
 # Definition of detected feature
 
 Let us set define low-abundance features as those with an average count below a
-filter threshold of `1`:
+filter threshold of $1$:
 
 ```{r ave.counts}
 ave.counts <- rowMeans(counts(sce.pass))
@@ -76,7 +95,7 @@ abline(v = log10(1), col = "blue", lwd = 2, lty = 2)
 We may compare the above figure with the a smoother representation of the
 count of cells in which each feature is detected against the average
 log~10~-transformed count of reads assigned to that same feature, while
-marking the same cut-off threshold of an average `1` count across all cells:
+marking the same cut-off threshold of an average $1$ count across all cells:
 
 ```{r smoothScatter}
 numcells <- nexprs(sce.pass, byrow = TRUE)
@@ -92,7 +111,7 @@ points(
 abline(v = log10(1), col = "blue", lwd = 2, lty = 2)
 ```
 
-# Selection of detected features
+# Selection of detected features {#selectFeatures}
 
 Let us now select the features defined as detected in the above sections
 into a new `SCESet`:
@@ -110,6 +129,8 @@ that was supplied to _featureCounts_ for quantitation:
 fData(sce.filtered)$gene_name <-
   gtfData$gene_name[match(rownames(sce.filtered), gtfData$gene_id)]
 ```
+
+# References
 
 <!-- As HTML pages are built independently, objects need to be saved to disk
 and imported as needed by the other R mardown files -->

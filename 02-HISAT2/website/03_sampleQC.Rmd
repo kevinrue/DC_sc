@@ -1,5 +1,7 @@
 ---
 title: "Sample-level quality control"
+bibliography:
+  bibtex.bib
 ---
 
 ```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
@@ -715,7 +717,7 @@ datatable(
 )
 ```
 
-# Single cells selection
+# Single cells selection {#cellSelection}
 
 Let us select the single cells that passed all QC metrics into a new `SCESet`:
 

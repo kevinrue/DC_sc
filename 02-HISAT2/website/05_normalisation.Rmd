@@ -1,5 +1,7 @@
 ---
 title: "Normalisation"
+bibliography:
+  bibtex.bib
 ---
 
 ```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}

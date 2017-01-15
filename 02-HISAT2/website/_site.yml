@@ -11,6 +11,8 @@ navbar:
         href: 01_preprocessing.html
       - text: "Data Import"
         href: 02_import.html
+      - text: "ERCC content"
+        href: 00b_moleculesERCC.html
     - text: "Quality Control"
       icon: fa-check-square-o
       menu:

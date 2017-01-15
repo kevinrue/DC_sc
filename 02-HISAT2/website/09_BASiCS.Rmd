@@ -1,0 +1,68 @@
+---
+title: "Differential expression"
+bibliography:
+  bibtex.bib
+---
+
+```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
+```
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+library(scran)
+library(scater)
+library(BASiCS)
+library(data.table) 
+library(EnsDb.Hsapiens.v79)
+library(ggplot2)
+sce.norm <- readRDS("rds/sce.norm.rds")
+mixC <- readRDS("rds/mixC.rds")
+```
+
+# Data pre-processing
+
+## Input data
+
+For this analysis we use:
+* the matrix of expression *counts*,
+* single cells that passed all quality control filters (see this earlier
+  [section](03_sampleQC.html#cellSelection))
+* features with an average count equal or higher than $1$ (see this earlier
+  [section](04_featureSelection#selectFeatures))
+
+```{r scePassCounts, results='hide'}
+counts(sce.norm)
+```
+
+**Note:** this contrasts with the stringent condition of ≥20 RPM on average
+across all cells, demonstrated in [@BASiCS2016DE].
+
+As a result, the input data contains `r nrow(sce.norm)` features and
+`r ncol(sce.norm)` cells.
+
+# BASiCS analysis
+
+## The input dataset
+
+### Spike-in genes information
+
+In subsequent steps of the analysis, technical spike-in features are identified
+as follows:
+
+```{r, results='hide'}
+isSpike(sce.norm)
+```
+
+```{r}
+table(isSpike(sce.norm))
+```
+
+
+
+
+
+<!-- As HTML pages are built independently, objects need to be saved to disk
+and imported as needed by the other R mardown files -->
