@@ -39,11 +39,13 @@ pheno$Infection <- factor(pheno$Infection, c("Mock","D23580","LT2","Blank"))
 pheno$Status <-
   factor(pheno$Status, c("uninfected","exposed","infected","Blank","BULK"))
 pheno$Lane <- as.factor(pheno$Lane)
-pheno$Sample <- gsub("WTCHG_[[:digit:]]+_", "", pheno$File)
+pheno$Sample <- gsub("WTCHG_[[:digit:]]+_", "", pheno$File) # character
 pheno$sampleAnnotated <-
-  with(pheno, paste(Time, Infection, Status, Sample, sep = "_"))
+  with(pheno, paste(Time, Infection, Status, Sample, sep = "_")) # character
 pheno$Treatment <-
-  droplevels(interaction(pheno$Infection, pheno$Status, sep = "_"))
+  droplevels(interaction(pheno$Infection, pheno$Status, sep = "_")) # factor
+pheno$Group <-
+  droplevels(interaction(pheno$Time, pheno$Treatment, sep = "_")) # factor
 ```
 
 # Counts {#Counts}

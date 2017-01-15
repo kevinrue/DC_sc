@@ -25,7 +25,7 @@ sce.sc <- readRDS("rds/sce.sc.rds")
 gtfData <- readRDS("rds/gtfData.rds")
 ```
 
-```{r legendBottomTheme, child="_legendBottomTheme.Rmd", include=FALSE}
+```{r defineTheme, child="_legendBottomTheme.Rmd", include=FALSE}
 ```
 
 # _MultiQC_

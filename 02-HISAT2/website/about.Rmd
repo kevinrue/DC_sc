@@ -109,6 +109,12 @@ web page:
 This community project provides tools for the analysis and comprehension of
 high-throughput genomic data. 
 
+### [edgeR](http://bioconductor.org/packages/edgeR)
+
+Differential expression analysis of RNA-seq expression profiles with biological
+replication. Used here to import raw counts for all samples (including
+bulks, blanks, and single cells).
+
 ### [scater](http://bioconductor.org/packages/scater)
 
 A collection of tools for doing various analyses of single-cell RNA-seq gene
