@@ -89,7 +89,7 @@ To run the MCMC algorithm, we use the function `BASiCS_MCMC`:
 **Note:** The following blocks of code currently crash after completion
 of the MCMC algorithm, with the following error message:
 
-```{r}
+```{r, echo=FALSE}
 message(" Show Traceback
 Error in dimnames(x) <- dn : length of 'dimnames' [2] not equal to array extent")
 ```
