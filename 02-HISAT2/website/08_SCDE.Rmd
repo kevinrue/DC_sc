@@ -456,6 +456,10 @@ for (time in levels(sce.norm$Time)){
 ```{r saveRdsDEbtwStimulated, eval=FALSE, include=FALSE}
 saveRDS(DE.res.raw, "rds/DE.res.raw.rds")
 saveRDS(DE.res.batch, "rds/DE.res.batch.rds")
+for (groupName in names(DE.res.raw)){
+  write.csv(DE.res.raw[[groupName]], sprintf("SCDE/raw_%s.csv",groupName))
+  write.csv(DE.res.batch[[groupName]], sprintf("SCDE/batch_%s.csv",groupName))
+}
 ```
 
 ```{r readRdsDEbtwStimulated, include=FALSE}

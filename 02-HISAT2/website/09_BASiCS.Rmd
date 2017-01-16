@@ -27,6 +27,7 @@ mixC <- readRDS("rds/mixC.rds")
 ## Input data
 
 For this analysis we use:
+
 * the matrix of expression *counts*
 * single cells that passed all quality control filters (see this earlier
   [section](03_sampleQC.html#cellSelection))

@@ -35,9 +35,9 @@ clusters <- quickCluster(sce.filtered)
 ```
 
 In this case, none of the cells were assigned to any cluster, which suggests
-that despite the expected differences between experimental groups, the data set
-is sufficiently homogenous for the normalisation procedure to be applied to
-all cells equally:
+that despite the expected differences between experimental groups and batches,
+the data set is sufficiently homogenous for the normalisation procedure
+to be applied to all cells equally:
 
 ```{r computeSumFactors}
 sce.filtered <- computeSumFactors(sce.filtered, clusters = clusters)
