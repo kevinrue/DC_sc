@@ -17,12 +17,13 @@ library(ggplot2)
 As an input, `BASiCS` requires the input number of spike-in molecules per cell,
 which may be calculated as follows:
 
-\begin{equation*} \mu_{i} = C_i \times 10^{-18} \times (6.022 \times 10^{23}) \times (9 \times 10^{-3}) \times D \hspace{0.5cm} \mbox{where,} \end{equation*}
+\begin{equation*} \mu_{i} = C_i \times 10^{-18} \times (6.022 \times 10^{23})
+\times V \times D \hspace{0.5cm} \mbox{where,} \end{equation*}
 
 * $C_i$ is the concentration of the spike $i$ in the ERCC mix
 * $10^{-18}$ is to convert aM (attomolar) to M (molar)
 * $6.022 \times 10^{23}$ is the Avogadro number (molecules per mole)
-* $10$ is the volume added into each well, in $\mu{L}$
+* $V$ is the volume added into each well, here $10\mu{L}$
 * $D$ is a dilution factor, here $1:100,000,000$
 
 # Concentrations in ERCC Mix from the manufacturer
@@ -55,7 +56,7 @@ mixC$ERCCmolecules <-
   mixC$Concentration_attomoles_ul *
   10^-18 *
   6.022 * 10^23 *
-  9 *
+  10 *
   10^-8
 ggplot(mixC) + geom_histogram(aes(ERCCmolecules)) + scale_x_log10() +
   xlab("Number of molecules injected in sample") +
