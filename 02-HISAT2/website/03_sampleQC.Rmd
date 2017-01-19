@@ -591,7 +591,7 @@ metric <- sce.sc$pct_counts_feature_controls_MT
 scater.MT.M <- median(metric)
 scater.MT.MAD <- mad(metric)
 scater.MT.outliers <-
-  metric > scater.MT.M + 5 * scater.MT.MAD
+  metric > scater.MT.M + 3 * scater.MT.MAD
 table(scater.MT.outliers)
 ```
 
@@ -606,7 +606,7 @@ ggplot(pData(sce.all), aes(Sample, pct_counts_feature_controls_MT)) +
     alpha = 0.4
   ) +
   geom_hline(
-    yintercept = scater.MT.M + 5 * c(-1,1) * scater.MT.MAD,
+    yintercept = scater.MT.M + 3 * c(-1,1) * scater.MT.MAD,
     colour = "red", linetype = 2:1
   ) +
   geom_hline(yintercept = scater.MT.M) + legendBottomTheme
