@@ -44,9 +44,9 @@ to provide new insights into the molecular contest at the Salmonella-host
 interface and suggest new areas of research to understand the mechanisms of
 invasive Salmonella disease. 
 
-# Experimental design
+# Graphical abstract
 
-![Overview of experimental design.](img/exp_design.png)
+![Graphical abstract.](img/graphical_abstract.png)
 
 # Requirements
 
