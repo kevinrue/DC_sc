@@ -656,7 +656,7 @@ a DE gene significantly more expressed in
 `4h_D23580_infected` than `4h_D23580_exposed`:
 
 ```{r}
-geneName <- "CD209"
+geneName <- "CCL7"
 geneId <- mapIds(EnsDb.Hsapiens.v79, geneName, "GENEID", "GENENAME")
 geneExpr <- norm_exprs(sce.norm)[geneId,]
 sampleAes <- pData(sce.norm)[,c("Time","Infection","Status","Plate")]
