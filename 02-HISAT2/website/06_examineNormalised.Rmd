@@ -86,13 +86,14 @@ points at the lowest coordinates on `PC1` to the latest time points at the
 highest coordinates of `PC1`.
 
 In addition, `PC2` contributes to the increasingly marked separation of
-stimulated cells (*i.e.*, `infected` and `stimulated`) from `uninfected` cells;
+stimulated cells (*i.e.*, `infected` and `stimulated`,
+in orange, green, red, and blue) from `uninfected` cells (in blue);
 `uninfected` cells generally appear at lower coordinates than their `infected`
 and `exposed` counterparts on both `PC2` and `PC1`, with this trend becoming
 increasingly apparent over time.
 
-Overall, the observations above suggest different transcriptional *paths* taken
-by cells in their experimental stimuli.
+Overall, the observations above suggest different transcriptional trajectories
+taken by cells in response to experimental stimuli.
 
 The analysis may be extended to more principal components; however, by
 definition those principal components will report decreasing amount of variance
@@ -211,7 +212,7 @@ plotReducedDim.SCESet(
   theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
-### 6h-Status
+### 6h-Treatment
 
 ```{r}
 plotReducedDim.SCESet(
