@@ -172,6 +172,7 @@ batch <- sce.norm$Plate[newOrder]
 
 ```{r scdeExprDiff, eval=FALSE}
 DE.res.raw <- list()
+DE.res.adjusted <- list()
 DE.res.batch <- list()
 for (time in levels(sce.norm$Time)){
   for (infection in levels(sce.norm$Infection)[-1]){
@@ -197,19 +198,30 @@ for (time in levels(sce.norm$Time)){
         n.randomizations = 100,
         n.cores  =  1, verbose  =  1
       )
+      
       de.raw <- scde.res$results
-      de.batch <- scde.res$batch.adjusted
+      de.adjusted <- scde.res$batch.adjusted
+      de.batch <- scde.res$batch.effect
+      
       de.raw <- de.raw[order(abs(de.raw$Z), decreasing = TRUE),]
+      de.adjusted <- de.adjusted[order(abs(de.adjusted$Z), decreasing = TRUE),]
       de.batch <- de.batch[order(abs(de.batch$Z), decreasing = TRUE),]
+      
       de.raw <- cbind(
         GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.raw),"GENENAME","GENEID"),
         de.raw
+      )
+      de.adjusted <- cbind(
+        GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.adjusted),"GENENAME","GENEID"),
+        de.adjusted
       )
       de.batch <- cbind(
         GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.batch),"GENENAME","GENEID"),
         de.batch
       )
+      
       DE.res.raw[[contrast]] <- de.raw
+      DE.res.adjusted[[contrast]] <- de.adjusted
       DE.res.batch[[contrast]] <- de.batch
     }
   }
@@ -218,11 +230,13 @@ for (time in levels(sce.norm$Time)){
 
 ```{r saveRdsDEvsUninf, eval=FALSE, include=FALSE}
 saveRDS(DE.res.raw, "rds/DE.res.raw.rds")
+saveRDS(DE.res.adjusted, "rds/DE.res.adjusted.rds")
 saveRDS(DE.res.batch, "rds/DE.res.batch.rds")
 ```
 
 ```{r readRdsDEvsUninf, include=FALSE}
 DE.res.raw <- readRDS("rds/DE.res.raw.rds")
+DE.res.adjusted <- readRDS("rds/DE.res.adjusted.rds")
 DE.res.batch <- readRDS("rds/DE.res.batch.rds")
 ```
 
@@ -237,9 +251,14 @@ Let us display the count of differentially expressed genes:
   accounts for a lane batch.*
 
 ```{r countDEvsUninf}
+contrastsMock <- grep("Mock", names(DE.res.raw), value = TRUE)
 DT::datatable(data.frame(
-  "Raw" = sapply(names(DE.res.raw), function(n){sum(DE.res.raw[[n]]$cZ != 0)}),
-  "Batch" = sapply(names(DE.res.batch), function(n){sum(DE.res.batch[[n]]$cZ != 0)})
+  "Raw" =
+    sapply(contrastsMock, function(n){sum(DE.res.raw[[n]]$cZ != 0)}),
+  "Adjusted" =
+    sapply(contrastsMock, function(n){sum(DE.res.adjusted[[n]]$cZ != 0)}),
+  "Batch" =
+    sapply(contrastsMock, function(n){sum(DE.res.batch[[n]]$cZ != 0)})
   ),
   options = list(pageLength = 12)
 )
@@ -255,10 +274,11 @@ detected (*i.e.*, corrected Z-score ≠ 0).
 
 ```{r topDElimit}
 topDElimit <- 1000
-DE.batch.limit <- list()
-for (res.name in names(DE.res.batch)){
-  de.batch <- DE.res.batch[[res.name]]
-  DE.batch.limit[[res.name]] <- de.batch[1:min(1E3,sum(de.batch$cZ != 0)),]
+DE.adjusted.limit <- list()
+for (res.name in names(DE.res.adjusted)){
+  de.adjusted <- DE.res.adjusted[[res.name]]
+  DE.adjusted.limit[[res.name]] <-
+    head(de.adjusted, min(topDElimit,sum(de.adjusted$cZ != 0)))
 }
 ```
 
@@ -266,7 +286,7 @@ for (res.name in names(DE.res.batch)){
 
 ```{r 2h_D23580_exposed}
 DT::datatable(
-  DE.batch.limit[["2h_D23580_exposed-2h_Mock_uninfected"]],
+  DE.adjusted.limit[["2h_D23580_exposed-2h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -275,7 +295,7 @@ DT::datatable(
 
 ```{r 2h_D23580_infected}
 DT::datatable(
-  DE.batch.limit[["2h_D23580_infected-2h_Mock_uninfected"]],
+  DE.adjusted.limit[["2h_D23580_infected-2h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -284,7 +304,7 @@ DT::datatable(
 
 ```{r 2h_LT2_exposed}
 DT::datatable(
-  DE.batch.limit[["2h_LT2_exposed-2h_Mock_uninfected"]],
+  DE.adjusted.limit[["2h_LT2_exposed-2h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -293,7 +313,7 @@ DT::datatable(
 
 ```{r 2h_LT2_infected}
 DT::datatable(
-  DE.batch.limit[["2h_LT2_infected-2h_Mock_uninfected"]],
+  DE.adjusted.limit[["2h_LT2_infected-2h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -302,7 +322,7 @@ DT::datatable(
 
 ```{r 4h_D23580_exposed}
 DT::datatable(
-  DE.batch.limit[["4h_D23580_exposed-4h_Mock_uninfected"]],
+  DE.adjusted.limit[["4h_D23580_exposed-4h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -311,7 +331,7 @@ DT::datatable(
 
 ```{r 4h_D23580_infected}
 DT::datatable(
-  DE.batch.limit[["4h_D23580_infected-4h_Mock_uninfected"]],
+  DE.adjusted.limit[["4h_D23580_infected-4h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -320,7 +340,7 @@ DT::datatable(
 
 ```{r 4h_LT2_exposed}
 DT::datatable(
-  DE.batch.limit[["4h_LT2_exposed-4h_Mock_uninfected"]],
+  DE.adjusted.limit[["4h_LT2_exposed-4h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -329,7 +349,7 @@ DT::datatable(
 
 ```{r 4h_LT2_infected}
 DT::datatable(
-  DE.batch.limit[["4h_LT2_infected-4h_Mock_uninfected"]],
+  DE.adjusted.limit[["4h_LT2_infected-4h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -338,7 +358,7 @@ DT::datatable(
 
 ```{r 6h_D23580_exposed}
 DT::datatable(
-  DE.batch.limit[["6h_D23580_exposed-6h_Mock_uninfected"]],
+  DE.adjusted.limit[["6h_D23580_exposed-6h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -347,7 +367,7 @@ DT::datatable(
 
 ```{r 6h_D23580_infected}
 DT::datatable(
-  DE.batch.limit[["6h_D23580_infected-6h_Mock_uninfected"]],
+  DE.adjusted.limit[["6h_D23580_infected-6h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -356,7 +376,7 @@ DT::datatable(
 
 ```{r 6h_LT2_exposed}
 DT::datatable(
-  DE.batch.limit[["6h_LT2_exposed-6h_Mock_uninfected"]],
+  DE.adjusted.limit[["6h_LT2_exposed-6h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -365,7 +385,7 @@ DT::datatable(
 
 ```{r 6h_LT2_infected}
 DT::datatable(
-  DE.batch.limit[["6h_LT2_infected-6h_Mock_uninfected"]],
+  DE.adjusted.limit[["6h_LT2_infected-6h_Mock_uninfected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -378,7 +398,7 @@ stimulated cells relative to their matched group of `uninfected` single cells
 at that time-point:
 
 ```{r}
-geneId <- rownames(DE.res.batch[["4h_LT2_infected-4h_Mock_uninfected"]])[1]
+geneId <- rownames(DE.res.adjusted[["4h_LT2_infected-4h_Mock_uninfected"]])[1]
 geneName <- mapIds(EnsDb.Hsapiens.v79, geneId, "GENENAME", "GENEID")
 geneExpr <- norm_exprs(sce.norm)[geneId,]
 sampleAes <- pData(sce.norm)[,c("Time","Infection","Status")]
@@ -435,19 +455,30 @@ for (time in levels(sce.norm$Time)){
         n.randomizations = 100,
         n.cores  =  1, verbose  =  1
       )
+      
       de.raw <- scde.res$results
-      de.batch <- scde.res$batch.adjusted
+      de.adjusted <- scde.res$batch.adjusted
+      de.batch <- scde.res$batch.effect
+      
       de.raw <- de.raw[order(abs(de.raw$Z), decreasing = TRUE),]
+      de.adjusted <- de.adjusted[order(abs(de.adjusted$Z), decreasing = TRUE),]
       de.batch <- de.batch[order(abs(de.batch$Z), decreasing = TRUE),]
+      
       de.raw <- cbind(
         GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.raw),"GENENAME","GENEID"),
         de.raw
+      )
+      de.adjusted <- cbind(
+        GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.adjusted),"GENENAME","GENEID"),
+        de.adjusted
       )
       de.batch <- cbind(
         GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.batch),"GENENAME","GENEID"),
         de.batch
       )
+      
       DE.res.raw[[contrast]] <- de.raw
+      DE.res.adjusted[[contrast]] <- de.adjusted
       DE.res.batch[[contrast]] <- de.batch
   }
 }
@@ -455,15 +486,18 @@ for (time in levels(sce.norm$Time)){
 
 ```{r saveRdsDEbtwStimulated, eval=FALSE, include=FALSE}
 saveRDS(DE.res.raw, "rds/DE.res.raw.rds")
+saveRDS(DE.res.adjusted, "rds/DE.res.adjusted.rds")
 saveRDS(DE.res.batch, "rds/DE.res.batch.rds")
 for (groupName in names(DE.res.raw)){
   write.csv(DE.res.raw[[groupName]], sprintf("SCDE/raw_%s.csv",groupName))
+  write.csv(DE.res.adjusted[[groupName]], sprintf("SCDE/adjusted_%s.csv",groupName))
   write.csv(DE.res.batch[[groupName]], sprintf("SCDE/batch_%s.csv",groupName))
 }
 ```
 
 ```{r readRdsDEbtwStimulated, include=FALSE}
 DE.res.raw <- readRDS("rds/DE.res.raw.rds")
+DE.res.adjusted <- readRDS("rds/DE.res.adjusted.rds")
 DE.res.batch <- readRDS("rds/DE.res.batch.rds")
 ```
 
@@ -481,7 +515,10 @@ Let us display the count of differentially expressed genes:
 contrastsStimulated <- grep("Mock", names(DE.res.raw), invert = TRUE, value = TRUE)
 DT::datatable(data.frame(
   "Raw" = sapply(contrastsStimulated, function(n){sum(DE.res.raw[[n]]$cZ != 0)}),
-  "Batch" = sapply(contrastsStimulated, function(n){sum(DE.res.batch[[n]]$cZ != 0)})
+  "Adjusted" =
+    sapply(contrastsStimulated, function(n){sum(DE.res.adjusted[[n]]$cZ != 0)}),
+  "Batch" =
+    sapply(contrastsStimulated, function(n){sum(DE.res.batch[[n]]$cZ != 0)})
   ),
   options = list(pageLength = 12)
 )
@@ -498,8 +535,9 @@ detected (*i.e.*, corrected Z-score ≠ 0).
 
 ```{r topDElimitStimulated}
 for (res.name in names(DE.res.batch)){
-  de.batch <- DE.res.batch[[res.name]]
-  DE.batch.limit[[res.name]] <- head(de.batch, min(1E3,sum(de.batch$cZ != 0)))
+  de.adjusted <- DE.res.adjusted[[res.name]]
+  DE.adjusted.limit[[res.name]] <-
+    head(de.adjusted, min(topDElimit,sum(de.adjusted$cZ != 0)))
 }
 ```
 
@@ -507,7 +545,7 @@ for (res.name in names(DE.res.batch)){
 
 ```{r 2h_D23580_inf-2h_LT2_inf}
 DT::datatable(
-  DE.batch.limit[["2h_D23580_infected-2h_LT2_infected"]],
+  DE.adjusted.limit[["2h_D23580_infected-2h_LT2_infected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -516,7 +554,7 @@ DT::datatable(
 
 ```{r 2h_D23580_inf-2h_D23580_exp}
 DT::datatable(
-  DE.batch.limit[["2h_D23580_infected-2h_D23580_exposed"]],
+  DE.adjusted.limit[["2h_D23580_infected-2h_D23580_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -525,7 +563,7 @@ DT::datatable(
 
 ```{r 2h_LT2_inf-2h_LT2_exp}
 DT::datatable(
-  DE.batch.limit[["2h_LT2_infected-2h_LT2_exposed"]],
+  DE.adjusted.limit[["2h_LT2_infected-2h_LT2_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -534,7 +572,7 @@ DT::datatable(
 
 ```{r 2h_D23580_exp-2h_LT2_exp}
 DT::datatable(
-  DE.batch.limit[["2h_D23580_exposed-2h_LT2_exposed"]],
+  DE.adjusted.limit[["2h_D23580_exposed-2h_LT2_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -543,7 +581,7 @@ DT::datatable(
 
 ```{r 4h_D23580_inf-4h_LT2_inf}
 DT::datatable(
-  DE.batch.limit[["4h_D23580_infected-4h_LT2_infected"]],
+  DE.adjusted.limit[["4h_D23580_infected-4h_LT2_infected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -552,7 +590,7 @@ DT::datatable(
 
 ```{r 4h_D23580_inf-4h_D23580_exp}
 DT::datatable(
-  DE.batch.limit[["4h_D23580_infected-4h_D23580_exposed"]],
+  DE.adjusted.limit[["4h_D23580_infected-4h_D23580_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -561,7 +599,7 @@ DT::datatable(
 
 ```{r 4h_LT2_inf-4h_LT2_exp}
 DT::datatable(
-  DE.batch.limit[["4h_LT2_infected-4h_LT2_exposed"]],
+  DE.adjusted.limit[["4h_LT2_infected-4h_LT2_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -570,7 +608,7 @@ DT::datatable(
 
 ```{r 4h_D23580_exp-4h_LT2_exp}
 DT::datatable(
-  DE.batch.limit[["4h_D23580_exposed-4h_LT2_exposed"]],
+  DE.adjusted.limit[["4h_D23580_exposed-4h_LT2_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -579,7 +617,7 @@ DT::datatable(
 
 ```{r 6h_D23580_inf-6h_LT2_inf}
 DT::datatable(
-  DE.batch.limit[["6h_D23580_infected-6h_LT2_infected"]],
+  DE.adjusted.limit[["6h_D23580_infected-6h_LT2_infected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -588,7 +626,7 @@ DT::datatable(
 
 ```{r 6h_D23580_inf}
 DT::datatable(
-  DE.batch.limit[["6h_D23580_infected-6h_D23580_exposed"]],
+  DE.adjusted.limit[["6h_D23580_infected-6h_D23580_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -597,7 +635,7 @@ DT::datatable(
 
 ```{r 6h_LT2_exp}
 DT::datatable(
-  DE.batch.limit[["6h_LT2_infected-6h_LT2_exposed"]],
+  DE.adjusted.limit[["6h_LT2_infected-6h_LT2_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -606,7 +644,7 @@ DT::datatable(
 
 ```{r 6h_D23580_exp-6h_LT2_exp}
 DT::datatable(
-  DE.batch.limit[["6h_D23580_exposed-6h_LT2_exposed"]],
+  DE.adjusted.limit[["6h_D23580_exposed-6h_LT2_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -618,13 +656,14 @@ a DE gene significantly more expressed in
 `4h_D23580_infected` than `4h_D23580_exposed`:
 
 ```{r}
-geneName <- "CCL7"
+geneName <- "CD209"
 geneId <- mapIds(EnsDb.Hsapiens.v79, geneName, "GENEID", "GENENAME")
 geneExpr <- norm_exprs(sce.norm)[geneId,]
-sampleAes <- pData(sce.norm)[,c("Time","Infection","Status")]
+sampleAes <- pData(sce.norm)[,c("Time","Infection","Status","Plate")]
 ggData <- cbind(norm_exprs = geneExpr, sampleAes)
-ggplot(ggData, aes(Status, norm_exprs)) +
-  geom_violin(draw_quantiles = c(0.25,0.5,0.75)) + geom_jitter(width = 0.2) +
+ggplot(ggData, aes(Status, norm_exprs, colour = Plate)) +
+  geom_violin(draw_quantiles = c(0.25,0.5,0.75)) +
+  geom_jitter(position = position_dodge(width = 0.9)) +
   facet_grid(Infection ~ Time) +
   ggtitle(sprintf("%s (symbol: %s)", geneId, geneName))
 ```
