@@ -209,8 +209,8 @@ with an estimated biological component of variance greater than or equal to
 `0.5`
 For transformed expression values on the log~2~ scale, this means that the
 average difference in true expression between any two cells will be at least
-`2`-fold. (This reasoning assumes that the true log-expression
-values are Normally distributed with variance of 0.5) (**cite paper 67**).
+`2`-fold. This reasoning assumes that the true log-expression
+values are Normally distributed with variance of 0.5 [@67].
 
 ```{r hvg.out}
 hvg.out <- var.out.endo[which(

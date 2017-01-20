@@ -4,6 +4,11 @@ navbar:
   right:
     - text: "Home"
       href: index.html
+    - text: "Methods"
+      icon: fa-flask
+      menu:
+        - text: "Experimental"
+          href: 00c_experimental_methods.html
     - text: "Preprocessing"
       icon: fa-link
       menu:
@@ -39,6 +44,7 @@ navbar:
       href: about.html
 output:
   html_document:
+    fig_caption: yes
     theme: cosmo
     highlight: textmate
     toc: true
