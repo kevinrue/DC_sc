@@ -66,7 +66,7 @@ During automated compilation, only load manually pre-computed error models
 saved to file.
 -->
 
-```{r oifm, eval=FALSE, results='hide'}
+```{r oifm, eval=FALSE}
 o.ifm <- scde.error.models(
   counts = cd, groups = sg, n.cores = 4, threshold.segmentation = TRUE,
   save.crossfit.plots = FALSE, save.model.plots = FALSE, verbose = 1
