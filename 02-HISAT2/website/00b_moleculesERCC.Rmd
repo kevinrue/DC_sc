@@ -70,7 +70,7 @@ at or above different thresholds of $molecules / well$:
 DT::datatable(data.frame(
   Threshold = 10^(0:3),
   ERCC = sapply(0:3, function(x){sum(mixC$ERCCmolecules >= 10^x)})
-))
+), rownames = FALSE)
 ```
 
 <!-- As HTML pages are built independently, objects need to be saved to disk
