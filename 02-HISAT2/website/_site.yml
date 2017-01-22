@@ -26,6 +26,7 @@ navbar:
       - text: "Feature QC"
         href: 04_featureSelection.html
     - text: Normalisation
+      icon: fa-bar-chart
       href: 05_normalisation.html
     - text: Overview
       icon: fa-pie-chart
@@ -39,6 +40,7 @@ navbar:
       - text: "BASiCS"
         href: 09_BASiCS.html
     - text: "Themes"
+      icon: fa-picture-o
       href: 00a_themes.html
     - text: "About"
       href: about.html

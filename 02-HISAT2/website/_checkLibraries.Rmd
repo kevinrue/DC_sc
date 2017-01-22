@@ -9,6 +9,7 @@ stopifnot(
   requireNamespace("dplyr"),
   requireNamespace("ggrepel"),
   requireNamespace("scran"),
+  requireNamespace("destiny"),
   requireNamespace("rtracklayer"),
   requireNamespace("rmarkdown"),
   requireNamespace("SummarizedExperiment"),
@@ -17,6 +18,8 @@ stopifnot(
   requireNamespace("org.Hs.eg.db"),
   requireNamespace("goseq"),
   requireNamespace("scde"),
-  requireNamespace("EnsDb.Hsapiens.v79")
+  requireNamespace("EnsDb.Hsapiens.v79"),
+  requireNamespace("reshape2"),
+  requireNamespace("Rtsne")
 )
 ```

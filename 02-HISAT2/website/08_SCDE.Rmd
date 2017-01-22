@@ -66,7 +66,7 @@ During automated compilation, only load manually pre-computed error models
 saved to file.
 -->
 
-```{r oifm, eval=FALSE}
+```{r oifm, eval=FALSE, results='hide'}
 o.ifm <- scde.error.models(
   counts = cd, groups = sg, n.cores = 4, threshold.segmentation = TRUE,
   save.crossfit.plots = FALSE, save.model.plots = FALSE, verbose = 1
@@ -397,7 +397,7 @@ the most significantly DE gene at the `4h` time-point in all groups of
 stimulated cells relative to their matched group of `uninfected` single cells
 at that time-point:
 
-```{r}
+```{r topDE4hVSuninfected}
 geneId <- rownames(DE.res.adjusted[["4h_LT2_infected-4h_Mock_uninfected"]])[1]
 geneName <- mapIds(EnsDb.Hsapiens.v79, geneId, "GENENAME", "GENEID")
 geneExpr <- norm_exprs(sce.norm)[geneId,]
@@ -489,8 +489,10 @@ saveRDS(DE.res.raw, "rds/DE.res.raw.rds")
 saveRDS(DE.res.adjusted, "rds/DE.res.adjusted.rds")
 saveRDS(DE.res.batch, "rds/DE.res.batch.rds")
 for (groupName in names(DE.res.raw)){
-  write.csv(DE.res.raw[[groupName]], sprintf("SCDE/raw_%s.csv",groupName))
-  write.csv(DE.res.adjusted[[groupName]], sprintf("SCDE/adjusted_%s.csv",groupName))
+  write.csv(
+    DE.res.raw[[groupName]], sprintf("SCDE/raw_%s.csv",groupName))
+  write.csv(
+    DE.res.adjusted[[groupName]], sprintf("SCDE/adjusted_%s.csv",groupName))
   write.csv(DE.res.batch[[groupName]], sprintf("SCDE/batch_%s.csv",groupName))
 }
 ```
@@ -655,7 +657,7 @@ Let us display the expression level of `CCL7`,
 a DE gene significantly more expressed in
 `4h_D23580_infected` than `4h_D23580_exposed`:
 
-```{r}
+```{r CCL7violin}
 geneName <- "CCL7"
 geneId <- mapIds(EnsDb.Hsapiens.v79, geneName, "GENEID", "GENENAME")
 geneExpr <- norm_exprs(sce.norm)[geneId,]
@@ -672,7 +674,7 @@ Let us compare the posterior of `CCL7` for the four comparisons of interest:
 
 ### 6h_D23_inf - 6h_D23_exp
 
-```{r}
+```{r 6h_D23_inf - 6h_D23_exp}
 groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all);
 sg.ref <- "6h_D23580_exposed"; sg.tar <- "6h_D23580_infected";
 groups[which(sg.all==sg.ref)]<-sg.ref; groups[which(sg.all==sg.tar)]<-sg.tar;
@@ -684,7 +686,7 @@ scde.test.gene.expression.difference(
 
 ### 6h_LT2_inf - 6h_LT2_exp
 
-```{r}
+```{r 6h_LT2_inf - 6h_LT2_exp}
 groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all)
 sg.ref <- "6h_LT2_exposed"; sg.tar <- "6h_LT2_infected"
 groups[which(sg.all == sg.ref)] <- sg.ref; groups[which(sg.all == sg.tar)] <- sg.tar
@@ -696,7 +698,7 @@ scde.test.gene.expression.difference(
 
 ### 6h_D23_inf - 6h_LT2_inf
 
-```{r}
+```{r 6h_D23_inf - 6h_LT2_inf}
 groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all)
 sg.ref <- "6h_LT2_infected"; sg.tar <- "6h_D23580_infected"
 groups[which(sg.all == sg.ref)] <- sg.ref; groups[which(sg.all == sg.tar)] <- sg.tar
@@ -708,7 +710,7 @@ scde.test.gene.expression.difference(
 
 ### 6h_D23_exp - 6h_LT2_exp
 
-```{r}
+```{r 6h_D23_exp - 6h_LT2_exp}
 groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all)
 sg.ref <- "6h_LT2_exposed"; sg.tar <- "6h_D23580_exposed"
 groups[which(sg.all == sg.ref)] <- sg.ref; groups[which(sg.all == sg.tar)] <- sg.tar

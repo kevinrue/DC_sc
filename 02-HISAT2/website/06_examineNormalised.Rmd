@@ -132,7 +132,7 @@ Let us perform PCA at each time point:
 single cells (*i.e.*, `Infection` or `Status`); the other factor is then
 used to *shape* each data point.
 
-```{r}
+```{r time.sce}
 time.sce <- list()
 for (time in levels(sce.norm$Time)){
   tmp.sce <- sce.norm[,sce.norm$Time == time]
@@ -150,7 +150,7 @@ rm(time)
 
 ### 2h-Infection
 
-```{r}
+```{r 2h-Infection}
 plotReducedDim.SCESet(
   time.sce[["2h"]], 3, colour_by = "Infection", shape_by = "Status") +
   theme(legend.position = "bottom", legend.box = "vertical")
@@ -158,7 +158,7 @@ plotReducedDim.SCESet(
 
 ### 2h-Status
 
-```{r}
+```{r 2h-Status}
 plotReducedDim.SCESet(
   time.sce[["2h"]], 3, colour_by = "Status") +
   theme(legend.position = "bottom", legend.box = "vertical")
@@ -166,7 +166,7 @@ plotReducedDim.SCESet(
 
 ### 2h-Treatment
 
-```{r}
+```{r 2h-Treatment}
 plotReducedDim.SCESet(
   time.sce[["2h"]], 3, colour_by = "Treatment") +
   theme(legend.position = "bottom", legend.box = "vertical")
@@ -174,7 +174,7 @@ plotReducedDim.SCESet(
 
 ### 4h-Infection
 
-```{r}
+```{r 4h-Infection}
 plotReducedDim.SCESet(
   time.sce[["4h"]], 3, colour_by = "Infection", shape_by = "Status") +
   theme(legend.position = "bottom", legend.box = "vertical")
@@ -182,7 +182,7 @@ plotReducedDim.SCESet(
 
 ### 4h-Status
 
-```{r}
+```{r 4h-Status}
 plotReducedDim.SCESet(
   time.sce[["4h"]], 3, colour_by = "Status") +
   theme(legend.position = "bottom", legend.box = "vertical")
@@ -190,7 +190,7 @@ plotReducedDim.SCESet(
 
 ### 4h-Treatment
 
-```{r}
+```{r 4h-Treatment}
 plotReducedDim.SCESet(
   time.sce[["4h"]], 3, colour_by = "Treatment") +
   theme(legend.position = "bottom", legend.box = "vertical")
@@ -198,7 +198,7 @@ plotReducedDim.SCESet(
 
 ### 6h-Infection
 
-```{r}
+```{r 6h-Infection}
 plotReducedDim.SCESet(
   time.sce[["6h"]], 3, colour_by = "Infection", shape_by = "Status") +
   theme(legend.position = "bottom", legend.box = "vertical")
@@ -206,7 +206,7 @@ plotReducedDim.SCESet(
 
 ### 6h-Status
 
-```{r}
+```{r 6h-Status}
 plotReducedDim.SCESet(
   time.sce[["6h"]], 3, colour_by="Status") +
   theme(legend.position = "bottom", legend.box = "vertical")
@@ -214,7 +214,7 @@ plotReducedDim.SCESet(
 
 ### 6h-Treatment
 
-```{r}
+```{r 6h-Treatment}
 plotReducedDim.SCESet(
   time.sce[["6h"]], 3, colour_by = "Treatment") +
   theme(legend.position = "bottom", legend.box = "vertical")

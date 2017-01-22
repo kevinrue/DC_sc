@@ -233,7 +233,7 @@ We may then examine the HVGs in a table initially ordered by decreasing
 biological variance. For convenience, let us first create a copy of the table
 in which the numeric values are trimmed to two significant decimal places:
 
-```{r}
+```{r hvg.trim}
 hvg.trim <- hvg.out
 for (cname in c("mean","total","bio","tech","p.value","FDR")){
   hvg.trim[,cname] <- round(hvg.trim[,cname], 2)
