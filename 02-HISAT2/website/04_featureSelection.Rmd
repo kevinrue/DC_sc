@@ -115,14 +115,8 @@ In the context of the present multifactorial experimental design,
 let us define informative features as those with an average count above a
 threshold of 20 counts per million (CPM) in at least one experimental group of
 cells (`r min(table(sce.pass$Group))`-`r max(table(sce.pass$Group))` cells
-per group):
-
-```{r tableGroup, echo=FALSE}
-datatable(
-  as.data.frame(sort(table(sce.pass$Group)), row.names = 1),
-  options = list(pageLength = 15)
-)
-```
+per group). Note that the count of cells per group was reported
+[here](03_sampleQC#cellSelection)
 
 Let us first calculate the average CPM for each gene within each experimental
 group:
@@ -136,8 +130,9 @@ avgCPMbyGroup <- reshape2::melt(
 ```
 
 Let us examine the proportion of gene features expressed at various levels in 
-each experimental groups. The figure below indicates the 9 deciles for
-each experimental group, *after removal of features with zero counts*.
+each experimental groups. The figure below indicates the 3 quartiles for
+each experimental group, *after removal of features with zero counts
+(indicated in the bottom label)*.
 For instance, generally ~30% of "detectable" features are
 found below 1 CPM (across all cells that passed QC filtering),
 while ~50-60% of features are detected above 10 CPM:
@@ -170,17 +165,6 @@ colnames(groupsAboveCPM) <- paste0("cpm", cutoffs)
 axisLabels <- labs(x="Feature index",y="Count of groups above CPM cutoff")
 ```
 
-## 20 CPM
-
-```{r groupAbove20cpm}
-ggplot(groupsAboveCPM) +
-  geom_line(aes(seq_len(nrow(groupsAboveCPM)), sort(cpm20, decreasing=TRUE))) +
-  axisLabels
-```
-
-`r sum(groupsAboveCPM$cpm20 >= 1)` features have an average CPM above 20 in at
-least one experimental group.
-
 ## 10 CPM
 
 ```{r groupAbove10cpm}
@@ -190,6 +174,17 @@ ggplot(groupsAboveCPM) +
 ```
 
 `r sum(groupsAboveCPM$cpm10 >= 1)` features have an average CPM above 10 in at
+least one experimental group.
+
+## 20 CPM
+
+```{r groupAbove20cpm}
+ggplot(groupsAboveCPM) +
+  geom_line(aes(seq_len(nrow(groupsAboveCPM)), sort(cpm20, decreasing=TRUE))) +
+  axisLabels
+```
+
+`r sum(groupsAboveCPM$cpm20 >= 1)` features have an average CPM above 20 in at
 least one experimental group.
 
 ## 50 CPM

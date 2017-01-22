@@ -729,10 +729,20 @@ Let us finally examine the phenotype information of the selected single cells:
 
 ```{r goodCells_summary}
 summary(pData(sce.pass)[
-  !idx.pass,c("Infection","Status","Time","Lane","Plate","Well")
+  c("Infection","Status","Time","Lane","Plate","Well")
 ])
 ```
 
+In terms of experimental groups, the counts of cells that passed the above QC
+are as follow:
+
+```{r countPerGroup}
+datatable(
+  as.data.frame(table(sce.pass$Group), row.names = 1),
+  options = list(pageLength = 15), filter = "top",
+  rownames = FALSE
+)
+```
 
 <!-- As HTML pages are built independently, objects need to be saved to disk
 and imported as needed by the other R mardown files -->

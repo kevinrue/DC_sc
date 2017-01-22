@@ -17,6 +17,8 @@ library(scran)
 library(scde)
 library(dplyr)
 library(EnsDb.Hsapiens.v79)
+library(ensembldb)
+library(reshape2)
 sce.norm <- readRDS("rds/sce.norm.rds")
 ```
 
@@ -409,8 +411,34 @@ ggplot(ggData, aes(Time, norm_exprs)) +
   ggtitle(sprintf("%s (symbol: %s)", geneId, geneName))
 ```
 
-<!-- As HTML pages are built independently, objects need to be saved to disk
-and imported as needed by the other R mardown files -->
+As an alternative, we may also visualise, for the same contrast,
+the 10 most significant DE genes, placing all 15 groups of cells side by side,
+ordering groups by `Status>Infection>Time`:
+
+```{r top10_LT2vsUninfected}
+geneIds <-
+  head(rownames(DE.res.adjusted[["4h_LT2_infected-4h_Mock_uninfected"]]), 10)
+genesExpr <- norm_exprs(sce.norm)[geneIds,]
+samplesAes <- pData(sce.norm)[,c("Time","Infection","Status","Group","Sample")]
+ggData <- cbind(t(genesExpr), samplesAes)
+ggLong <- melt(
+  ggData,
+  measure.vars = grep("^ENSG", colnames(ggData)),
+  variable.name = "Feature", value.name = "norm_exprs")
+label_gene <- function(labels, multi_line = TRUE){
+  labels <- lapply(labels, function(x){
+      mapIds(EnsDb.Hsapiens.v79, as.character(x), "GENENAME", "GENEID")
+  })
+}
+ggplot(ggLong, aes(Group, norm_exprs)) +
+  geom_violin(draw_quantiles = c(0.25,0.5,0.75)) +
+  geom_jitter(aes(colour = Time), size = 0.2, width = 0.1) +
+  facet_grid(Feature ~ ., labeller = "label_gene") +
+  theme(
+    axis.text.x = element_text(angle=90),
+    strip.text.y = element_text(size = 5))
+```
+
 
 # DE between groups of stimulated cells
 ## Testing for DE genes {.tabset}

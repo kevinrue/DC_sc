@@ -19,6 +19,7 @@ stopifnot(
   requireNamespace("goseq"),
   requireNamespace("scde"),
   requireNamespace("EnsDb.Hsapiens.v79"),
+  requireNamespace("ensembldb"),
   requireNamespace("reshape2"),
   requireNamespace("Rtsne")
 )
