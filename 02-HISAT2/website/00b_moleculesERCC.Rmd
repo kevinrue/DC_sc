@@ -15,7 +15,9 @@ library(ggplot2)
 # Objective
 
 As an input, `BASiCS` requires the input number of spike-in molecules per cell,
-which may be calculated as follows:
+which may be calculated as described in the
+[BASiCS tutorial](#https://github.com/catavallejos/TutorialBASiCS)
+(*./Material/TutorialBASiCS2016.html*):
 
 \begin{equation*} \mu_{i} = C_i \times 10^{-18} \times (6.022 \times 10^{23})
 \times V \times D \hspace{0.5cm} \mbox{where,} \end{equation*}
