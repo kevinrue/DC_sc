@@ -175,7 +175,7 @@ ERCC spike-in features were retained in the `sce.norm` object),
 scarcer at moderate levels of expression,
 may explain to some extent the substantial scatter around the trend at moderate
 levels of expression
-(*i.e.*, mean log-expression in the range \approx 2.5-7.5).
+(*i.e.*, mean log-expression in the range $\approx$2.5-7.5).
 Nevertheless, this trend matches closely observations at low detection levels
 dense in ERCC spike-in features, and high detection levels that show limited
 variability.
