@@ -19,6 +19,8 @@ rds
 boot
 featureCounts
 trimgalore
+*.log
+HVGs/
 
 # R Markdown website
 *_cache

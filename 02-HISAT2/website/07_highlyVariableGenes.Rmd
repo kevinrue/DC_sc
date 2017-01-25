@@ -23,6 +23,7 @@ library(ComplexHeatmap)
 library(MKmisc)
 library(org.Hs.eg.db)
 library(goseq)
+library(EnsDb.Hsapiens.v79)
 sce.norm <- readRDS("rds/sce.norm.rds")
 ```
 
@@ -206,10 +207,10 @@ transcriptional variance across all cells in the data set.
 
 In addition to the definition above, let us define as HVGs endogenous features
 with an estimated biological component of variance greater than or equal to
-`0.5`
+0.5.
 For transformed expression values on the log~2~ scale, this means that the
 average difference in true expression between any two cells will be at least
-`2`-fold. This reasoning assumes that the true log-expression
+2-fold. This reasoning assumes that the true log-expression
 values are Normally distributed with variance of 0.5 [@67].
 
 ```{r hvg.out}
@@ -703,5 +704,85 @@ and imported as needed by the other R mardown files -->
 ```{r saveRDS, include=FALSE}
 saveRDS(hvg.out, "rds/hvg.out.rds")
 ```
+
+# HVGs within experimental groups
+
+Similarly to the above identification of HVGs across cells (driven primarily
+by a strong effect of the `Time` factor), let us identify HVGs within each
+experimental group of cells:
+
+```{r}
+HVGs.group <- list()
+pdf("HVGs/mean-variance.pdf", width = 6, height = 11)
+par(mfrow=c(5,3))
+for (group in levels(sce.norm$Group)){
+  message(group)
+  idx.group <- which(sce.norm$Group == group)
+  message(sprintf("# samples: %i", length(idx.group)))
+  dm <- model.matrix(~Plate+Lane, data = pData(sce.norm)[idx.group,])
+  var.fit.endo <- trendVar(
+    sce.norm[,idx.group], assay = "norm_exprs", trend = "loess", design = dm,
+    use.spikes = FALSE, span = 0.1
+  )
+  var.out.endo <- decomposeVar(sce.norm[,idx.group], var.fit.endo)
+  ## Optional check: to compare spike-in variances.
+  plot(
+    var.out.endo$mean, var.out.endo$total, pch=16, cex=0.2,
+    xlab="Mean log-expression", ylab="Variance of log-expression",
+    main = group
+  )
+  o <- order(var.out.endo$mean)
+  lines(var.out.endo$mean[o], var.out.endo$tech[o], col="dodgerblue", lwd=2)
+  spike.fit <- trendVar(sce.norm[,idx.group], use.spikes=TRUE)
+  points(spike.fit$mean, spike.fit$var, col="red", pch=16, cex=0.4)
+  #var.out.endo <- var.out.endo[order(var.out.endo$bio, decreasing=TRUE),]
+  var.out.endo$Symbol <- mapIds(
+    EnsDb.Hsapiens.v79, rownames(var.out.endo), "GENENAME", "GENEID")
+  write.csv(var.out.endo, sprintf("HVGs/%s_full.csv", group))
+  hvg.out <- var.out.endo[which(
+    var.out.endo$FDR <= 0.05 & var.out.endo$bio >= 0.5
+    ),]
+  write.csv(hvg.out, sprintf("HVGs/%s_significant.csv", group))
+  HVGs.group[[group]] <- hvg.out
+}
+par(mfrow=c(1,1))
+dev.off()
+```
+
+Venn diagram
+
+```{r}
+#library(VennDiagram)
+library(gplots)
+for (time in levels(sce.norm$Time)){
+  groupNames <- grep(time, names(HVGs.group), value = TRUE)
+  hvgsList <- lapply(HVGs.group[groupNames], rownames)
+  names(hvgsList) <- gsub(paste0(time,"_"), "", names(hvgsList))
+  #venn.diagram(hvgsList, filename = sprintf("HVGs/%s_venn.tiff", time))
+  pdf(sprintf("HVGs/%s_venn.pdf", time), width = 6, height = 6)
+  venn(hvgsList)
+  dev.off()
+}
+```
+
+Count of HVGs per group:
+
+```{r}
+groupNames <- levels(sce.norm$Group)
+hvgsPerGroup <- data.frame(
+  Group = groupNames,
+  HVGs = sapply(groupNames, function(groupName){nrow(HVGs.group[[groupName]])}),
+  Time = gsub("(.*)_.*_.*", "\\1", groupNames),
+  Infection = gsub(".*_(.*)_.*", "\\1", groupNames),
+  Status = gsub(".*_.*_(.*)", "\\1", groupNames)
+)
+ggplot(hvgsPerGroup) + geom_col(aes(Group, HVGs, alpha = Time, colour = Infection)) +
+  theme(
+    axis.text.x = element_text(angle=90, hjust = 1, vjust = 0.5),
+    axis.ticks.x = element_blank(), panel.background = element_blank(),
+    axis.title.x = element_blank()
+  )
+```
+
 
 # References

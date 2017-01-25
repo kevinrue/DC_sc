@@ -60,4 +60,5 @@ those HTML pages from the count files:
 
 ```{r dir.create, include=FALSE}
 dir.create("rds", showWarnings = FALSE)
+dir.create("HVGs", showWarnings = FALSE)
 ```
