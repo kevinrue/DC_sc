@@ -34,8 +34,8 @@ For this analysis we use:
 * features with an average count equal or higher than $1$ (see this earlier
   [section](04_featureSelection#selectFeatures))
 
-```{r scePassCounts, results='hide'}
-counts(sce.norm)
+```{r scePassCounts, eval=FALSE}
+dim(counts(sce.norm))
 ```
 
 **Note:** this contrasts with the stringent condition of ≥20 RPM on average
@@ -76,8 +76,11 @@ ERCCnames <- rownames(sce.norm)[isSpike(sce.norm)]
 for (groupName in unique(sce.norm$Group)){
   cellIndex <- which(sce.norm$Group == groupName)
   Data.input[[groupName]] <- newBASiCS_Data(
-    Counts = counts(sce.norm)[,cellIndex],
-    Tech = isSpike(sce.norm),
+    Counts = rbind(
+      counts(sce.norm)[!isSpike(sce.norm),cellIndex],
+      counts(sce.norm)[isSpike(sce.norm),cellIndex]
+    ),
+    Tech = rep(c(F,T), times=table(isSpike(sce.norm))),
     SpikeInfo = mixC[ERCCnames, c("ID","ERCCmolecules")],
     BatchInfo = sce.norm$Plate[cellIndex])
 }
@@ -96,8 +99,17 @@ Error in dimnames(x) <- dn : length of 'dimnames' [2] not equal to array extent"
 ```
 
 
+```{r eval=FALSE}
+for (groupName in names(Data.input)){
+  print(length(Data.input[[groupName]]@GeneNames))
+  print(length(Data.input[[groupName]]@BatchInfo))
+  print(table(Data.input[[groupName]]@Tech))
+}
+```
+
+
 ```{r, eval=FALSE}
-N <- 2E3; Thin <- 10; Burn <- 1E3; chains.path <- "BASiCS"
+N <- 2E2; Thin <- 10; Burn <- 1E2; chains.path <- "BASiCS"
 MCMC_Output.G1 <- BASiCS_MCMC(
   Data.input[["2h_D23580_exposed"]], N = N, Thin = Thin, Burn = Burn,
   PrintProgress = TRUE, StoreChains = TRUE,
