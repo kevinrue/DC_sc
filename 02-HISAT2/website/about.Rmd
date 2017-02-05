@@ -160,3 +160,9 @@ An integrated Bayesian hierarchical model where:
   artificially introduced to each analysed cells lysate.
 * The total variability of the expression counts is decomposed into technical
   and biological components.
+
+# Session info
+
+```{r sessionInfo}
+sessionInfo()
+```

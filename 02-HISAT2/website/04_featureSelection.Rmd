@@ -4,15 +4,14 @@ bibliography:
   bibtex.bib
 ---
 
-```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
-```
-
 <!-- As HTML pages are built independently, large objects need to be
 reimported from disk, and smaller ones quickly recomputed. -->
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(cache = TRUE)
 library(scater)
+library(edgeR)
+library(ggplot2)
 library(SummarizedExperiment)
 sce.pass <- readRDS("rds/sce.pass.rds")
 gtfData <- readRDS("rds/gtfData.rds")
@@ -35,8 +34,7 @@ algorithms, due to the large number of dropout (*i.e.*, zero count) events
 First, let us initalise the matrix of CPM:
 
 ```{r cpm}
-libSizes <- colSums(counts(sce.pass)) / 1E6
-cpm(sce.pass) <- t(t(counts(sce.pass)) / libSizes)
+scater::cpm(sce.pass) <- edgeR::cpm(counts(sce.pass))
 range(colSums(cpm(sce.pass)))
 ```
 
@@ -69,7 +67,7 @@ Let us compare the expected number of spike-in molecules introduced in each
 sample (calculated in this [section](00b_moleculesERCC.html)), against the
 average count detected across all single cells:
 
-```{r ERCCcorrelation}
+```{r ERCCcorrelation, warning=FALSE}
 mixC$avgCount <- rowMeans(counts(sce.pass)[mixC$ID,])
 names(mixC)
 maxPlot <- max(mixC$avgCount, mixC$ERCCmolecules)
@@ -84,7 +82,7 @@ Let us examine the distribution of log-mean CPM across all genes, while
 indicating an average value of 10 CPM:
 
 ```{r detectVsMean_hist}
-ave.cpm <- rowMeans(cpm(sce.pass))
+ave.cpm <- rowMeans(scater::cpm(sce.pass))
 hist(
   log10(ave.cpm), breaks = 100,
   main = "", xlab = expression(Log[10]~"average CPM", col="grey80")
@@ -112,17 +110,23 @@ abline(v = log10(1), col = "blue", lwd = 2, lty = 2)
 ```
 
 In the context of the present multifactorial experimental design,
-let us define informative features as those with an average count above a
-threshold of 20 counts per million (CPM) in at least one experimental group of
-cells (`r min(table(sce.pass$Group))`-`r max(table(sce.pass$Group))` cells
-per group). Note that the count of cells per group was reported
+let us define informative endogenous features as those with an average count
+above a threshold of 20 counts per million (CPM) in at least one experimental
+group of cells (`r min(table(sce.pass$Group))`-`r max(table(sce.pass$Group))`
+cells per group). In contrast, let us define informative spike-in features
+as those with an average count greater or equal to a threhsold of 2 counts.
+Note that the count of cells per group was reported
 [here](03_sampleQC#cellSelection)
 
 Let us first calculate the average CPM for each gene within each experimental
 group:
 
+**Note:** Make sure to use `scater::cpm` (*not* `edge::cpm`) below, to
+*access* the `cpm` matrix of the `assayData` slot; otherwise a new CPM matrix
+may be inappropriately calculated.
+
 ```{r avgCPMbyGroup}
-avgCPMbyGroup <- apply(cpm(sce.pass), 1, function(x){
+avgCPMbyGroup <- apply(scater::cpm(sce.pass), 1, function(x){
   tapply(x, sce.pass$Group, mean)
 })
 avgCPMbyGroup <- reshape2::melt(
@@ -130,7 +134,22 @@ avgCPMbyGroup <- reshape2::melt(
 ```
 
 Let us examine the proportion of gene features expressed at various levels in 
-each experimental groups. The figure below indicates the 3 quartiles for
+each experimental groups:
+
+```{r}
+zeroCounts <- data.frame(
+  Group = levels(avgCPMbyGroup$Group),
+  y = 1E-2,
+  Count = with(avgCPMbyGroup, tapply(AvgCPM, Group, function(x){sum(x>0)}))
+)
+avgCPMbyGroup$Time = gsub("^(.*h)_.*", "\\1", avgCPMbyGroup$Group)
+avgCPMbyGroup$Infection = factor(
+  gsub(".*_(.*)_.*", "\\1", avgCPMbyGroup$Group), c("D23580","LT2","Mock"))
+avgCPMbyGroup$Status = factor(
+  gsub(".*_(.*)$", "\\1", avgCPMbyGroup$Group), c("infected","exposed","uninfected"))
+```
+
+The figure below indicates the 3 quartiles for
 each experimental group, *after removal of features with zero counts
 (indicated in the bottom label)*.
 For instance, generally ~30% of "detectable" features are
@@ -138,16 +157,15 @@ found below 1 CPM (across all cells that passed QC filtering),
 while ~50-60% of features are detected above 10 CPM:
 
 ```{r violinAvgCPMbyGroup}
-zeroCounts <- data.frame(
-  Group = levels(avgCPMbyGroup$Group),
-  y = 1E-2,
-  Count = with(avgCPMbyGroup, tapply(AvgCPM, Group, function(x){sum(x>0)}))
-)
 ggplot(avgCPMbyGroup, aes(Group, AvgCPM)) +
-  geom_violin(draw_quantiles = seq(0.25, 0.75, 0.25)) +
+  geom_violin(
+    aes(colour = Infection, fill = Status), alpha = 0.4,
+    draw_quantiles = seq(0.25, 0.75, 0.25)) +
   geom_label(aes(Group, y, label = Count), data = zeroCounts, size = 2) +
   scale_y_log10(limits = c(1E-2, 1E5)) +
-  theme(axis.text.x = element_text(angle = 90))
+  theme(
+    axis.text.x = element_text(angle = 90), panel.grid.major.x = element_blank()
+  )
 ```
 
 Let us now count and display for each feature the number of experimental groups
@@ -211,13 +229,18 @@ least one experimental group.
 
 # Selection of detected features {#selectFeatures}
 
-Following the above observations, let us retain for further analysis
-features detected at an average level of at least 20 CPM in at least
-one experimental group:
+Following the above observations, let us retain for further analysis:
+
+* endogenous features detected at an average level greater than 20 CPM in at
+  least one experimental group,
+* ERCC spike-in features detected at an average level of at least 2 counts
+  across all cells:
 
 ```{r ave.counts}
-keep <- groupAbove20cpm >= 1
-sce.filtered <- sce.pass[names(which(keep)),]
+keep <- groupsAboveCPM[,"cpm20"] >= 1
+ERCC_idx <- fData(sce.pass)[,"is_feature_control_ERCC"]
+keep[ERCC_idx] <- rowMeans(counts(sce.pass)[ERCC_idx,]) > 2
+sce.filtered <- sce.pass[keep,]
 dim(sce.filtered)
 ```
 

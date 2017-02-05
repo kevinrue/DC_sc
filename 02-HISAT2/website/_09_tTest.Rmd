@@ -116,7 +116,5 @@ for (contrast in names(DE.list)){
 }
 ```
 
-#
-
 <!-- As HTML pages are built independently, objects need to be saved to disk
 and imported as needed by the other R mardown files -->

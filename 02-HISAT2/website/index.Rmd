@@ -50,15 +50,21 @@ invasive Salmonella disease.
 
 # Requirements
 
-The following packages were require to perform the analysis and produce
-those HTML pages from the count files:
+The block of code below installs packages required to produce the HTML pages
+making this website:
 
-```{r checkPkgs, child="_checkLibraries.Rmd"}
+```{r, eval=FALSE}
+source("http://bioconductor.org/biocLite.R")
+BiocInstaller::biocLite(c(
+  "ComplexHeatmap", "cowplot",
+  "destiny", "dplyr", "DT",
+  "edgeR", "EnsDb.Hsapiens.v79", "ensembldb",
+  "ggplot2", "ggrepel", "goseq",
+  "MKmisc",
+  "org.Hs.eg.db", 
+  "RColorBrewer", "reshape2", "reshape2", "rmarkdown", "rtracklayer", "Rtsne",
+  "scater", "scde", "scran",  "SummarizedExperiment",
+  "xlsx"
+), ask = FALSE)
 ```
 
-<!-- Create necessary directories -->
-
-```{r dir.create, include=FALSE}
-dir.create("rds", showWarnings = FALSE)
-dir.create("HVGs", showWarnings = FALSE)
-```

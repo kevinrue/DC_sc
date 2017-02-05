@@ -4,20 +4,19 @@ bibliography:
   bibtex.bib
 ---
 
-```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
-```
-
 ```{r setup, include=FALSE}
-library(DT)
 library(ggplot2)
+library(DT)
+library(jsonlite)
 ```
 
 # Objective
 
-As an input, `BASiCS` requires the input number of spike-in molecules per cell,
+As an input, [BASiCS](https://github.com/catavallejos/BASiCS)
+requires the input number of spike-in molecules per cell,
 which may be calculated as described in the
 [BASiCS tutorial](#https://github.com/catavallejos/TutorialBASiCS)
-(file *./Material/TutorialBASiCS2016.html*):
+(*./Material/TutorialBASiCS2016.html*):
 
 \begin{equation*} \mu_{i} = C_i \times 10^{-18} \times (6.022 \times 10^{23})
 \times V \times D \hspace{0.5cm} \mbox{where,} \end{equation*}
@@ -34,7 +33,7 @@ Let us import the concentration of individual spike-in molecules
 from the *ThermoFisher*
 [website](https://www.thermofisher.com/order/catalog/product/4456739):
 
-```{r}
+```{r mixC}
 mixC <- read.table(
   "expdata/cms_095046.txt", header = TRUE, sep = "\t",
   stringsAsFactors = FALSE
@@ -53,25 +52,31 @@ datatable(
 Let us calculate from the manufacturer's information and our experimental
 protocol:
 
-```{r, message=FALSE}
+```{r ERCCmolecules}
 mixC$ERCCmolecules <-
   mixC$Concentration_attomoles_ul *
   10^-18 *
   6.022 * 10^23 *
   10 *
   10^-8
+```
+
+We may then display the expected count of each ERCC Spike-In injected in
+each sample:
+
+```{r ERCCplotCount, message=FALSE, warning=FALSE}
 ggplot(mixC) + geom_histogram(aes(ERCCmolecules)) + scale_x_log10() +
   xlab("Number of molecules injected in sample") +
   geom_vline(xintercept = 10^(0:3), colour = "red", linetype = "dashed")
 ```
 
-Let us examine the count of individual ERCC Spike-Ins that are expected
-at or above different thresholds of $molecules / well$:
+We may also examine the count individual ERCC Spike-In expected
+above different thresholds of $molecules / well$:
 
-```{r}
-DT::datatable(data.frame(
+```{r threshold_ERCC}
+datatable(data.frame(
   Threshold = 10^(0:3),
-  ERCC = sapply(0:3, function(x){sum(mixC$ERCCmolecules >= 10^x)})
+  ERCC = sapply(0:3, function(x){sum(mixC$ERCCmolecules > 10^x)})
 ), rownames = FALSE)
 ```
 

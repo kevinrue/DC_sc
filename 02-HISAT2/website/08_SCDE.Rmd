@@ -4,9 +4,6 @@ bibliography:
   bibtex.bib
 ---
 
-```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
-```
-
 <!-- As HTML pages are built independently, large objects need to be
 reimported from disk, and smaller ones quickly recomputed. -->
 
@@ -15,11 +12,12 @@ knitr::opts_chunk$set(cache = TRUE)
 library(scater)
 library(scran)
 library(scde)
-library(dplyr)
-library(EnsDb.Hsapiens.v79)
 library(ensembldb)
-library(reshape2)
 sce.norm <- readRDS("rds/sce.norm.rds")
+EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
+```
+
+```{r defineTheme, child="_exprsViolinTheme.Rmd", include=FALSE}
 ```
 
 # Prepare data
@@ -69,10 +67,7 @@ saved to file.
 -->
 
 ```{r oifm, eval=FALSE}
-o.ifm <- scde.error.models(
-  counts = cd, groups = sg, n.cores = 4, threshold.segmentation = TRUE,
-  save.crossfit.plots = FALSE, save.model.plots = FALSE, verbose = 1
-)
+o.ifm <- scde.error.models(counts = cd, groups = sg, n.cores = 4)
 ```
 
 ```{r saveRdsOifm, eval=FALSE, include=FALSE}
@@ -172,7 +167,7 @@ sg.all <- sg[newOrder]
 batch <- sce.norm$Plate[newOrder]
 ```
 
-```{r scdeExprDiff, eval=FALSE}
+```{r scdeExprDiff, eval=FALSE, warning=FALSE}
 DE.res.raw <- list()
 DE.res.adjusted <- list()
 DE.res.batch <- list()
@@ -186,8 +181,7 @@ for (time in levels(sce.norm$Time)){
         sep = "_"
       )
       sg.tar <- paste(time, infection, status, sep = "_")
-      contrast <- sprintf("%s-%s", sg.tar, sg.ref)
-      message(contrast)
+      contrast <- sprintf("%s-%s", sg.tar, sg.ref);# message(contrast)
       groups <- rep(NA, length(sg.all))
       names(groups) <- names(sg.all)
       groups[which(sg.all == sg.ref)] <- sg.ref
@@ -195,10 +189,8 @@ for (time in levels(sce.norm$Time)){
       groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
       scde.res <- scde.expression.difference(
         o.ifm, cd, o.prior,
-        groups = groups,
-        batch = batch,
-        n.randomizations = 100,
-        n.cores  =  1, verbose  =  1
+        groups = groups, batch = batch,
+        n.cores  =  4
       )
       
       de.raw <- scde.res$results
@@ -395,9 +387,10 @@ DT::datatable(
 ## Expression profile of DE genes
 
 Let us display the expression level of `ISG15`,
-the most significantly DE gene at the `4h` time-point in all groups of
-stimulated cells relative to their matched group of `uninfected` single cells
-at that time-point:
+the most significantly DE gene at the `4h` time-point in
+the `4h_LT2_infected-4h_Mock_uninfected` contrast (incidentally, also the
+most significantly DE gene in all groups of stimulated cells relative to their
+matched group of `uninfected` single cells at that time-point):
 
 ```{r topDE4hVSuninfected}
 geneId <- rownames(DE.res.adjusted[["4h_LT2_infected-4h_Mock_uninfected"]])[1]
@@ -415,13 +408,13 @@ As an alternative, we may also visualise, for the same contrast,
 the 10 most significant DE genes, placing all 15 groups of cells side by side,
 ordering groups by `Status>Infection>Time`:
 
-```{r top10_LT2vsUninfected}
+```{r top10_LT2vsUninfected, fig.height=8}
 geneIds <-
   head(rownames(DE.res.adjusted[["4h_LT2_infected-4h_Mock_uninfected"]]), 10)
 genesExpr <- norm_exprs(sce.norm)[geneIds,]
 samplesAes <- pData(sce.norm)[,c("Time","Infection","Status","Group","Sample")]
 ggData <- cbind(t(genesExpr), samplesAes)
-ggLong <- melt(
+ggLong <- reshape2::melt(
   ggData,
   measure.vars = grep("^ENSG", colnames(ggData)),
   variable.name = "Feature", value.name = "norm_exprs")
@@ -436,7 +429,7 @@ ggplot(ggLong, aes(Group, norm_exprs)) +
   facet_grid(Feature ~ ., labeller = "label_gene") +
   theme(
     axis.text.x = element_text(angle=90),
-    strip.text.y = element_text(size = 5))
+    strip.text.y = element_text(size = 5)) + exprsViolinTheme
 ```
 
 
@@ -458,7 +451,7 @@ During automated compilation, only load manually pre-computed DE statistics
 saved to file.
 -->
 
-```{r scdeStimulated, eval=FALSE}
+```{r scdeStimulated, eval=FALSE, warning=FALSE}
 contrasts <- list(
   c("%s_D23580_infected","%s_LT2_infected"),
   c("%s_D23580_infected","%s_D23580_exposed"),
@@ -694,7 +687,7 @@ ggData <- cbind(norm_exprs = geneExpr, sampleAes)
 ggplot(ggData, aes(Status, norm_exprs, colour = Plate)) +
   geom_violin(draw_quantiles = c(0.25,0.5,0.75)) +
   geom_jitter(position = position_dodge(width = 0.9)) +
-  facet_grid(Infection ~ Time) +
+  facet_grid(Infection ~ Time) + exprsViolinTheme +
   ggtitle(sprintf("%s (symbol: %s)", geneId, geneName))
 ```
 

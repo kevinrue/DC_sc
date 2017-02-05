@@ -2,33 +2,32 @@
 title: "Preprocessing to RNA-Seq read counts"
 ---
 
-```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
-```
+# Overview {#Overview}
 
-# Overview
+Prior to this vignette, paired-end reads (**2x 75 bp**) were processed as
+follows:
 
-Prior to this vignette, paired-end reads (2x75 bp) were:
-
-* Quality controlled using
+* Quality control using
   [FastQC](http://www.bioinformatics.babraham.ac.uk/projects/fastqc)
-  (version `0.11.4`),
-* Aligned using [HISAT2](https://ccb.jhu.edu/software/hisat2)
-  (version `2.0.3b`),
+  (version **0.11.4**),
+* Alignment to reference genome using
+  [HISAT2](https://ccb.jhu.edu/software/hisat2) (version **2.0.3b**),
 * Assigned to annotated features using
   [featureCounts](http://bioinf.wehi.edu.au/featureCounts)
-  (*subread* version `1.5.0-p2`).
+  (*subread* version **1.5.0-p2**).
 
 **Note:**
 Adapter and quality trimming using
 [Trim Galore!](http://www.bioinformatics.babraham.ac.uk/projects/trim_galore)
-(version `0.4.1`; using *cutadapt* version `1.10`) was tested,
-but the marginal improvement did not justify the extra computational
-time and disk space required to process and store the additional data.
+(version **0.4.1**; using [cutadapt](https://pypi.python.org/pypi/cutadapt)
+version **1.10**) was tested;
+however, the marginal improvement of alignment rate (~ 1%) did not justify
+additional processing time and disk space.
 
 # Composite genome (*Ensembl*)
 
 Composite genome Fasta and GTF files were formed by concatenating the
-primary assembly of the *Homo sapiens* genome build *GRCh38*
+primary assembly of the *Homo sapiens* genome build **GRCh38**
 (excluding haplotypes and patches) and the ERCC RNA Spike-In Mix:
 
 ```
@@ -40,11 +39,11 @@ The Fasta and GTF files for the human genome were obtained from the
 *Ensembl FTP site* [release 86](ftp://ftp.ensembl.org/pub//release-86).
 Namely, the downloaded files are:
 
-* `Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz`
-* `Homo_sapiens.GRCh38.86.chr.gtf.gz`
+* *Homo_sapiens.GRCh38.dna.primary_assembly.fa.gz*
+* *Homo_sapiens.GRCh38.86.chr.gtf.gz*
 
-The ERCC Fasta and GTF files were obtained from the *ThermoFisher*
-[website](https://www.thermofisher.com/order/catalog/product/4456739).
+The ERCC Fasta and GTF files were obtained from
+[ThermoFisher](https://www.thermofisher.com/order/catalog/product/4456739).
 
 # Genome index (*HISAT2*)
 
@@ -75,7 +74,8 @@ src="fastqc/WTCHG_305265_201231_2_fastqc.html"></iframe>
 
 # Alignment (*HISAT2*)
 
-Raw (*i.e.*, not trimmed) read pairs were aligned as follows:
+Raw (*i.e.*, not trimmed; see [above](#Overview)) read pairs were aligned as
+follows:
 
 ```
 hisat2 \

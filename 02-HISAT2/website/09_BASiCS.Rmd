@@ -4,9 +4,6 @@ bibliography:
   bibtex.bib
 ---
 
-```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
-```
-
 <!-- As HTML pages are built independently, large objects need to be
 reimported from disk, and smaller ones quickly recomputed. -->
 
@@ -15,11 +12,10 @@ knitr::opts_chunk$set(cache = TRUE)
 library(scran)
 library(scater)
 library(BASiCS)
-library(data.table) 
-library(EnsDb.Hsapiens.v79) 
 library(ggplot2)
 sce.norm <- readRDS("rds/sce.norm.rds")
 mixC <- readRDS("rds/mixC.rds")
+EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
 ```
 
 # Data pre-processing
@@ -70,17 +66,14 @@ To use BASiCS, we need to create a `BASiCSDV_Data` object containing the
 expression counts, a vector of logical spike-in gene indicators
 and the input number of mRNA molecules for each spike-in gene.
 
-```{r, results='hide'}
+```{r, warning=FALSE, results='hide', message=FALSE}
 Data.input <- list()
 ERCCnames <- rownames(sce.norm)[isSpike(sce.norm)]
 for (groupName in unique(sce.norm$Group)){
   cellIndex <- which(sce.norm$Group == groupName)
   Data.input[[groupName]] <- newBASiCS_Data(
-    Counts = rbind(
-      counts(sce.norm)[!isSpike(sce.norm),cellIndex],
-      counts(sce.norm)[isSpike(sce.norm),cellIndex]
-    ),
-    Tech = rep(c(F,T), times=table(isSpike(sce.norm))),
+    Counts = counts(sce.norm)[,cellIndex],
+    Tech = isSpike(sce.norm),
     SpikeInfo = mixC[ERCCnames, c("ID","ERCCmolecules")],
     BatchInfo = sce.norm$Plate[cellIndex])
 }
@@ -128,7 +121,6 @@ for (groupName in names(Data.input)){
     PriorDelta = 'log-normal')
 }
 ```
-
 
 <!-- As HTML pages are built independently, objects need to be saved to disk
 and imported as needed by the other R mardown files -->

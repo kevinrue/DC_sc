@@ -2,9 +2,6 @@
 title: "Overview of normalised expression data"
 ---
 
-```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
-```
-
 <!-- As HTML pages are built independently, large objects need to be
 reimported from disk, and smaller ones quickly recomputed. -->
 
@@ -15,6 +12,9 @@ library(scran)
 library(ggplot2)
 library(SummarizedExperiment)
 sce.norm <- readRDS("rds/sce.norm.rds")
+```
+
+```{r defineTheme, child="_PCAtheme.Rmd", include=FALSE}
 ```
 
 # Relative importance of experimental factors {#explanatoryVariables}
@@ -52,7 +52,9 @@ Having normalised the expression data for detected features
 in single cells that passed quality control, let us examine the unsupervised
 clustering of those cells using different approaches.
 
-## Principal component analysis (PCA) {#PCA .tabset}
+## Principal component analysis (PCA) {#PCA}
+
+### All cells {.tabset}
 
 Let us initially focus our attention on the two principal components that
 explain the largest amount of variance in the endogenous features.
@@ -72,12 +74,19 @@ explain the largest amount of variance in the endogenous features.
   (see this [earlier section](05_normalisation.html#setSpike) for the
   definition of spike-in features).
 
-```{r plotPCASCESet_PC1and2}
+```{r plotPCASCESet}
 sce.norm <- plotPCASCESet(
   sce.norm, ncomponents = 2, exprs_values = "norm_exprs",
   colour_by = "Treatment", shape_by = "Time",
-  feature_set = !isSpike(sce.norm), return_SCESet = TRUE
+  feature_set = !isSpike(sce.norm), return_SCESet = TRUE, draw_plot = FALSE
 )
+```
+
+#### Group
+
+```{r plotPCASCESet_Group, fig.height=6}
+plotReducedDim.SCESet(sce.norm, 2, colour_by = "Group", shape_by = "Time") +
+  PCAtheme + theme(legend.text = element_text(size = 6))
 ```
 
 The above figure emphasises the importance of the `Time` factor, significantly
@@ -95,29 +104,59 @@ increasingly apparent over time.
 Overall, the observations above suggest different transcriptional trajectories
 taken by cells in response to experimental stimuli.
 
+#### Time
+
+```{r plotPCASCESet_Time, fig.height=5}
+plotReducedDim.SCESet(sce.norm, 2, colour_by = "Time", shape_by = "Time") +
+  PCAtheme
+```
+
+#### Infection
+
+```{r plotPCASCESet_Infection, fig.height=5}
+plotReducedDim.SCESet(sce.norm, 2, colour_by = "Infection", shape_by = "Time") +
+  PCAtheme
+```
+
+#### Status
+
+```{r plotPCASCESet_Status, fig.height=5}
+plotReducedDim.SCESet(sce.norm, 2, colour_by = "Status", shape_by = "Time") +
+  PCAtheme
+```
+
+### Additional principal components {.tabset}
+
 The analysis may be extended to more principal components; however, by
 definition those principal components will report decreasing amount of variance
 in the data set:
 
-### Status
+#### Treatment
 
-```{r plotPCASCESet_PC1to3}
-plotReducedDim.SCESet(sce.norm, 3, colour_by = "Status", shape_by = "Time") +
-  theme(legend.position = "bottom", legend.box = "vertical")
-```
-
-### Infection
-
-```{r plotPCASCESet_infection}
-plotReducedDim.SCESet(sce.norm, 3, colour_by = "Infection", shape_by = "Time") +
-  theme(legend.position = "bottom", legend.box = "vertical")
-```
-
-### Treatment
-
-```{r plotPCASCESet_Treatment}
+```{r plotPCASCESet_PC1to3_Treatment}
 plotReducedDim.SCESet(sce.norm, 3, colour_by = "Treatment", shape_by = "Time") +
-  theme(legend.position = "bottom", legend.box = "vertical")
+  PCAtheme + theme(legend.text = element_text(size = 6))
+```
+
+#### Time
+
+```{r plotPCASCESet_PC1to3_Time}
+plotReducedDim.SCESet(sce.norm, 3, colour_by = "Time", shape_by = "Time") +
+  PCAtheme
+```
+
+#### Status
+
+```{r plotPCASCESet_PC1to3_Status}
+plotReducedDim.SCESet(sce.norm, 3, colour_by = "Status", shape_by = "Time") +
+  PCAtheme
+```
+
+#### Infection
+
+```{r plotPCASCESet_PC1to3_Infection}
+plotReducedDim.SCESet(sce.norm, 3, colour_by = "Infection", shape_by = "Time") +
+  PCAtheme
 ```
 
 ## Time-independent PCA analyses {.tabset}
@@ -151,123 +190,226 @@ rm(time)
 ### 2h-Infection
 
 ```{r 2h-Infection}
-plotReducedDim.SCESet(
-  time.sce[["2h"]], 3, colour_by = "Infection", shape_by = "Status") +
-  theme(legend.position = "bottom", legend.box = "vertical")
+plotReducedDim.SCESet(time.sce[["2h"]], 3, colour_by = "Infection") + PCAtheme
 ```
 
 ### 2h-Status
 
 ```{r 2h-Status}
-plotReducedDim.SCESet(
-  time.sce[["2h"]], 3, colour_by = "Status") +
-  theme(legend.position = "bottom", legend.box = "vertical")
+plotReducedDim.SCESet(time.sce[["2h"]], 3, colour_by = "Status") + PCAtheme
 ```
 
 ### 2h-Treatment
 
 ```{r 2h-Treatment}
-plotReducedDim.SCESet(
-  time.sce[["2h"]], 3, colour_by = "Treatment") +
-  theme(legend.position = "bottom", legend.box = "vertical")
+plotReducedDim.SCESet(time.sce[["2h"]], 3, colour_by = "Treatment") + PCAtheme
 ```
 
 ### 4h-Infection
 
 ```{r 4h-Infection}
-plotReducedDim.SCESet(
-  time.sce[["4h"]], 3, colour_by = "Infection", shape_by = "Status") +
-  theme(legend.position = "bottom", legend.box = "vertical")
+plotReducedDim.SCESet(time.sce[["4h"]], 3, colour_by = "Infection") + PCAtheme
 ```
 
 ### 4h-Status
 
 ```{r 4h-Status}
-plotReducedDim.SCESet(
-  time.sce[["4h"]], 3, colour_by = "Status") +
-  theme(legend.position = "bottom", legend.box = "vertical")
+plotReducedDim.SCESet(time.sce[["4h"]], 3, colour_by = "Status") + PCAtheme
 ```
 
 ### 4h-Treatment
 
 ```{r 4h-Treatment}
-plotReducedDim.SCESet(
-  time.sce[["4h"]], 3, colour_by = "Treatment") +
-  theme(legend.position = "bottom", legend.box = "vertical")
+plotReducedDim.SCESet(time.sce[["4h"]], 3, colour_by = "Treatment") + PCAtheme
 ```
 
 ### 6h-Infection
 
 ```{r 6h-Infection}
-plotReducedDim.SCESet(
-  time.sce[["6h"]], 3, colour_by = "Infection", shape_by = "Status") +
-  theme(legend.position = "bottom", legend.box = "vertical")
+plotReducedDim.SCESet(time.sce[["6h"]], 3, colour_by = "Infection") + PCAtheme
 ```
 
 ### 6h-Status
 
 ```{r 6h-Status}
-plotReducedDim.SCESet(
-  time.sce[["6h"]], 3, colour_by="Status") +
-  theme(legend.position = "bottom", legend.box = "vertical")
+plotReducedDim.SCESet(time.sce[["6h"]], 3, colour_by="Status") + PCAtheme
 ```
 
 ### 6h-Treatment
 
 ```{r 6h-Treatment}
-plotReducedDim.SCESet(
-  time.sce[["6h"]], 3, colour_by = "Treatment") +
-  theme(legend.position = "bottom", legend.box = "vertical")
+plotReducedDim.SCESet(time.sce[["6h"]], 3, colour_by = "Treatment") + PCAtheme
 ```
 
-## t-distributed stochastic neighbour embedding (t-SNE) {.tabset}
+## t-distributed stochastic neighbour embedding (t-SNE)
+
+### Experimental factors {.tabset}
 
 Let us apply the t-distributed stochastic neighbour embedding (t-SNE) dimensionality reduction technique on the normalised expression of the
-`500` most variable endogenous features to check for substructure in the data set:
+**500** most variable endogenous features to check for substructure in the data set.
+Importantly, let us set the `perplexity` parameter of the `Rtsne` function to
+half the average size of an experimental group of single cells
+(*i.e.*, `r round(mean(table(sce.norm$Group)) / 2)`).
+
+**Note**: In t-SNE, the perplexity may be viewed as a knob that sets the number
+of effective nearest neighbors. It is comparable with the number of nearest
+neighbors k that is employed in many manifold learners
+([Laurens van der Maaten](https://lvdmaaten.github.io/tsne/)).
+As a consequence, an appropriate value of perplexity is necessary to
+allow data points (here, single cells) to form clusters with a reasonable
+number of nearest neighbours;
+instead, excessively large values of perplexity usually result
+in large 'balls' of uniformly distributed points, as all data points attempt
+to be equidistant from each other:
 
 ```{r plotTSNE}
 sce.norm <- plotTSNE(
   sce.norm, ncomponents = 2, exprs_values = "norm_exprs",
   colour_by = "Status", shape_by = "Time", return_SCESet = TRUE,
   feature_set = !isSpike(sce.norm),
-  rand_seed = 1794, draw_plot = FALSE
+  perplexity = round(mean(table(sce.norm$Group)) / 2),
+  rand_seed = 1794, draw_plot = FALSE,
 ) 
 ```
 
-### Status
+#### Status
 
 ```{r plotTSNE_status}
-plotReducedDim.SCESet(sce.norm, 2, colour_by = "Status", shape_by = "Time") +
-  theme(legend.position = "bottom", legend.box = "vertical")
+plotReducedDim.SCESet(sce.norm,2,colour_by="Status",shape_by="Time") + PCAtheme
 ```
 
-### Infection
+#### Infection
 
 ```{r plotTSNE_infection}
-plotReducedDim.SCESet(sce.norm, 2, colour_by = "Infection", shape_by = "Time") +
-  theme(legend.position = "bottom", legend.box = "vertical")
+plotReducedDim.SCESet(sce.norm,2,colour_by="Infection",shape_by="Time") + PCAtheme
 ```
 
-### Treatment
+#### Treatment
 
 ```{r plotTSNE_Treatment}
-plotReducedDim.SCESet(sce.norm, 2, colour_by = "Treatment", shape_by = "Time") +
-  theme(legend.position = "bottom", legend.box = "vertical")
+plotReducedDim.SCESet(sce.norm,2,colour_by="Treatment",shape_by="Time") + PCAtheme
 ```
 
-### Gene: TNF
+### Genes {.tabset}
 
 Alternatively, we may overlay the expression level of a particular gene onto
-the data points.
+the data points as a colour gradient.
 
-```{r plotTSNE_TNF}
-plotGeneId <-
-  rownames(fData(sce.norm))[which(fData(sce.norm)$gene_name == "TNF")]
+For this purpose, let us first set a common colour scale that ranges from
+the lowest to the highest expression values observed in the data set:
+
+```{r exprScale}
+exprScale <- range(exprs(sce.norm))
+colourScale <- rev(RColorBrewer::brewer.pal(9, "YlGnBu"))
+```
+
+
+#### TNF
+
+```{r plotTSNE_TNF, message=FALSE}
 plotReducedDim.SCESet(
-  sce.norm, ncomponents = 2,
-  colour_by = plotGeneId, shape_by = "Time"
-  ) + guides(colour = guide_colourbar(title = "TNF")) +
-  theme(legend.position = "bottom", legend.box = "vertical")
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm),gene_name=="TNF"))) + PCAtheme +
+  scale_colour_gradientn(name="TNF",limits=exprScale,colours=colourScale)
+```
+
+#### IFNB1
+
+```{r plotTSNE_IFNB1, message=FALSE}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm),gene_name=="IFNB1"))) + PCAtheme +
+  scale_colour_gradientn(name="IFNB1",limits=exprScale,colours=colourScale)
+```
+
+#### IL12B
+
+```{r plotTSNE_IL12B, message=FALSE}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm),gene_name=="IL12B"))) + PCAtheme +
+  scale_colour_gradientn(name="IL12B",limits=exprScale,colours=colourScale)
+```
+
+#### IL36G
+
+```{r plotTSNE_IL36G, message=FALSE}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm),gene_name=="IL36G"))) + PCAtheme +
+  scale_colour_gradientn(name="IL36G",limits=exprScale,colours=colourScale)
+```
+
+#### IL1B
+
+```{r plotTSNE_IL1B, message=FALSE}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm),gene_name=="IL1B"))) + PCAtheme +
+  scale_colour_gradientn(name="IL1B",limits=exprScale,colours=colourScale)
+```
+
+#### CD1A
+
+```{r plotTSNE_CD1A, message=FALSE}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm),gene_name=="CD1A"))) + PCAtheme +
+  scale_colour_gradientn(name="CD1A",limits=exprScale,colours=colourScale)
+```
+
+#### CD1B
+
+```{r plotTSNE_CD1B, message=FALSE}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm), gene_name=="CD1B"))) + PCAtheme +
+  scale_colour_gradientn(name="CD1B",limits=exprScale,colours=colourScale)
+```
+
+#### RAMP1
+
+```{r plotTSNE_RAMP1, message=FALSE}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm),gene_name=="RAMP1"))) + PCAtheme +
+  scale_colour_gradientn(name="RAMP1",limits=exprScale,colours=colourScale)
+```
+
+#### CD40
+
+```{r plotTSNE_CD40, message=FALSE}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm),gene_name=="CD40"))) + PCAtheme +
+  scale_colour_gradientn(name="CD40",limits=exprScale,colours=colourScale)
+```
+
+#### CD80
+
+```{r plotTSNE_CD80, message=FALSE}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm),gene_name=="CD80"))) + PCAtheme +
+  scale_colour_gradientn(name="CD80",limits=exprScale,colours=colourScale)
+```
+
+#### CD83
+
+```{r plotTSNE_CD83, message=FALSE}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm),gene_name=="CD83"))) + PCAtheme +
+  scale_colour_gradientn(name="CD83",limits=exprScale,colours=colourScale)
+```
+
+#### ALOX15
+
+```{r plotTSNE_ALOX15, message=FALSE}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm),gene_name=="ALOX15"))) + PCAtheme +
+  scale_colour_gradientn(name="ALOX15",limits=exprScale,colours=colourScale)
 ```
 
 ## Diffusion map
@@ -280,6 +422,5 @@ plotDiffusionMapSCESet(
   sce.norm, exprs_values = "norm_exprs",
   colour_by = "Status", shape_by = "Time",
   feature_set = !isSpike(sce.norm),
-  rand_seed = 1794
-) + theme(legend.position = "bottom", legend.box = "vertical")
+  rand_seed = 1794) + PCAtheme
 ```

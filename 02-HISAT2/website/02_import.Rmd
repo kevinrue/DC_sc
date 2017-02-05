@@ -2,18 +2,13 @@
 title: "Import of RNA-Sequencing read counts and associated metadata"
 ---
 
-```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
-```
-
 <!-- Enable caching -->
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(cache = TRUE)
-library(xlsx)
-library(edgeR)
-library(Biobase)
 library(scater)
+library(edgeR)
+library(xlsx)
 library(rtracklayer)
-library(DT)
 ```
 
 # Phenotype information
@@ -22,7 +17,7 @@ Let us import experimental information:
 
 ```{r importPheno}
 pheno <- read.xlsx("expdata/samples.xlsx", sheetName = "pheno")
-datatable(
+DT::datatable(
   pheno,
   options = list(pageLength = 10, searching = TRUE), filter = "top",
   rownames = FALSE
@@ -76,8 +71,8 @@ Let us assemble the phenotype information and count data above into
 * one for the single cells
 
 **Note:**
-This distinction will be important later, to compute QC metrics within
-particular sets of samples.
+This distinction will be important later, to compute and compared QC metrics
+within distinct sets of samples.
 
 First, let us set the `rownames` of the phenotypes information `data.frame` to
 the unique sample identifier for consistency with the sample identifier
@@ -121,16 +116,17 @@ to *featureCounts* as `GRanges` of the
 [GenomicRanges](http://bioconductor.org/packages/GenomicRanges) package:
 
 ```{r import.gff}
-gtfData <- import.gff("expdata/genes_with_ERCC.gtf", feature.type = "gene")
+gtfData <- import.gff(
+  "expdata/genes_with_ERCC.gtf", feature.type = "gene")
 names(as.data.frame(gtfData))
 ```
 
 **Note:** the above code does *not* import records that relate to ERCC
-spike-in features, as these are annotated with `exon` *type* (GTF column 2)
-from the `ERCC` *soure* (GTF column 3).
+spike-in features, as these are annotated with **exon** *type* (GTF column 2)
+from the **ERCC** *soure* (GTF column 3).
 
 <!-- As HTML pages are built independently, objects need to be saved to disk
-and imported as needed by the other R mardown files -->
+and imported as needed by the following R mardown files -->
 
 ```{r saveRDS, include=FALSE}
 saveRDS(sce.all, "rds/sce.all.rds")

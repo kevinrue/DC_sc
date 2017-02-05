@@ -4,9 +4,6 @@ bibliography:
   bibtex.bib
 ---
 
-```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
-```
-
 <!-- As HTML pages are built independently, large objects need to be
 reimported from disk, and smaller ones quickly recomputed. -->
 
@@ -44,7 +41,7 @@ sce.filtered <- computeSumFactors(sce.filtered, clusters = clusters)
 summary(sizeFactors(sce.filtered))
 ```
 
-In this case, the size factors are somewhat correlated with library size,
+In the figure below, the size factors are somewhat correlated with library size,
 while significant scatter is visible around the trend;
 augmenting the figure with experimental phenotype information emphasises
 how the effect of library size on the size factor of individual cells is
@@ -58,7 +55,8 @@ affect the transcriptome of most cells yet.
 In contrast, at later time points (*i.e.*, `4h` and `6h`), trends indicate a
 markedly weaker effect of library size on size factor.
 This suggest that other sources of systematic differences between cells
-arose, and that differential expression is to be expected
+arose (*i.e.*, `Status`, `Infection`),
+and that differential expression is to be expected
 between experimental groups at those time points:
 
 ```{r sizeFactor_librarySize}
@@ -72,16 +70,19 @@ ggplot(
   )
 ```
 
-Let us examine further the effect of experimental covariates on the size
-factors:
+The same effect to experimental covariates on the distribution of size factors
+within each experimental group may also be summarised in box plots as
+shown below:
 
 ```{r sizeFactor_expFactors}
 ggplot(
   pData(sce.filtered),
-  aes(interaction(Infection, Status, Time, sep = " - "), size_factor)) +
-  geom_boxplot(aes(alpha = Time, fill = Infection, linetype = Status)) +
-  coord_flip() +
-  labs(y = "Size factor", x = "")
+  aes(interaction(Infection, Status, sep = " - "), size_factor)
+  ) +
+  geom_boxplot(aes(fill = Infection, linetype = Status)) +
+  coord_flip() + labs(y = "Size factor", x = "") +
+  theme(panel.grid.major.y = element_blank()) +
+  facet_grid(Time ~ .)
 ```
 
 In a different perspective, the above figure emphasises again how

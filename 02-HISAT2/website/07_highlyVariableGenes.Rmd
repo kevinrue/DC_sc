@@ -4,9 +4,6 @@ bibliography:
   bibtex.bib
 ---
 
-```{r checkPkgs, child="_checkLibraries.Rmd", include=FALSE}
-```
-
 <!-- As HTML pages are built independently, large objects need to be
 reimported from disk, and smaller ones quickly recomputed. -->
 
@@ -15,16 +12,16 @@ knitr::opts_chunk$set(cache = TRUE)
 library(scater)
 library(scran)
 library(ggplot2)
+library(gplots)
 library(SummarizedExperiment)
-library(DT)
-library(dplyr)
-library(RColorBrewer)
 library(ComplexHeatmap)
-library(MKmisc)
-library(org.Hs.eg.db)
-library(goseq)
-library(EnsDb.Hsapiens.v79)
 sce.norm <- readRDS("rds/sce.norm.rds")
+library(org.Hs.eg.db)
+library(EnsDb.Hsapiens.v79)
+library(goseq)
+```
+
+```{r defineTheme, child="_exprsViolinTheme.Rmd", include=FALSE}
 ```
 
 # Highly variable genes (HVGs)
@@ -266,8 +263,8 @@ top.hvg <- rownames(hvg.out)[1:10]
 ```{r top.hvg_Time}
 plotExpressionSCESet(
   sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Time"
-) + scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
-  theme(legend.position = "bottom", legend.box = "vertical")
+  ) + scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
+   theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
 The figure above generally indicates a progressive *up*-regulation of gene
@@ -278,8 +275,8 @@ expression over time.
 ```{r top.hvg_Infection}
 plotExpressionSCESet(
   sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Infection"
-) + scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
-  theme(legend.position = "bottom", legend.box = "vertical")
+  ) + scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
+  exprsViolinTheme
 ```
 
 The figure above further links the high variance of those genes to
@@ -290,8 +287,8 @@ the differences between bacteria-stimulated and mock-infected cells.
 ```{r top.hvg_Status}
 plotExpressionSCESet(
   sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Status"
-) + scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
-  theme(legend.position = "bottom", legend.box = "vertical")
+  ) + scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
+  exprsViolinTheme
 ```
 
 The figure above reinforces clear-cut differences between cells
@@ -329,7 +326,7 @@ dim(hvg.endo)
 Let us prepare colours to indicate phenotype levels:
 
 ```{r palette9}
-col9 <- brewer.pal(10, "Set3")[c(1:8, 10)]
+col9 <- RColorBrewer::brewer.pal(10, "Set3")[c(1:8, 10)]
 ```
 
 In preparation for the heat map, let us define an annotation panel
@@ -376,7 +373,7 @@ Now, let us cluster single cells according to their expression profile,
 ```{r sample.order}
 sample.order <- c()
 expGroups <- unique(pData(sce.endo)[,c("Time","Infection","Status")])
-expGroups <- arrange(expGroups, Time, Status, Infection)
+expGroups <- dplyr::arrange(expGroups, Time, Status, Infection)
 for (groupIndex in seq_len(nrow(expGroups))){
   time <- expGroups$Time[groupIndex]
   infection <- expGroups$Infection[groupIndex]
@@ -416,8 +413,8 @@ names(hvgs) <- rownames(sce.endo)
 table(hvgs)
 geneLengths <- read.delim(
   "counts/WTCHG_305264_201201", row.names = 1)[,1, drop = FALSE]
-pwf <- nullp(hvgs, bias.data = geneLengths[names(hvgs),], plot.fit = FALSE)
-GO.out <- goseq(pwf, "hg38", "ensGene")
+pwf <- goseq::nullp(hvgs, bias.data=geneLengths[names(hvgs),], plot.fit=FALSE)
+GO.out <- goseq::goseq(pwf, "hg38", "ensGene")
 GO.out$ontology <- as.factor(GO.out$ontology)
 DT::datatable(
   subset(GO.out, over_represented_pvalue < 0.001),
@@ -440,8 +437,7 @@ Let us also annotated genes relating to the
 
 ```{r genes.ifn, message=FALSE}
 genes.ifn <- unique(AnnotationDbi::select(
-  org.Hs.eg.db, "GO:0060337", "ENSEMBL", "GOALL")$ENSEMBL
-)
+  org.Hs.eg.db, "GO:0060337", "ENSEMBL", "GOALL")$ENSEMBL)
 table(rownames(hvg.endo) %in% genes.ifn)
 ```
 
@@ -477,8 +473,8 @@ draw(ht_semisupervised + h_top + h_ifn)
 Calculate the Euclidian distance between samples using the
 normalised expression data calculated in a
 [previous section](05_normalisation.html#normalize)
-scaled (mean: `0`; standard deviation: `1`) for the
-``r nrow(hvg.endo)`` HVGs identified [above](#HVGs):
+scaled (mean: **0**; standard deviation: **1**) for the
+`r nrow(hvg.endo)` HVGs identified [above](#HVGs):
 
 ```{r distEuclidScaled}
 hvg.scaled <- t(scale(t(hvg.endo)))
@@ -498,7 +494,7 @@ values, using Ward's criterion to minimize the total variance within each
 cluster [@67]:
 
 ```{r clustEuclidScaled}
-h.e.s <- hclust(d.e.s) #, method = "ward.D2"
+h.e.s <- hclust(d.e.s, method = "ward.D2")
 ord.e.s <- mat.e.s[h.e.s$order, h.e.s$order]
 rm(mat.e.s)
 ```
@@ -506,7 +502,7 @@ rm(mat.e.s)
 Again, do the same for unscaled values:
 
 ```{r clustEuclidNorm}
-h.e.n <- hclust(d.e.n) #, method = "ward.D2"
+h.e.n <- hclust(d.e.n, method = "ward.D2")
 ord.e.n <- mat.e.n[h.e.n$order, h.e.n$order]
 rm(mat.e.n)
 ```
@@ -569,10 +565,9 @@ Estimate distance between cells using Spearman's (rank) correlation.
 The rank correlation is insensitive to the scaling process (the order
 of samples are preserved by the scaling procedure). Therefore, there is
 no need to compare the identical heat maps produced for the two data sets.
-}
 
 ```{r distSpearman}
-c.s <- corDist(t(hvg.endo), "spearman", diag = TRUE, upper = TRUE)
+c.s <- MKmisc::corDist(t(hvg.endo), "spearman", diag = TRUE, upper = TRUE)
 mat.c.s <- as.matrix(c.s)
 ```
 
@@ -598,14 +593,14 @@ on the correlation between samples.
 We start calculating the sample correlation using the unscaled normalised data:
 
 ```{r distPearsonNorm}
-c.p.n <- corDist(t(hvg.endo), diag = TRUE, upper = TRUE)
+c.p.n <- MKmisc::corDist(t(hvg.endo), diag = TRUE, upper = TRUE)
 mat.c.p.n <- as.matrix(c.p.n)
 ```
 
 We then do the same with the scaled data:
 
 ```{r distPearsonScaled}
-c.p.s <- corDist(t(hvg.scaled), diag = TRUE, upper = TRUE)
+c.p.s <- MKmisc::corDist(t(hvg.scaled), diag = TRUE, upper = TRUE)
 mat.c.p.s <- as.matrix(c.p.s)
 ```
 
@@ -711,14 +706,16 @@ Similarly to the above identification of HVGs across cells (driven primarily
 by a strong effect of the `Time` factor), let us identify HVGs within each
 experimental group of cells:
 
-```{r}
+```{r meanVariancePlotOpen, eval=FALSE}
+pdf("HVGs/mean-variance.pdf", width = 6, height = 11) # save plots to file
+```
+
+```{r HVGs.group, warning=FALSE, message=FALSE, fig.height=6}
+par(mfrow=c(5,3)) # figure: grid of 5 rows and 3 columns
 HVGs.group <- list()
-pdf("HVGs/mean-variance.pdf", width = 6, height = 11)
-par(mfrow=c(5,3))
 for (group in levels(sce.norm$Group)){
-  message(group)
   idx.group <- which(sce.norm$Group == group)
-  message(sprintf("# samples: %i", length(idx.group)))
+  # message(group); message(sprintf("# samples: %i", length(idx.group)))
   dm <- model.matrix(~Plate+Lane, data = pData(sce.norm)[idx.group,])
   var.fit.endo <- trendVar(
     sce.norm[,idx.group], assay = "norm_exprs", trend = "loess", design = dm,
@@ -746,14 +743,15 @@ for (group in levels(sce.norm$Group)){
   HVGs.group[[group]] <- hvg.out
 }
 par(mfrow=c(1,1))
+```
+
+```{r meanVariancePlotClose, eval=FALSE}
 dev.off()
 ```
 
-Venn diagram
 
-```{r}
-#library(VennDiagram)
-library(gplots)
+```{r, include=FALSE}
+# Export Venn diagram figures
 for (time in levels(sce.norm$Time)){
   groupNames <- grep(time, names(HVGs.group), value = TRUE)
   hvgsList <- lapply(HVGs.group[groupNames], rownames)
@@ -765,7 +763,7 @@ for (time in levels(sce.norm$Time)){
 }
 ```
 
-Count of HVGs per group:
+Let us visualise the count of HVGs identified in each experimental group:
 
 ```{r}
 groupNames <- levels(sce.norm$Group)
@@ -783,6 +781,5 @@ ggplot(hvgsPerGroup) + geom_col(aes(Group, HVGs, alpha = Time, colour = Infectio
     axis.title.x = element_blank()
   )
 ```
-
 
 # References
