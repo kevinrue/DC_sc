@@ -30,7 +30,8 @@ We identify HVGs to focus on the genes that are driving heterogeneity across
 the population of cells.
 This requires estimation of the variance in expression for each gene, followed
 by decomposition of the variance into biological and technical components.
-HVGs are then identified as those genes with the highest biological components.
+HVGs are then identified as those genes with the biological component
+most significantly greater than the technical component.
 This avoids prioritizing genes that are highly variable due to technical
 factors such as sampling noise during RNA capture and library preparation.
 
@@ -173,7 +174,7 @@ ERCC spike-in features were retained in the `sce.norm` object),
 scarcer at moderate levels of expression,
 may explain to some extent the substantial scatter around the trend at moderate
 levels of expression
-(*i.e.*, mean log-expression in the range $\approx$2.5-7.5).
+(*i.e.*, mean log-expression in the range $\approx [2.5 - 7.5]$).
 Nevertheless, this trend matches closely observations at low detection levels
 dense in ERCC spike-in features, and high detection levels that show limited
 variability.
@@ -706,11 +707,11 @@ Similarly to the above identification of HVGs across cells (driven primarily
 by a strong effect of the `Time` factor), let us identify HVGs within each
 experimental group of cells:
 
-```{r meanVariancePlotOpen, eval=FALSE}
+```{r meanVariancePlotOpen, echo=FALSE, eval=FALSE}
 pdf("HVGs/mean-variance.pdf", width = 6, height = 11) # save plots to file
 ```
 
-```{r HVGs.group, warning=FALSE, message=FALSE, fig.height=6}
+```{r HVGs.group, warning=FALSE, message=FALSE, fig.height=9, results='hold'}
 par(mfrow=c(5,3)) # figure: grid of 5 rows and 3 columns
 HVGs.group <- list()
 for (group in levels(sce.norm$Group)){
@@ -745,10 +746,9 @@ for (group in levels(sce.norm$Group)){
 par(mfrow=c(1,1))
 ```
 
-```{r meanVariancePlotClose, eval=FALSE}
+```{r meanVariancePlotClose, echo=FALSE, eval=FALSE}
 dev.off()
 ```
-
 
 ```{r, include=FALSE}
 # Export Venn diagram figures
@@ -772,14 +772,16 @@ hvgsPerGroup <- data.frame(
   HVGs = sapply(groupNames, function(groupName){nrow(HVGs.group[[groupName]])}),
   Time = gsub("(.*)_.*_.*", "\\1", groupNames),
   Infection = gsub(".*_(.*)_.*", "\\1", groupNames),
-  Status = gsub(".*_.*_(.*)", "\\1", groupNames)
+  Status = gsub(".*_.*_(.*)", "\\1", groupNames),
+  Treatment = gsub(".*h_(.*)", "\\1", groupNames)
 )
-ggplot(hvgsPerGroup) + geom_col(aes(Group, HVGs, alpha = Time, colour = Infection)) +
+ggplot(hvgsPerGroup) + geom_col(aes(Treatment, HVGs, alpha = Time, colour = Infection)) +
   theme(
     axis.text.x = element_text(angle=90, hjust = 1, vjust = 0.5),
     axis.ticks.x = element_blank(), panel.background = element_blank(),
     axis.title.x = element_blank()
-  )
+  ) +
+  facet_grid(. ~ Time)
 ```
 
 # References

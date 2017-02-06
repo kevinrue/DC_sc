@@ -295,9 +295,7 @@ while ~50-60% of features are detected above 10 CPM:
 
 ```{r violinAvgCPMbyGroup, warning=FALSE}
 ggplot(avgCPMbyGroup, aes(Group, AvgCPM)) +
-  geom_violin(
-    aes(colour = Infection, fill = Status), alpha = 0.4,
-    draw_quantiles = seq(0.25, 0.75, 0.25)) +
+  geom_violin(draw_quantiles = seq(0.25, 0.75, 0.25)) +
   geom_label(aes(Group, y, label = Count), data = zeroCounts, size = 2) +
   scale_y_log10(limits = c(1E-2, 1E5)) +
   theme(

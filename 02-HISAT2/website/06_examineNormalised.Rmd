@@ -296,6 +296,15 @@ plotReducedDim.SCESet(sce.norm,2,colour_by="Treatment",shape_by="Time") + PCAthe
 plotReducedDim.SCESet(sce.norm,2,colour_by="Plate",shape_by="Time") + PCAtheme
 ```
 
+#### quickCluster (normalisation)
+
+We may also overlay the clusters identify during
+[normalisation](05_normalisation.html) onto the t-SNE:
+
+```{r plotTSNE_quickCluster}
+plotReducedDim.SCESet(sce.norm,2,colour_by="quickCluster",shape_by="Time") + PCAtheme
+```
+
 ### Genes {.tabset}
 
 Alternatively, we may overlay the expression level of a particular gene onto

@@ -61,8 +61,8 @@ ggplot(longCluster) +
   facet_grid(Factor ~ quickCluster, labeller = label_both) +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
 ```
-Let us apply the normalisation procedure, deconvolving size factors within
-clusters:
+
+Let us apply the normalisation procedure, deconvolving size factors clusters:
 
 ```{r computeSumFactors}
 sce.filtered <- computeSumFactors(
