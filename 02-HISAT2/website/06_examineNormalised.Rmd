@@ -290,6 +290,12 @@ plotReducedDim.SCESet(sce.norm,2,colour_by="Infection",shape_by="Time") + PCAthe
 plotReducedDim.SCESet(sce.norm,2,colour_by="Treatment",shape_by="Time") + PCAtheme
 ```
 
+#### Plate (batch)
+
+```{r plotTSNE_Plate}
+plotReducedDim.SCESet(sce.norm,2,colour_by="Plate",shape_by="Time") + PCAtheme
+```
+
 ### Genes {.tabset}
 
 Alternatively, we may overlay the expression level of a particular gene onto
