@@ -55,5 +55,5 @@ output:
       collapsed: false
       smooth_scroll: true
 exclude: [
-  "rds", "counts", "expdata", "*.R",
+  "rds", "counts", "expdata", "*.R", "*.pdf",
   "t-test", "SCDE", "BASiCS", "HVGs"]

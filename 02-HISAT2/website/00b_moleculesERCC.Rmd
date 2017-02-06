@@ -61,8 +61,9 @@ mixC$ERCCmolecules <-
   10^-8
 ```
 
-We may then display the expected count of each ERCC Spike-In injected in
-each sample:
+We may then display the expected count of ERCC Spike-In injected at various
+levels in each sample; vertical dashed lines indicate levels of **1**,
+**10**, **100**, and **1,000** molecules:
 
 ```{r ERCCplotCount, message=FALSE, warning=FALSE}
 ggplot(mixC) + geom_histogram(aes(ERCCmolecules)) + scale_x_log10() +
@@ -75,9 +76,10 @@ above different thresholds of $molecules / well$:
 
 ```{r threshold_ERCC}
 datatable(data.frame(
-  Threshold = 10^(0:3),
-  ERCC = sapply(0:3, function(x){sum(mixC$ERCCmolecules > 10^x)})
-), rownames = FALSE)
+  "log10(molecules per well)" = 10^(0:3),
+  ERCC = sapply(0:3, function(x){sum(mixC$ERCCmolecules > 10^x)}),
+  check.names = FALSE
+  ), rownames = FALSE)
 ```
 
 <!-- As HTML pages are built independently, objects need to be saved to disk

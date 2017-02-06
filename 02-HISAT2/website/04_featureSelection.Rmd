@@ -14,10 +14,146 @@ library(edgeR)
 library(ggplot2)
 library(SummarizedExperiment)
 sce.pass <- readRDS("rds/sce.pass.rds")
+sce.bulk <- readRDS("rds/sce.bulk.rds")
 gtfData <- readRDS("rds/gtfData.rds")
 mixC <- readRDS("rds/mixC.rds")
 ERCCs <- grep("^ERCC-[[:digit:]]+$", featureNames(sce.pass), value = TRUE)
 MTs <- mcols(gtfData)[seqnames(gtfData) == "MT", "gene_id"]
+```
+
+# Correlation of bulks and single cell average {.tabset}
+
+For each experimental group of single cells, let us calculate the average
+expression level (`log2(counts+1)`) of each feature:
+
+```{r}
+bulkSCdata <- list()
+for (groupName in levels(sce.pass$Group)){
+  time <- gsub("^(.*h)_.*", "\\1", groupName)
+  infection <- gsub(".*_(.*)_.*", "\\1", groupName) 
+  cellIndex <- which(sce.pass$Group == groupName)
+  cellAvg <- rowMeans(exprs(sce.pass[,cellIndex]))
+  bulkExpr <- exprs(sce.bulk)[,which(
+    sce.bulk$Time == time & sce.bulk$Infection == infection
+    )]
+  geneNames <- names(cellAvg)
+  bulkSCdata[[groupName]] <- data.frame(
+    Cells = cellAvg[geneNames], Bulk = bulkExpr, row.names = geneNames
+  )
+}
+```
+
+We may then display the average expression level of each gene within each
+experimental group of single cells against their matched bulk sample.
+
+Importantly, stimulated bulk samples are expected to be a mixture of
+`infected` and `exposed` cells. We may therefore compare the average expression
+in each subset of cells against the bulk average, to identify potential
+differences:
+
+## 2h_Mock_uninfected
+
+```{r 2h_Mock_uninfected}
+ggplot(bulkSCdata[["2h_Mock_uninfected"]]) +
+  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
+```
+
+## 4h_Mock_uninfected
+
+```{r 4h_Mock_uninfected}
+ggplot(bulkSCdata[["4h_Mock_uninfected"]]) +
+  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
+```
+
+## 6h_Mock_uninfected
+
+```{r 6h_Mock_uninfected}
+ggplot(bulkSCdata[["6h_Mock_uninfected"]]) +
+  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
+```
+
+## 2h_D23580_exposed
+
+```{r 2h_D23580_exposed}
+ggplot(bulkSCdata[["2h_D23580_exposed"]]) +
+  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
+```
+
+## 4h_D23580_exposed
+
+```{r 4h_D23580_exposed}
+ggplot(bulkSCdata[["4h_D23580_exposed"]]) +
+  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
+```
+
+## 6h_D23580_exposed
+
+```{r 6h_D23580_exposed}
+ggplot(bulkSCdata[["6h_D23580_exposed"]]) +
+  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
+```
+
+## 2h_LT2_exposed
+
+```{r 2h_LT2_exposed}
+ggplot(bulkSCdata[["2h_LT2_exposed"]]) +
+  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
+```
+
+## 4h_LT2_exposed
+
+```{r 4h_LT2_exposed}
+ggplot(bulkSCdata[["4h_LT2_exposed"]]) +
+  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
+```
+
+## 6h_LT2_exposed
+
+```{r 6h_LT2_exposed}
+ggplot(bulkSCdata[["6h_LT2_exposed"]]) +
+  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
+```
+
+## 2h_D23580_infected
+
+```{r 2h_D23580_infected}
+ggplot(bulkSCdata[["2h_D23580_infected"]]) +
+  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
+```
+
+## 4h_D23580_infected
+
+```{r 4h_D23580_infected}
+ggplot(bulkSCdata[["4h_D23580_infected"]]) +
+  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
+```
+
+## 6h_D23580_infected
+
+```{r 6h_D23580_infected}
+ggplot(bulkSCdata[["6h_D23580_infected"]]) +
+  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
+```
+
+## 2h_LT2_infected
+
+```{r 2h_LT2_infected}
+ggplot(bulkSCdata[["2h_LT2_infected"]]) +
+  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
+```
+
+## 4h_LT2_infected
+
+```{r 4h_LT2_infected}
+ggplot(bulkSCdata[["4h_LT2_infected"]]) +
+  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
+```
+
+## 6h_LT2_infected
+
+```{r 6h_LT2_infected}
+ggplot(bulkSCdata[["6h_LT2_infected"]]) +
+  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
 ```
 
 # Overview of feature detection levels
@@ -79,7 +215,7 @@ ggplot(mixC) + geom_point(aes(ERCCmolecules, avgCount)) +
 # Definition of detected feature {.tabset}
 
 Let us examine the distribution of log-mean CPM across all genes, while
-indicating an average value of 10 CPM:
+indicating an average value of **1** CPM:
 
 ```{r detectVsMean_hist}
 ave.cpm <- rowMeans(scater::cpm(sce.pass))
@@ -93,7 +229,7 @@ abline(v = log10(1), col = "blue", lwd = 2, lty = 2)
 We may compare the above figure with the a smoother representation of the
 count of cells in which each feature is detected against the average
 log~10~-transformed count of reads assigned to that same feature, while
-marking the same cut-off threshold of an average $1$ count across all cells:
+marking the same cut-off threshold of an average **1** count across all cells:
 
 ```{r smoothScatter}
 numcells <- nexprs(sce.pass, byrow = TRUE)
@@ -109,11 +245,12 @@ points(
 abline(v = log10(1), col = "blue", lwd = 2, lty = 2)
 ```
 
-In the context of the present multifactorial experimental design,
-let us define informative endogenous features as those with an average count
-above a threshold of 20 counts per million (CPM) in at least one experimental
+In the context of the present multifactorial experimental design, let us define
+informative endogenous features as those with an average count above a
+threshold of **20** counts per million (CPM) in at least one experimental
 group of cells (`r min(table(sce.pass$Group))`-`r max(table(sce.pass$Group))`
-cells per group). In contrast, let us define informative spike-in features
+cells per group, after exclusion of outliers).
+In contrast, let us define informative spike-in features
 as those with an average count greater or equal to a threhsold of 2 counts.
 Note that the count of cells per group was reported
 [here](03_sampleQC#cellSelection)
@@ -151,12 +288,12 @@ avgCPMbyGroup$Status = factor(
 
 The figure below indicates the 3 quartiles for
 each experimental group, *after removal of features with zero counts
-(indicated in the bottom label)*.
+(indicated in the label displayed at the bottom of each violin)*.
 For instance, generally ~30% of "detectable" features are
 found below 1 CPM (across all cells that passed QC filtering),
 while ~50-60% of features are detected above 10 CPM:
 
-```{r violinAvgCPMbyGroup}
+```{r violinAvgCPMbyGroup, warning=FALSE}
 ggplot(avgCPMbyGroup, aes(Group, AvgCPM)) +
   geom_violin(
     aes(colour = Infection, fill = Status), alpha = 0.4,
@@ -183,66 +320,77 @@ colnames(groupsAboveCPM) <- paste0("cpm", cutoffs)
 axisLabels <- labs(x="Feature index",y="Count of groups above CPM cutoff")
 ```
 
-## 10 CPM
+Let us remove ERCC spike-in identifiers from this table, as their detection
+level is not expected to vary between experimental conditions:
 
-```{r groupAbove10cpm}
-ggplot(groupsAboveCPM) +
-  geom_line(aes(seq_len(nrow(groupsAboveCPM)), sort(cpm10, decreasing=TRUE))) +
-  axisLabels
+```{r rmERCCcpm}
+endoGroupsAboveCPM <- subset(
+  groupsAboveCPM, !grepl("^ERCC-",rownames(groupsAboveCPM)))
+cpmIndex <- seq_len(nrow(endoGroupsAboveCPM))
 ```
 
-`r sum(groupsAboveCPM$cpm10 >= 1)` features have an average CPM above 10 in at
-least one experimental group.
+## 10 CPM
+
+```{r endoGroupsAbove10cpm}
+ggplot(endoGroupsAboveCPM) + axisLabels +
+  geom_line(aes(cpmIndex, sort(cpm10, decreasing=TRUE)))
+```
+
+`r sum(endoGroupsAboveCPM$cpm10 >= 1)` endogenous features have an average CPM
+above **10** in at least **1** experimental group.
 
 ## 20 CPM
 
-```{r groupAbove20cpm}
-ggplot(groupsAboveCPM) +
-  geom_line(aes(seq_len(nrow(groupsAboveCPM)), sort(cpm20, decreasing=TRUE))) +
-  axisLabels
+```{r groupsAbove20cpm}
+ggplot(endoGroupsAboveCPM) + axisLabels +
+  geom_line(aes(cpmIndex, sort(cpm20, decreasing=TRUE)))
 ```
 
-`r sum(groupsAboveCPM$cpm20 >= 1)` features have an average CPM above 20 in at
-least one experimental group.
+`r sum(endoGroupsAboveCPM$cpm20 >= 1)` endogenous features have an average CPM
+above **20** in at least **1** experimental group.
 
 ## 50 CPM
 
-```{r groupAbove50cpm}
-ggplot(groupsAboveCPM) +
-  geom_line(aes(seq_len(nrow(groupsAboveCPM)), sort(cpm50, decreasing=TRUE))) +
-  axisLabels
+```{r endoGroupsAbove50cpm}
+ggplot(endoGroupsAboveCPM) + axisLabels +
+  geom_line(aes(cpmIndex, sort(cpm50, decreasing=TRUE)))
 ```
 
-`r sum(groupsAboveCPM$cpm50 >= 1)` features have an average CPM above 50 in at
-least one experimental group.
+`r sum(endoGroupsAboveCPM$cpm50 >= 1)` endogenous features have an average CPM above
+**50** in at least **1** experimental group.
 
 ## 100 CPM
 
-```{r groupAbove100cpm}
-ggplot(groupsAboveCPM) +
-  geom_line(aes(seq_len(nrow(groupsAboveCPM)), sort(cpm100, decreasing=TRUE))) +
+```{r endoGroupsAbove100cpm}
+ggplot(endoGroupsAboveCPM) + axisLabels +
+  geom_line(aes(cpmIndex, sort(cpm100, decreasing=TRUE)))
   axisLabels
 ```
 
-`r sum(groupsAboveCPM$cpm100 >= 1)` features have an average CPM above 100 in at
-least one experimental group.
+`r sum(endoGroupsAboveCPM$cpm100 >= 1)` endogenous features have an average CPM above
+**100** in at least **1** experimental group.
 
 # Selection of detected features {#selectFeatures}
 
 Following the above observations, let us retain for further analysis:
 
-* endogenous features detected at an average level greater than 20 CPM in at
-  least one experimental group,
-* ERCC spike-in features detected at an average level of at least 2 counts
+* endogenous features detected at an average level greater than **20** CPM in
+  **≥ 1** experimental group,
+* ERCC spike-in features detected at an average level greater than **1** count
   across all cells:
 
-```{r ave.counts}
-keep <- groupsAboveCPM[,"cpm20"] >= 1
-ERCC_idx <- fData(sce.pass)[,"is_feature_control_ERCC"]
-keep[ERCC_idx] <- rowMeans(counts(sce.pass)[ERCC_idx,]) > 2
-sce.filtered <- sce.pass[keep,]
+```{r detectedFeatures}
+stopifnot(all(rownames(groupsAboveCPM) == rownames(sce.pass)))
+keepEndogenous <- (groupsAboveCPM[,"cpm20"] >= 1) & (!isSpike(sce.pass))
+keepSpike <- (rowMeans(counts(sce.pass)) > 1) & (isSpike(sce.pass))
+table(keepEndogenous); table(keepSpike)
+```
+
+```{r sce.filtered}
+sce.filtered <- sce.pass[keepEndogenous | keepSpike,]
 dim(sce.filtered)
 ```
+
 
 To facilitate later interpretation, let us annotate endogenous feature
 identifiers in the `SCESet` with gene symbols extracted from the same GTF file

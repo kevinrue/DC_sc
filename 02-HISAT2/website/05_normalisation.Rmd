@@ -25,19 +25,48 @@ Considering the multifactorial experimental design of this data set, and the
 expected differential expression in `exposed` and `infected` cells,
 let us cluster similar cells together prior to normalising the cells in each
 cluster using the deconvolution method implemented in the
-[scran](http://bioconductor.org/packages/scran) package:
+[scran](http://bioconductor.org/packages/scran) package.
+
+Importantly, let us define the *smallest cluster* size to the minimum number
+of cells in any experimental group (*i.e.*, `r min(table(sce.filtered$Group))`
+in group `r names(which.min(table(sce.filtered$Group)))`).
+
+Importantly, the default behaviour of the `quickCluster` function is to
+only use *endogenous features* (`get.spikes=FALSE`),
+as ERCC spike-in features should be present in equal amounts in all samples:
 
 ```{r quickCluster}
-clusters <- quickCluster(sce.filtered)
+clusters <- quickCluster(sce.filtered, min.size=min(table(sce.filtered$Group)))
+summary(clusters)
 ```
 
-In this case, none of the cells were assigned to any cluster, which suggests
-that despite the expected differences between experimental groups and batches,
-the data set is sufficiently homogenous for the normalisation procedure
-to be applied to all cells equally:
+In this case, four clusters were identified. As expected, the largest cluster
+(`r max(table(clusters))` cells) contains most `2h` cells and `4h:uninfected`
+cells (which cannot be found in any other facet).
+Clusters 2 and 3 contain uniquely `4h` and `6h` stimulated cells, respectively.
+Finally, the smallest cluster (4) contains mostly `6h:uninfected`, with
+a handful of other cells.
+
+```{r longCluster, warning=FALSE}
+sce.filtered$quickCluster <- clusters
+longCluster <- reshape2::melt(
+  pData(sce.filtered)[,c("quickCluster","Time","Infection","Status")],
+  measure.vars = c("Time","Infection","Status"),
+  variable.name = "Factor", value.name = "Level")
+longCluster$Level = factor(longCluster$Level, c(
+  "2h","4h","6h","uninfected","exposed","infected","Mock","LT2","D23580"
+))
+ggplot(longCluster) +
+  geom_bar(aes(x = Level, colour = Factor)) +
+  facet_grid(Factor ~ quickCluster, labeller = label_both) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
+```
+Let us apply the normalisation procedure, deconvolving size factors within
+clusters:
 
 ```{r computeSumFactors}
-sce.filtered <- computeSumFactors(sce.filtered, clusters = clusters)
+sce.filtered <- computeSumFactors(
+  sce.filtered, sizes = c(10, 15), clusters = clusters)
 summary(sizeFactors(sce.filtered))
 ```
 

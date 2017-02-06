@@ -9,6 +9,7 @@ library(scater)
 library(edgeR)
 library(xlsx)
 library(rtracklayer)
+library(DT)
 ```
 
 # Phenotype information
@@ -16,7 +17,7 @@ library(rtracklayer)
 Let us import experimental information:
 
 ```{r importPheno}
-pheno <- read.xlsx("expdata/samples.xlsx", sheetName = "pheno")
+pheno <- xlsx::read.xlsx("expdata/samples.xlsx", sheetName = "pheno")
 DT::datatable(
   pheno,
   options = list(pageLength = 10, searching = TRUE), filter = "top",
