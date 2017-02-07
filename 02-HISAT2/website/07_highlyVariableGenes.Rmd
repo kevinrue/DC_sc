@@ -19,6 +19,7 @@ sce.norm <- readRDS("rds/sce.norm.rds")
 library(org.Hs.eg.db)
 library(EnsDb.Hsapiens.v79)
 library(goseq)
+library(DT)
 ```
 
 ```{r defineTheme, child="_exprsViolinTheme.Rmd", include=FALSE}
@@ -132,14 +133,16 @@ var.out.endo <- decomposeVar(sce.norm, var.fit.endo)
 names(var.out.endo)
 ```
 
-We assess the suitability of the trend fitted to the endogenous variances by examining whether it is consistent with the spike-in variances.
+We assess the suitability of the trend fitted to the endogenous variances by
+examining whether it is consistent with the spike-in variances.
 The trend passes through or close to most of the spike-in variances, indicating
 that our assumption (that most genes have low levels of biological variability)
 is valid.
 This strategy exploits the large number of endogenous genes to obtain a stable
 trend, with the ERCC spike-in feature used as diagnostic features rather than
 in the trend fitting itself.
-However, if our assumption did not hold, we would instead use the trend fitted to the ERCC spike-in variances with the default `use.spikes=TRUE`. This would 
+However, if our assumption did not hold, we would instead use the trend fitted
+to the ERCC spike-in variances with the default `use.spikes=TRUE`. This would 
 sacrifice stability to reduce systematic errors in the estimate of
 the biological component for each gene [@67].
 
@@ -703,16 +706,15 @@ saveRDS(hvg.out, "rds/hvg.out.rds")
 
 # HVGs within experimental groups
 
+## Identification {#HVGsWithinGroups}
+
 Similarly to the above identification of HVGs across cells (driven primarily
 by a strong effect of the `Time` factor), let us identify HVGs within each
 experimental group of cells:
 
-```{r meanVariancePlotOpen, echo=FALSE, eval=FALSE}
-pdf("HVGs/mean-variance.pdf", width = 6, height = 11) # save plots to file
-```
-
 ```{r HVGs.group, warning=FALSE, message=FALSE, fig.height=9, results='hold'}
-par(mfrow=c(5,3)) # figure: grid of 5 rows and 3 columns
+par(mfrow=c(5,3))
+dVar.groups <- list()
 HVGs.group <- list()
 for (group in levels(sce.norm$Group)){
   idx.group <- which(sce.norm$Group == group)
@@ -734,9 +736,12 @@ for (group in levels(sce.norm$Group)){
   spike.fit <- trendVar(sce.norm[,idx.group], use.spikes=TRUE)
   points(spike.fit$mean, spike.fit$var, col="red", pch=16, cex=0.4)
   #var.out.endo <- var.out.endo[order(var.out.endo$bio, decreasing=TRUE),]
-  var.out.endo$Symbol <- mapIds(
-    EnsDb.Hsapiens.v79, rownames(var.out.endo), "GENENAME", "GENEID")
+  var.out.endo <- cbind(
+    Symbol = mapIds(EnsDb.Hsapiens.v79, rownames(var.out.endo), "GENENAME", "GENEID"),
+    var.out.endo
+  )
   write.csv(var.out.endo, sprintf("HVGs/%s_full.csv", group))
+  dVar.groups[[group]] <- var.out.endo
   hvg.out <- var.out.endo[which(
     var.out.endo$FDR <= 0.05 & var.out.endo$bio >= 0.5
     ),]
@@ -746,9 +751,87 @@ for (group in levels(sce.norm$Group)){
 par(mfrow=c(1,1))
 ```
 
-```{r meanVariancePlotClose, echo=FALSE, eval=FALSE}
-dev.off()
+Note how, in the stimulated cells, the mean-variance trend shifts to the right
+over time, with increasing variability of moderately to highly expressed genes
+at later time points.
+In particular, an interesting set of about a dozen of genes appears to be both
+highly expressed (mean log-expression > 10) and
+highly variable (markedly above the trend of estimated technical variance for
+most genes; blue line) in all groups of stimulated cells.
+This subset of genes is further investigated below, as they may represent
+key genes 
+
+## Highly expressed HVGs at 6h {.tabset}
+
+For each group of cells, the aforementioned sets of highly expressed and
+highly variable gene features are listed below:
+
+### 6h_D23580_exposed
+
+```{r 6h_D23580_exposed}
+DT::datatable(subset(HVGs.group[["6h_D23580_exposed"]], mean > 10 & bio > 5))
 ```
+
+### 6h_LT2_exposed
+
+```{r 6h_LT2_exposed}
+DT::datatable(subset(HVGs.group[["6h_LT2_exposed"]], mean > 10 & bio > 5))
+```
+
+### 6h_D23580_infected
+
+```{r 6h_D23580_infected}
+DT::datatable(subset(HVGs.group[["6h_D23580_infected"]], mean > 10 & bio > 5))
+```
+
+### 6h_LT2_infected
+
+```{r 6h_LT2_infected}
+DT::datatable(subset(HVGs.group[["6h_LT2_infected"]], mean > 10 & bio > 5))
+```
+
+## Technical noise fit
+
+We may also plot the biological component of variance against the mean
+normalised expression level (log-count) of each gene in each group.
+
+For this, let us first estimate the technical coefficient of variation as a
+function of the mean using the [scran](http://bioconductor.org/packages/scran)
+`technicalCV2` function for each group of cells:
+
+```{r CV2data, fig.height=9}
+CV2data <- data.frame()
+for (groupName in names(dVar.groups)){
+  techCV2 <- technicalCV2(
+    sce.norm[,sce.norm$Group == groupName], spike.type = "ERCC", assay = "counts")
+  geneNames <- rownames(techCV2)
+  CV2data <- rbind(CV2data, data.frame(
+    CV2 = techCV2$cv2,
+    meanScaledCount = techCV2$mean,
+    trend = techCV2$trend,
+    HVG = geneNames %in% rownames(HVGs.group[[groupName]]),
+    Time = gsub("(.*h)_.*", "\\1", groupName),
+    Treatment = gsub(".*h_(.*)", "\\1", groupName),
+    Feature = geneNames
+  ))
+}
+```
+
+We may then display the estimated $CV^2$ against the average scaled read count,
+while indicating the fitted variance-mean dependence (solid red curve), and
+the HVGs detected [earlier](#HVGsWithinGroups)
+
+```{r CV2plot, warning=FALSE, fig.height=7}
+ggplot(CV2data) +
+  geom_point(aes(meanScaledCount, CV2, colour = HVG), size = 0.2, alpha = 0.3) +
+  geom_smooth(
+    aes(meanScaledCount, CV2, fill = HVG), colour = "dimgray",
+    size = 0.5, alpha = 0.5) +
+  scale_x_log10() + scale_y_log10() +
+  facet_grid(Treatment ~ Time) +
+  theme(legend.text = element_text(size=7), legend.title = element_text(size=7))
+```
+
 
 ```{r, include=FALSE}
 # Export Venn diagram figures
