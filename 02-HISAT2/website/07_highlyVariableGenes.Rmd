@@ -826,7 +826,7 @@ highly expressed (`norm_exprs > 10`) in group `D23 exposed`
 
 ```{r}
 ggplot(subset(normExprsMelt, gene_name == "CCL22")) +
-  geom_histogram(aes(norm_exprs)) +
+  geom_density(aes(norm_exprs)) +
   facet_wrap(~Treatment)
 ```
 
@@ -837,7 +837,7 @@ highly expressed (`norm_exprs > 10`) in group `D23 exposed`
 
 ```{r}
 ggplot(subset(normExprsMelt, gene_name == "CTSB")) +
-  geom_histogram(aes(norm_exprs)) +
+  geom_density(aes(norm_exprs)) +
   facet_wrap(~Treatment)
 ```
 
@@ -848,7 +848,7 @@ highly expressed (`norm_exprs > 10`) in group `D23 exposed`
 
 ```{r}
 ggplot(subset(normExprsMelt, gene_name == "SAT1")) +
-  geom_histogram(aes(norm_exprs)) +
+  geom_density(aes(norm_exprs)) +
   facet_wrap(~Treatment)
 ```
 
@@ -859,7 +859,7 @@ highly expressed (`norm_exprs > 10`) in group `D23 exposed`
 
 ```{r}
 ggplot(subset(normExprsMelt, gene_name == "TNFAIP2")) +
-  geom_histogram(aes(norm_exprs)) +
+  geom_density(aes(norm_exprs)) +
   facet_wrap(~Treatment)
 ```
 
@@ -870,7 +870,7 @@ highly expressed (`norm_exprs > 10`) in group `D23 exposed`
 
 ```{r}
 ggplot(subset(normExprsMelt, gene_name == "CD83")) +
-  geom_histogram(aes(norm_exprs)) +
+  geom_density(aes(norm_exprs)) +
   facet_wrap(~Treatment)
 ```
 
@@ -881,7 +881,7 @@ highly expressed (`norm_exprs > 10`) in group `D23 exposed`
 
 ```{r}
 ggplot(subset(normExprsMelt, gene_name == "ACTG1")) +
-  geom_histogram(aes(norm_exprs)) +
+  geom_density(aes(norm_exprs)) +
   facet_wrap(~Treatment)
 ```
 
@@ -892,7 +892,7 @@ highly expressed (`norm_exprs > 10`) in group `LT2 exposed`
 
 ```{r}
 ggplot(subset(normExprsMelt, gene_name == "SLAMF7")) +
-  geom_histogram(aes(norm_exprs)) +
+  geom_density(aes(norm_exprs)) +
   facet_wrap(~Treatment)
 ```
 
@@ -903,7 +903,7 @@ highly expressed (`norm_exprs > 10`) in group `LT2 exposed`
 
 ```{r}
 ggplot(subset(normExprsMelt, gene_name == "NFKBIA")) +
-  geom_histogram(aes(norm_exprs)) +
+  geom_density(aes(norm_exprs)) +
   facet_wrap(~Treatment)
 ```
 
@@ -914,7 +914,7 @@ highly expressed (`norm_exprs > 10`) in group `LT2 exposed`
 
 ```{r}
 ggplot(subset(normExprsMelt, gene_name == "LDHA")) +
-  geom_histogram(aes(norm_exprs)) +
+  geom_density(aes(norm_exprs)) +
   facet_wrap(~Treatment)
 ```
 
@@ -925,7 +925,7 @@ highly expressed (`norm_exprs > 10`) in group `LT2 exposed`
 
 ```{r}
 ggplot(subset(normExprsMelt, gene_name == "SLC2A3")) +
-  geom_histogram(aes(norm_exprs)) +
+  geom_density(aes(norm_exprs)) +
   facet_wrap(~Treatment)
 ```
 
@@ -936,7 +936,7 @@ highly expressed (`norm_exprs > 10`) in group `D23 infected`
 
 ```{r}
 ggplot(subset(normExprsMelt, gene_name == "TIMP1")) +
-  geom_histogram(aes(norm_exprs)) +
+  geom_density(aes(norm_exprs)) +
   facet_wrap(~Treatment)
 ```
 
@@ -947,7 +947,7 @@ highly expressed (`norm_exprs > 10`) in group `D23 infected`
 
 ```{r}
 ggplot(subset(normExprsMelt, gene_name == "RSAD2")) +
-  geom_histogram(aes(norm_exprs)) +
+  geom_density(aes(norm_exprs)) +
   facet_wrap(~Treatment)
 ```
 
@@ -958,7 +958,7 @@ highly expressed (`norm_exprs > 10`) in group `D23 infected`
 
 ```{r}
 ggplot(subset(normExprsMelt, gene_name == "SPP1")) +
-  geom_histogram(aes(norm_exprs)) +
+  geom_density(aes(norm_exprs)) +
   facet_wrap(~Treatment)
 ```
 
@@ -969,7 +969,7 @@ highly expressed (`norm_exprs > 10`) in group `LT2 infected`
 
 ```{r}
 ggplot(subset(normExprsMelt, gene_name == "ANXA1")) +
-  geom_histogram(aes(norm_exprs)) +
+  geom_density(aes(norm_exprs)) +
   facet_wrap(~Treatment)
 ```
 
@@ -980,7 +980,7 @@ highly expressed (`norm_exprs > 10`) in group `LT2 infected`
 
 ```{r}
 ggplot(subset(normExprsMelt, gene_name == "ATF3")) +
-  geom_histogram(aes(norm_exprs)) +
+  geom_density(aes(norm_exprs)) +
   facet_wrap(~Treatment)
 ```
 
@@ -991,7 +991,7 @@ highly expressed (`norm_exprs > 10`) in group `LT2 infected`
 
 ```{r}
 ggplot(subset(normExprsMelt, gene_name == "PMAIP1")) +
-  geom_histogram(aes(norm_exprs)) +
+  geom_density(aes(norm_exprs)) +
   facet_wrap(~Treatment)
 ```
 
