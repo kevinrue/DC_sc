@@ -20,6 +20,7 @@ library(org.Hs.eg.db)
 library(EnsDb.Hsapiens.v79)
 library(goseq)
 library(DT)
+library(reshape2)
 ```
 
 ```{r defineTheme, child="_exprsViolinTheme.Rmd", include=FALSE}
@@ -763,31 +764,244 @@ key genes
 
 ## Highly expressed HVGs at 6h {.tabset}
 
-For each group of cells, the aforementioned sets of highly expressed and
-highly variable gene features are listed below:
+For each group of stimulated cells, the aforementioned sets of highly expressed
+and highly variable gene features are listed below and their distribution
+of expression levels displayed in the last tab:
 
 ### 6h_D23580_exposed
 
 ```{r 6h_D23580_exposed}
-DT::datatable(subset(HVGs.group[["6h_D23580_exposed"]], mean > 10 & bio > 5))
+HVG_D23_exp <- subset(HVGs.group[["6h_D23580_exposed"]], mean > 10 & bio > 5)
+DT::datatable(HVG_D23_exp)
 ```
 
 ### 6h_LT2_exposed
 
 ```{r 6h_LT2_exposed}
-DT::datatable(subset(HVGs.group[["6h_LT2_exposed"]], mean > 10 & bio > 5))
+HVG_LT2_exp <- subset(HVGs.group[["6h_LT2_exposed"]], mean > 10 & bio > 5)
+DT::datatable(HVG_LT2_exp)
 ```
 
 ### 6h_D23580_infected
 
 ```{r 6h_D23580_infected}
-DT::datatable(subset(HVGs.group[["6h_D23580_infected"]], mean > 10 & bio > 5))
+HVG_D23_inf <- subset(HVGs.group[["6h_D23580_infected"]], mean > 10 & bio > 5)
+DT::datatable(HVG_D23_inf)
 ```
 
 ### 6h_LT2_infected
 
 ```{r 6h_LT2_infected}
-DT::datatable(subset(HVGs.group[["6h_LT2_infected"]], mean > 10 & bio > 5))
+HVG_LT2_inf <- subset(HVGs.group[["6h_LT2_infected"]], mean > 10 & bio > 5)
+DT::datatable(HVG_LT2_inf)
+```
+
+### Melt
+
+This chunk of code melts the normalised expression data into a `data.frame`
+plotted in the next tab:
+
+```{r}
+normExprsMelt <- reshape2::melt(
+  norm_exprs(sce.norm)[,sce.norm$Time == "6h" & sce.norm$Infection != "Mock"],
+  varnames = c("Feature","Sample"), value.name = "norm_exprs")
+normExprsMelt <- merge(normExprsMelt, pData(sce.norm)[,c("Sample","Treatment")])
+normExprsMelt <- subset(
+  normExprsMelt, Feature %in% unique(c(
+    rownames(HVG_D23_exp),
+    rownames(HVG_LT2_exp),
+    rownames(HVG_D23_inf),
+    rownames(HVG_LT2_inf)))
+  )
+normExprsMelt <- merge(
+  normExprsMelt, data.frame(
+    Feature = featureNames(sce.norm), gene_name = fData(sce.norm)$gene_name)
+  )
+```
+
+### CCL22
+
+At 6h, gene *CCL22* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
+highly expressed (`norm_exprs > 10`) in group `D23 exposed`
+
+```{r}
+ggplot(subset(normExprsMelt, gene_name == "CCL22")) +
+  geom_histogram(aes(norm_exprs)) +
+  facet_wrap(~Treatment)
+```
+
+### CTSB
+
+At 6h, gene *CTSB* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
+highly expressed (`norm_exprs > 10`) in group `D23 exposed`
+
+```{r}
+ggplot(subset(normExprsMelt, gene_name == "CTSB")) +
+  geom_histogram(aes(norm_exprs)) +
+  facet_wrap(~Treatment)
+```
+
+### SAT1
+
+At 6h, gene *SAT1* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
+highly expressed (`norm_exprs > 10`) in group `D23 exposed`
+
+```{r}
+ggplot(subset(normExprsMelt, gene_name == "SAT1")) +
+  geom_histogram(aes(norm_exprs)) +
+  facet_wrap(~Treatment)
+```
+
+### TNFAIP2
+
+At 6h, gene *TNFAIP2* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
+highly expressed (`norm_exprs > 10`) in group `D23 exposed`
+
+```{r}
+ggplot(subset(normExprsMelt, gene_name == "TNFAIP2")) +
+  geom_histogram(aes(norm_exprs)) +
+  facet_wrap(~Treatment)
+```
+
+### CD83
+
+At 6h, gene *CD83* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
+highly expressed (`norm_exprs > 10`) in group `D23 exposed`
+
+```{r}
+ggplot(subset(normExprsMelt, gene_name == "CD83")) +
+  geom_histogram(aes(norm_exprs)) +
+  facet_wrap(~Treatment)
+```
+
+### ACTG1
+
+At 6h, gene *ACTG1* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
+highly expressed (`norm_exprs > 10`) in group `D23 exposed`
+
+```{r}
+ggplot(subset(normExprsMelt, gene_name == "ACTG1")) +
+  geom_histogram(aes(norm_exprs)) +
+  facet_wrap(~Treatment)
+```
+
+### SLAMF7
+
+At 6h, gene *SLAMF7* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
+highly expressed (`norm_exprs > 10`) in group `LT2 exposed`
+
+```{r}
+ggplot(subset(normExprsMelt, gene_name == "SLAMF7")) +
+  geom_histogram(aes(norm_exprs)) +
+  facet_wrap(~Treatment)
+```
+
+### NFKBIA
+
+At 6h, gene *NFKBIA* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
+highly expressed (`norm_exprs > 10`) in group `LT2 exposed`
+
+```{r}
+ggplot(subset(normExprsMelt, gene_name == "NFKBIA")) +
+  geom_histogram(aes(norm_exprs)) +
+  facet_wrap(~Treatment)
+```
+
+### LDHA
+
+At 6h, gene *LDHA* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
+highly expressed (`norm_exprs > 10`) in group `LT2 exposed`
+
+```{r}
+ggplot(subset(normExprsMelt, gene_name == "LDHA")) +
+  geom_histogram(aes(norm_exprs)) +
+  facet_wrap(~Treatment)
+```
+
+### SLC2A3
+
+At 6h, gene *SLC2A3* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
+highly expressed (`norm_exprs > 10`) in group `LT2 exposed`
+
+```{r}
+ggplot(subset(normExprsMelt, gene_name == "SLC2A3")) +
+  geom_histogram(aes(norm_exprs)) +
+  facet_wrap(~Treatment)
+```
+
+### TIMP1
+
+At 6h, gene *TIMP1* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
+highly expressed (`norm_exprs > 10`) in group `D23 infected`
+
+```{r}
+ggplot(subset(normExprsMelt, gene_name == "TIMP1")) +
+  geom_histogram(aes(norm_exprs)) +
+  facet_wrap(~Treatment)
+```
+
+### RSAD2
+
+At 6h, gene *RSAD2* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
+highly expressed (`norm_exprs > 10`) in group `D23 infected`
+
+```{r}
+ggplot(subset(normExprsMelt, gene_name == "RSAD2")) +
+  geom_histogram(aes(norm_exprs)) +
+  facet_wrap(~Treatment)
+```
+
+### SPP1
+
+At 6h, gene *SPP1* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
+highly expressed (`norm_exprs > 10`) in group `D23 infected`
+
+```{r}
+ggplot(subset(normExprsMelt, gene_name == "SPP1")) +
+  geom_histogram(aes(norm_exprs)) +
+  facet_wrap(~Treatment)
+```
+
+### ANXA1
+
+At 6h, gene *ANXA1* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
+highly expressed (`norm_exprs > 10`) in group `LT2 infected`
+
+```{r}
+ggplot(subset(normExprsMelt, gene_name == "ANXA1")) +
+  geom_histogram(aes(norm_exprs)) +
+  facet_wrap(~Treatment)
+```
+
+### ATF3
+
+At 6h, gene *ATF3* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
+highly expressed (`norm_exprs > 10`) in group `LT2 infected`
+
+```{r}
+ggplot(subset(normExprsMelt, gene_name == "ATF3")) +
+  geom_histogram(aes(norm_exprs)) +
+  facet_wrap(~Treatment)
+```
+
+### PMAIP1
+
+At 6h, gene *PMAIP1* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
+highly expressed (`norm_exprs > 10`) in group `LT2 infected`
+
+```{r}
+ggplot(subset(normExprsMelt, gene_name == "PMAIP1")) +
+  geom_histogram(aes(norm_exprs)) +
+  facet_wrap(~Treatment)
+```
+
+
+### All
+
+```{r}
+ggplot(normExprsMelt) +
+  geom_density(aes(norm_exprs, colour = gene_name), alpha = 0.5) +
+  facet_wrap(~Treatment)
 ```
 
 ## Technical noise fit
