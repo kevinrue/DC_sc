@@ -30,12 +30,9 @@ For this analysis we use:
 * features with an average count equal or higher than $1$ (see this earlier
   [section](04_featureSelection#selectFeatures))
 
-```{r scePassCounts, eval=FALSE}
-dim(counts(sce.norm))
-```
-
 **Note:** this contrasts with the stringent condition of ≥20 RPM on average
-across all cells, demonstrated in [@BASiCS2016DE].
+across all cells, demonstrated in [@BASiCS2016DE]. However, feature
+selection is highly dependent on the nature of the experimental design.
 
 As a result, the input data contains `r nrow(sce.norm)` features and
 `r ncol(sce.norm)` cells.
@@ -46,27 +43,22 @@ As a result, the input data contains `r nrow(sce.norm)` features and
 
 ### Spike-in genes information
 
-In subsequent steps of the analysis, technical spike-in features are identified
-as follows:
+In subsequent steps of the analysis, technical spike-in features are identified using the `scater::isSpike` method:
 
-```{r, results='hide'}
-isSpike(sce.norm)
-```
-
-This confirms that `r sum(isSpike(sce.norm))` ERCC spike-in features are left
-in the filtered dataset:
-
-```{r}
+```{r isSpike, include=FALSE}
 table(isSpike(sce.norm))
 ```
 
+This confirms that `r sum(isSpike(sce.norm))` ERCC spike-in features are left in
+the filtered dataset.
+
 ### Creating the input objects
 
-To use BASiCS, we need to create a `BASiCSDV_Data` object containing the
+To use BASiCS, we need to create a `BASiCS_Data` object containing the
 expression counts, a vector of logical spike-in gene indicators
 and the input number of mRNA molecules for each spike-in gene.
 
-```{r, warning=FALSE, results='hide', message=FALSE}
+```{r Data.input, results='hide', message=FALSE, warning=FALSE}
 Data.input <- list()
 ERCCnames <- rownames(sce.norm)[isSpike(sce.norm)]
 for (groupName in unique(sce.norm$Group)){
@@ -79,47 +71,46 @@ for (groupName in unique(sce.norm$Group)){
 }
 ```
 
-## Fitting the BASiCS model
+**Note:**
+Due to the nature of the feature selection filters, in the above code chunk
+the `newBASiCS_Data` method prints the following message for all 15 groups
+of cells:
 
-To run the MCMC algorithm, we use the function `BASiCS_MCMC`:
-
-**Note:** The following blocks of code currently crash after completion
-of the MCMC algorithm, with the following error message:
-
-```{r, echo=FALSE}
-message(" Show Traceback
-Error in dimnames(x) <- dn : length of 'dimnames' [2] not equal to array extent")
+```{r warning_newData, echo=FALSE}
+warning("Some genes have zero counts across all cells. Unless running a differential expression analysis, please remove those genes. Otherwise, the BASiCS_Data object is still a valid object. However, due to the lack of counts, posterior estimates for mu[i] and delta[i] associated to those genes will be driven by the prior. In such case, you must specify `PriorDelta = 'log-normal' in BASiCS_MCMC function.")
 ```
 
+## Fitting the BASiCS model (for differential expression)
 
-```{r eval=FALSE}
-for (groupName in names(Data.input)){
-  print(length(Data.input[[groupName]]@GeneNames))
-  print(length(Data.input[[groupName]]@BatchInfo))
-  print(table(Data.input[[groupName]]@Tech))
-}
-```
+To run the MCMC algorithm for differential expression,
+we use the function `BASiCS_MCMC`, following the recommendation prompted
+by the `newBASiCS_Data` function:
 
+* `PriorDelta` argument set to `"log-normal"`
+* due to the presence, within each experimental group of cells, of genes with
+  zero counts across all cells within that group, only use those `BASiCS_Data`
+  objects for differential expression analysis, *not*
+  differential over-dispersion
 
-```{r, eval=FALSE}
-N <- 2E2; Thin <- 10; Burn <- 1E2; chains.path <- "BASiCS"
-MCMC_Output.G1 <- BASiCS_MCMC(
-  Data.input[["2h_D23580_exposed"]], N = N, Thin = Thin, Burn = Burn,
-  PrintProgress = TRUE, StoreChains = TRUE,
-  StoreDir = chains.path, RunName = paste(groupName, N, sep= "_"),
-  PriorDelta = 'log-normal')
-```
-
-```{r, eval=FALSE}
-MCMC_Output <- list()
+```{r BASiCS_MCMC, results='hide', message=FALSE, eval=TRUE}
+MCMC_Output_DE <- list()
 N <- 20E3; Thin <- 10; Burn <- 10E3; chains.path <- "BASiCS"
 for (groupName in names(Data.input)){
-  MCMC_Output[[groupName]] <- BASiCS_MCMC(
+  MCMC_Output_DE[[groupName]] <- BASiCS_MCMC(
     Data.input[[groupName]], N = N, Thin = Thin, Burn = Burn,
-    PrintProgress = TRUE, StoreChains = TRUE,
-    StoreDir = chains.path, RunName = paste(groupName, N, sep= "_"),
-    PriorDelta = 'log-normal')
+    PrintProgress = TRUE, StoreChains = TRUE, PriorDelta = 'log-normal',
+    StoreDir = chains.path, RunName = paste(groupName, N, sep= "_"))
 }
+```
+
+```{r saveRDS}
+saveRDS(MCMC_Output_DE, "rds/MCMC_Output.rds")
+```
+
+Confirm that all groups of cells were run:
+
+```{r deleteMe}
+names(MCMC_Output_DE)
 ```
 
 <!-- As HTML pages are built independently, objects need to be saved to disk

@@ -21,6 +21,8 @@ featureCounts
 trimgalore
 *.log
 HVGs/
+SCDE/
+BASiCS
 
 # R Markdown website
 *_cache
