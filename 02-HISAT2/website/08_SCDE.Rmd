@@ -13,6 +13,7 @@ library(scater)
 library(scran)
 library(scde)
 library(ensembldb)
+library(RColorBrewer)
 sce.norm <- readRDS("rds/sce.norm.rds")
 EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
 ```
@@ -47,23 +48,21 @@ names(sg) <- colnames(sce.norm)
 
 # Fitting error models
 
-As a next step we fit the error models on which all subsequent calculations
+Here, we fit the error models on which all subsequent calculations
 will rely. The fitting process relies on a subset of robust genes that are
-detected in multiple cross-cell comparisons. Here we supply the `groups=sg`
-argument, so that the error models for each experimental group of cells
-are fit independently
-(using '15' different sets of "robust" genes in this case).
-If the groups argument is omitted, the models will be fit using a common set.
+detected in multiple cross-cell comparisons. Here we supply the groups
+defined above to the `groups` argument, so that the error models for each
+experimental group of cells are fit independently
+(using `r length(levels(sg))` different sets of "robust" genes in this case).
+If the groups argument is omitted, the models would be fit using a common set.
 
 **Note:** this step takes a considerable amount of time, even when multiple
 cores are used (~ 1 h using 4 cores to fit error models to each of the
-``r length(levels(sg))`` experimental groups).
-For this purpose, the chunk of code below is not executed during
-automated compilation; instead it is manually recomputed as necessary.
+`r length(levels(sg))` experimental groups).
 
 <!--
-During automated compilation, only load manually pre-computed error models
-saved to file.
+Switch eval to TRUE below and other chunks in this file
+when results should be updated.
 -->
 
 ```{r oifm, eval=FALSE}
@@ -88,24 +87,24 @@ DT::datatable(
 )
 ```
 
-Here, `corr.a` and `corr.b` are slope and intercept of the correlated component
-fit, `conc.*` refer to the concomitant fit, `corr.theta` is the NB
-over-dispersion, and `fail.r` is the background Poisson rate (fixed).
+In the table above:
+
+* `corr.a` and `corr.b` are slope and intercept of the correlated component fit
+* `conc.*` refer to the concomitant fit, `corr.theta` is the NB over-dispersion
+* `fail.r` is the background Poisson rate (fixed)
 
 Particularly poor cells may result in abnormal fits, most commonly showing
-negative corr.a, and should be removed.
+negative `corr.a`, and should be removed.
 
 ```{r validCells}
 valid.cells <- o.ifm$corr.a > 0
 table(valid.cells)
-```
-
-```{r oIfmValid}
 o.ifm <- o.ifm[valid.cells, ]
 ```
 
-Here, all the fits were valid; the above chunk of code does not actually do
-anything to the data.
+Here, all the fits were valid (most likely owing to the removal of outliers
+during earlier [sample QC](03_sampleQC.html)); as a consequence,
+the above chunk of code does not actually do anything to the data.
 
 Finally, we need to define an expression magnitude prior for the genes.
 Its main function, however, is to define a grid of expression magnitude values
@@ -117,9 +116,10 @@ o.prior <- scde.expression.prior(
 )
 ```
 
-Here we used a grid of `400` points, and let the maximum expression magnitude
-be determined by the default `0.999` quantile
-(use `max.value` parameter to specify the maximum expression magnitude
+Here we used a grid of **400** points, and let the maximum expression magnitude
+be determined by the default **0.999** quantile
+(default `max.quantile` setting;
+use `max.value` parameter to specify the maximum expression magnitude
 explicitly --- on log~10~ scale).
 
 # DE relative to uninfected cells {#DEcontrol}
@@ -127,7 +127,7 @@ explicitly --- on log~10~ scale).
 
 To test for differential expression:
 
-* first, we match the order of single cells in the fitted error models to the
+* we first match the order of single cells in the fitted error models to the
   order of the single cells in the original count matrix;
 * we use the above mapping to identify the experimental group and batch of each
   single cell in the order of the fitted error models,
@@ -143,22 +143,20 @@ To test for differential expression:
   of the table, regardless of their direction of differential expression,
 * we annotate genes with their gene name (at this stage, genes were only
   identified by their Ensembl gene identifier).
-* we store in two separate `list` objects *only* genes that have a
-  expression difference Z-score corrected for multiple hypothesis
-  different than zero (*i.e.* significantly DE):
-  + without batch correction
-  + with batch correction applied by plate processed:
+* we store in three separate lists the *full* tables of differential expression
+  results (*i.e.*, even if not significantly DE):
+    + without batch correction
+    + with batch correction applied by plate processed
+    + estimation of the batch effect
 
 **Note:** this step takes a considerable amount of time, even when multiple
 cores are used (~ 1 h using a single core to estimate batch effect and
 differential expression between each group of stimulated single cells and
 their matched control).
-For this purpose, the chunk of code below is not executed during
-automated compilation; instead it is manually recomputed as necessary.
 
 <!--
-During automated compilation, only load manually pre-computed DE statistics
-saved to file.
+Switch eval to TRUE below and other chunks in this file
+when results should be updated.
 -->
 
 ```{r orderSCDEphenotypes}
@@ -167,7 +165,7 @@ sg.all <- sg[newOrder]
 batch <- sce.norm$Plate[newOrder]
 ```
 
-```{r scdeExprDiff, eval=FALSE, warning=FALSE}
+```{r scdeExprDiff, eval=FALSE, warning=FALSE, message=FALSE}
 DE.res.raw <- list()
 DE.res.adjusted <- list()
 DE.res.batch <- list()
@@ -239,7 +237,8 @@ DE.res.batch <- readRDS("rds/DE.res.batch.rds")
 Let us display the count of differentially expressed genes:
 
 * Without batch correction (`Raw`)
-* With batch correction applied by plate processed (`Batch`). *Note that
+* With batch correction applied by plate processed (`Adjusted`).
+  *Note:
   all samples of any of the `4` plates were processed on the same of the `2`
   sequencing lanes; as a result, accounting for a plate batch implicitely
   accounts for a lane batch.*
@@ -384,9 +383,11 @@ DT::datatable(
 )
 ```
 
-## Expression profile of DE genes
+## Expression profile of DE genes {.tabset}
 
-Let us display the expression level of `ISG15`,
+### Top 1
+
+Let us display the expression level of *ISG15*,
 the most significantly DE gene at the `4h` time-point in
 the `4h_LT2_infected-4h_Mock_uninfected` contrast (incidentally, also the
 most significantly DE gene in all groups of stimulated cells relative to their
@@ -404,11 +405,13 @@ ggplot(ggData, aes(Time, norm_exprs)) +
   ggtitle(sprintf("%s (symbol: %s)", geneId, geneName))
 ```
 
+### Top 10
+
 As an alternative, we may also visualise, for the same contrast,
 the 10 most significant DE genes, placing all 15 groups of cells side by side,
 ordering groups by `Status>Infection>Time`:
 
-```{r top10_LT2vsUninfected, fig.height=8}
+```{r top10_LT2vsUninfected, fig.height=10}
 geneIds <-
   head(rownames(DE.res.adjusted[["4h_LT2_infected-4h_Mock_uninfected"]]), 10)
 genesExpr <- norm_exprs(sce.norm)[geneIds,]
@@ -429,9 +432,128 @@ ggplot(ggLong, aes(Group, norm_exprs)) +
   facet_grid(Feature ~ ., labeller = "label_gene") +
   theme(
     axis.text.x = element_text(angle=90),
-    strip.text.y = element_text(size = 5)) + exprsViolinTheme
+    strip.text.y = element_text(size = 10)) + exprsViolinTheme
 ```
 
+## Correlation of DE genes {.tabset}
+
+In this section, let us compared the fold-change of expression between
+groups of stimulated cells relative to time-matched uninfected cells (*e.g.*, fold-change of expression in the contrast `2h_D23580_infected-2h_Mock_uninfected`
+compared against the fold-change of expression in the contrast
+`2h_LT2_infected-2h_Mock_uninfected`).
+
+### Preprocessing
+
+The code below assembles differential expression results in a format
+compatible with the grammar of graphics implemented in `ggplot2`.
+A list of three tables is created; one for each time-point.
+Each table is subsequently used to produce a figure with four panels;
+one for each comparison between two groups of stimulated cells.
+Each table is stores the following information:
+
+* `Contrast`: the two groups of stimulated cells being compared
+  (relative to `uninfected` cells; *e.g.*,
+  `2h_D23580_infected-2h_LT2_infected`)
+* `Gene`: the Ensembl gene identifier
+* `mle.Y`, `mle.Y`: the maximum likelihood estimate (MLE) ofexpression-fold
+  change for each group of stimulated cells relative to time-matched
+  uninfected cells
+* `DE`: whether the gene is significantly differentially expressed (DE) in
+  `Group Y` (the group of stimulated cells on the left-hand side of the
+  comparison, represented on the Y axis), `Group X` (the group of stimulated
+  cells on the right-hand side of the comparison), `Both` groups, or `None`.
+* `Alpha`, `Size`: highlights genes significantly DE in any of the two
+  groups of stimulated cells being compared
+
+```{r}
+Contrasts <- c(
+  "D23580_infected-D23580_exposed", "LT2_infected-LT2_exposed",
+  "D23580_infected-LT2_infected","D23580_exposed-LT2_exposed")
+corTables <- list("2h"=data.frame(), "4h"=data.frame(), "6h"=data.frame())
+for (time in levels(sce.norm$Time)){
+  ctrlGroup <- sprintf("%s_Mock_uninfected", time)
+  for (Contrast in Contrasts){
+    groupNames <- strsplit(Contrast, "-")[[1]]
+    GroupY <- sprintf("%s_%s", time, groupNames[1])
+    GroupX <- sprintf("%s_%s", time, groupNames[2])
+    DE.res.Y <- DE.res.adjusted[[sprintf("%s-%s", GroupY, ctrlGroup)]]
+    DE.res.X <- DE.res.adjusted[[sprintf("%s-%s", GroupX, ctrlGroup)]]
+    ensGenes <- rownames(DE.res.Y)
+    plotData <- data.frame(
+      Contrast = gsub("(.*)-(.*)", "\\1 (Y)\n\\2 (X)", Contrast),
+      Gene = ensGenes,
+      mle.Y = DE.res.Y[ensGenes,"mle"],
+      mle.X = DE.res.X[ensGenes,"mle"],
+      DE = c("None" ,"Group Y", "Group X", "Both")[
+        1+(DE.res.Y[ensGenes,"cZ"]!=0) + 2*(DE.res.X[ensGenes,"cZ"]!=0)],
+      Alpha = c(0.5, 0.75)[
+        1+((DE.res.Y[ensGenes,"cZ"]!=0)|(DE.res.X[ensGenes,"cZ"]!=0))],
+      Size = c(0.4, 0.6)[
+        1+((DE.res.Y[ensGenes,"cZ"]!=0)|(DE.res.X[ensGenes,"cZ"]!=0))]
+    )
+    corTables[[time]] <- rbind(corTables[[time]], plotData)
+  }
+}
+```
+
+Let us manually pick colours to indicate genes differentially expressed
+in either, both, or none of the two groups of stimulated cells being
+compared:
+
+```{r corDEcolors}
+corDEcolors <- brewer.pal(9, "Pastel1")[c(1:3, 9)]
+names(corDEcolors) <- c("Both", "Group Y", "Group X", "None")
+```
+
+Let us identify the extremum values of MLE, to set identical axis ranges
+for all panels of all figures:
+
+```{r mleRange}
+mleRange <- range(c(
+  corTables[["2h"]][,c("mle.Y","mle.X")],
+  corTables[["4h"]][,c("mle.Y","mle.X")],
+  corTables[["6h"]][,c("mle.Y","mle.X")]
+))
+```
+
+Here, let us store shared elements of the figures used across the following
+panels:
+
+```{r corMleTheme}
+Wrap <- facet_wrap(~Contrast, nrow = 1)
+Labs <- labs(
+    x="maximum likelihood estimate of expression-fold change",
+    y="mle of fold-change")
+Scale_color <- scale_color_manual(values = corDEcolors)
+Scale_size <- scale_size(range = 0:1)
+Scale_x <- scale_x_continuous(limits=mleRange)
+Scale_y <- scale_y_continuous(limits=mleRange)
+Guides <- guides(alpha = "none", size = "none")
+```
+
+### 2h
+
+```{r, fig.height=3}
+ggplot(corTables[["2h"]]) +
+  geom_point(aes(mle.X, mle.Y, colour = DE, alpha = Alpha, size = Size)) +
+  theme_minimal()+Wrap+Labs+Scale_color+Scale_size+Scale_x+Scale_y+Guides
+```
+
+### 4h
+
+```{r, fig.height=3}
+ggplot(corTables[["4h"]]) +
+  geom_point(aes(mle.X, mle.Y, colour = DE, alpha = Alpha, size = Size)) +
+  theme_minimal()+Wrap+Labs+Scale_color+Scale_size+Scale_x+Scale_y+Guides
+```
+
+### 6h
+
+```{r, fig.height=3}
+ggplot(corTables[["6h"]]) +
+  geom_point(aes(mle.X, mle.Y, colour = DE, alpha = Alpha, size = Size)) +
+  theme_minimal()+Wrap+Labs+Scale_color+Scale_size+Scale_x+Scale_y+Guides
+```
 
 # DE between groups of stimulated cells
 ## Testing for DE genes {.tabset}
@@ -451,7 +573,7 @@ During automated compilation, only load manually pre-computed DE statistics
 saved to file.
 -->
 
-```{r scdeStimulated, eval=FALSE, warning=FALSE}
+```{r scdeStimulated, eval=FALSE, warning=FALSE, message=FALSE}
 contrasts <- list(
   c("%s_D23580_infected","%s_LT2_infected"),
   c("%s_D23580_infected","%s_D23580_exposed"),
@@ -462,8 +584,7 @@ for (time in levels(sce.norm$Time)){
   for (cindex in 1:4){
       sg.ref <- sprintf(contrasts[[cindex]][2], time)
       sg.tar <- sprintf(contrasts[[cindex]][1], time)
-      contrast <- sprintf("%s-%s", sg.tar, sg.ref)
-      message(contrast)
+      contrast <- sprintf("%s-%s", sg.tar, sg.ref); #message(contrast)
       groups <- rep(NA, length(sg.all))
       names(groups) <- names(sg.all)
       groups[which(sg.all == sg.ref)] <- sg.ref
@@ -529,7 +650,7 @@ DE.res.batch <- readRDS("rds/DE.res.batch.rds")
 Let us display the count of differentially expressed genes:
 
 * Without batch correction (`Raw`)
-* With batch correction applied by plate processed (`Batch`). *Note that
+* With batch correction applied by plate processed (`Adjusted`). *Note that
   all samples of any of the `4` plates were processed on the same of the `2`
   sequencing lanes; as a result, accounting for a plate batch implicitely
   accounts for a lane batch.*

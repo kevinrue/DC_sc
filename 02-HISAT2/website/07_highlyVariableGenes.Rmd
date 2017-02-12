@@ -21,6 +21,7 @@ library(EnsDb.Hsapiens.v79)
 library(goseq)
 library(DT)
 library(reshape2)
+library(dplyr)
 ```
 
 ```{r defineTheme, child="_exprsViolinTheme.Rmd", include=FALSE}
@@ -378,7 +379,7 @@ Now, let us cluster single cells according to their expression profile,
 ```{r sample.order}
 sample.order <- c()
 expGroups <- unique(pData(sce.endo)[,c("Time","Infection","Status")])
-expGroups <- dplyr::arrange(expGroups, Time, Status, Infection)
+expGroups <- arrange(expGroups, Time, Status, Infection)
 for (groupIndex in seq_len(nrow(expGroups))){
   time <- expGroups$Time[groupIndex]
   infection <- expGroups$Infection[groupIndex]
@@ -410,7 +411,9 @@ ht_semisupervised <- Heatmap(
 ```
 
 Let us use the [goseq](http://bioconductor.org/packages/goseq) package to
-identify the most enriched gene ontologies among the HVGs:
+identify the most enriched gene ontologies among the HVGs.
+Note that we restrict the results to GO categories associated with at least
+**10** genes, for robustness:
 
 ```{r GO.out}
 hvgs <- as.integer(rownames(sce.endo) %in% rownames(hvg.endo))
@@ -421,8 +424,15 @@ geneLengths <- read.delim(
 pwf <- goseq::nullp(hvgs, bias.data=geneLengths[names(hvgs),], plot.fit=FALSE)
 GO.out <- goseq::goseq(pwf, "hg38", "ensGene")
 GO.out$ontology <- as.factor(GO.out$ontology)
+GO.out.trim <- arrange(
+    subset(
+      GO.out,
+      p.adjust(over_represented_pvalue, "BH") < 0.05 & numInCat >= 10
+    ),
+    over_represented_pvalue
+  )
 DT::datatable(
-  subset(GO.out, over_represented_pvalue < 0.001),
+  head(GO.out.trim, 500), # restrict to top 500
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -432,41 +442,73 @@ category ``r GO.out$term[1]`` with identifier ``r GO.out$category[1]``:
 
 ```{r genes.top, message=FALSE}
 genes.topCategory <- unique(AnnotationDbi::select(
-  org.Hs.eg.db, GO.out$category[1], "ENSEMBL", "GOALL")$ENSEMBL
+  org.Hs.eg.db, GO.out.trim$category[1], "ENSEMBL", "GOALL")$ENSEMBL
 )
 table(rownames(hvg.endo) %in% genes.topCategory)
 ```
 
-Let us also annotated genes relating to the
-*type I interferon signaling pathway* in the same way:
+In the same manner, let us also annotated genes relating to **4** more
+GO categories relevant to the experimental design:
+
+* *type I interferon signaling pathway*
+  ([GO:0060337](http://amigo.geneontology.org/amigo/term/GO:0060337))
+* *cell death*
+  ([GO:0008219](http://amigo.geneontology.org/amigo/term/GO:0008219))
+* *lipid metabolic process*
+  ([GO:0006629](http://amigo.geneontology.org/amigo/term/GO:0006629))
+* *regulation of sequence-specific DNA binding transcription factor activity*
+  ([GO:0051090](http://amigo.geneontology.org/amigo/term/GO:0051090))
 
 ```{r genes.ifn, message=FALSE}
 genes.ifn <- unique(AnnotationDbi::select(
   org.Hs.eg.db, "GO:0060337", "ENSEMBL", "GOALL")$ENSEMBL)
 table(rownames(hvg.endo) %in% genes.ifn)
+genes.death <- unique(AnnotationDbi::select(
+  org.Hs.eg.db, "GO:0008219", "ENSEMBL", "GOALL")$ENSEMBL)
+table(rownames(hvg.endo) %in% genes.death)
+genes.lipid <- unique(AnnotationDbi::select(
+  org.Hs.eg.db, "GO:0006629", "ENSEMBL", "GOALL")$ENSEMBL)
+table(rownames(hvg.endo) %in% genes.lipid)
+genes.tf <- unique(AnnotationDbi::select(
+  org.Hs.eg.db, "GO:0051090", "ENSEMBL", "GOALL")$ENSEMBL)
+table(rownames(hvg.endo) %in% genes.tf)
 ```
 
 Let us annotate genes associated with the above GO categories on the heat map:
 
 ```{r heatmap_GO_annotations}
 top_l <- rownames(hvg.endo) %in% genes.topCategory
-h_top <- Heatmap(top_l + 0, name = GO.out$term[1], col = c("0" = "white", "1" = "purple"),
-        show_heatmap_legend = FALSE, width = unit(5, "mm"))
+h_top <- Heatmap(
+  top_l + 0, name = GO.out.trim$term[1], col = c("0" = "white", "1" = "purple"),
+  show_heatmap_legend = FALSE, width = unit(5, "mm"))
 ifn_l <- rownames(hvg.endo) %in% genes.ifn
-h_ifn <- Heatmap(ifn_l + 0, name = "IFN-I", col = c("0" = "white", "1" = "red"), 
-        show_heatmap_legend = FALSE, width = unit(5, "mm"))
+h_ifn <- Heatmap(
+  ifn_l + 0, name = "Type I IFN", col = c("0" = "white", "1" = "red"),
+  show_heatmap_legend = FALSE, width = unit(5, "mm"))
+death_l <- rownames(hvg.endo) %in% genes.death
+h_death <- Heatmap(
+  death_l + 0, name = "Cell death", col = c("0" = "white", "1" = "red"),
+  show_heatmap_legend = FALSE, width = unit(5, "mm"))
+lipid_l <- rownames(hvg.endo) %in% genes.lipid
+h_lipid <- Heatmap(
+  lipid_l + 0, name = "Lipid metab.", col = c("0" = "white", "1" = "red"),
+  show_heatmap_legend = FALSE, width = unit(5, "mm"))
+tf_l <- rownames(hvg.endo) %in% genes.tf
+h_tf <- Heatmap(
+  tf_l + 0, name = "TF activity", col = c("0" = "white", "1" = "red"),
+  show_heatmap_legend = FALSE, width = unit(5, "mm"))
 ```
 
 ## Supervised
 
 ```{r ht_supervised, fig.height=7}
-draw(ht_supervised + h_top + h_ifn)
+draw(ht_supervised + h_top + h_ifn + h_death + h_lipid + h_tf)
 ```
 
 ## Semi-supervised
 
 ```{r ht_semisupervised, fig.height=7}
-draw(ht_semisupervised + h_top + h_ifn)
+draw(ht_semisupervised + h_top + h_ifn + h_death + h_lipid + h_tf)
 ```
 
 # Pairwise distances between samples

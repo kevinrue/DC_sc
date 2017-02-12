@@ -28,7 +28,7 @@ navbar:
     - text: Normalisation
       icon: fa-bar-chart
       href: 05_normalisation.html
-    - text: Overview
+    - text: Analyses
       icon: fa-pie-chart
       menu:
       - text: "Clustering"
