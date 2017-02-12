@@ -26,7 +26,6 @@ HVGs/
 *_cache
 *_files
 *.html
-*.png
 css
 site_libs
 
