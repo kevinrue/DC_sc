@@ -92,7 +92,7 @@ by the `newBASiCS_Data` function:
   objects for differential expression analysis, *not*
   differential over-dispersion
 
-```{r BASiCS_MCMC, results='hide', message=FALSE, eval=TRUE}
+```{r BASiCS_MCMC, results='hide', message=FALSE, eval=FALSE}
 MCMC_Output_DE <- list()
 N <- 20E3; Thin <- 10; Burn <- 10E3; chains.path <- "BASiCS"
 for (groupName in names(Data.input)){
@@ -103,7 +103,7 @@ for (groupName in names(Data.input)){
 }
 ```
 
-```{r saveRDS}
+```{r saveRDS, eval=FALSE}
 saveRDS(MCMC_Output_DE, "rds/MCMC_Output.rds")
 ```
 

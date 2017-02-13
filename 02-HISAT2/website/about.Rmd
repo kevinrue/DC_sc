@@ -7,7 +7,7 @@ author:
         Medicine, NIHR Biomedical research centre, University of Oxford,
         John Radcliffe Hospital, Oxford, UK.
   - name: Kévin Rue-Albrecht
-    email: kevinrue67@gmail.com
+    email: kevin.rue-albrecht@ndm.ox.ac.uk
     affiliation: Target Discovery Institute, University of Oxford,
         Oxford OX3 7FZ, UK.
 ---
@@ -31,6 +31,10 @@ Computational analyses, manuscript preparation and editing.
 Project conception, experimental design, experimental work, and manuscript editing.
 
 ## Dr. Adam Cribbs
+
+Computational analysis support.
+
+## Dr. David Sims
 
 Computational analysis support.
 

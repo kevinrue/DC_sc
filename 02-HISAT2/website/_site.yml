@@ -4,6 +4,11 @@ navbar:
   right:
     - text: "Home"
       href: index.html
+    - text: "Background"
+      icon: fa-newspaper-o
+      menu:
+        - text: "Salmonellosis"
+          href: 00d_Salmonellosis.html
     - text: "Methods"
       icon: fa-flask
       menu:

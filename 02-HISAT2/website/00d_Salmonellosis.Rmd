@@ -1,5 +1,9 @@
 ---
 title: "Invasive Salmonellosis"
+bibliography: bibtex.bib
+nocite: | 
+  @Dougan_2014, @Herrero_ST64B, @Herrero_st313, @Jacobsen_2011, @Kingsley_2009,
+  @Leekitcharoenphon_2013, @Ramachandran_2015, @Singletary_2016, @Yang_2015
 ---
 
 ### Pathogenic *Salmonella*
@@ -130,9 +134,4 @@ ability, in human blood could be ruled out.
 
 ![The BLAST atlas is a visualization of gene conservation in a number of species against a single reference genome. The BLAST atlas thus shows which genes from the reference genome are present in the other genomes. As references, we selected the genome of *S.* Typhimurium D23580 and *S.* Typhi Ty2 because they are human-adapted and human specific, respectively.](img/D23580_BLAST.png)
 
-
-
-
-
-
-
+# References
