@@ -1037,18 +1037,22 @@ ggplot(normExprsMelt) + facet_wrap(~Treatment) +
   geom_density(aes(norm_exprs, colour = gene_name), alpha = 0.5)
 ```
 
-## TNFAIP2 at 2h and 4h {.tabset}
+## TNFAIP2 over time {.tabset}
+
+In this section, let us examine more closely how the distribution
+of *TNFAIP2* expression levels evolves over time within each
+experimental group of stimulated cells:
 
 ### Melt
 
 This chunk of code melts the normalised expression data for *TNFAIP2*
-at `2h` and `4h` into a `data.frame` plotted in the next tab:
+into a `data.frame` plotted in the next tabs:
 
 ```{r TNFAIP2normExprsMelt}
 TNFAIP2normExprsMelt <- reshape2::melt(
   norm_exprs(sce.norm)[
     mapIds(EnsDb.Hsapiens.v79, "TNFAIP2", "GENEID", "GENENAME"),
-    sce.norm$Time %in% c("2h", "4h") & sce.norm$Infection != "Mock", drop=FALSE
+    sce.norm$Infection != "Mock", drop=FALSE
   ],
   varnames = c("Feature","Sample"), value.name = "norm_exprs")
 TNFAIP2normExprsMelt <- merge(
@@ -1070,6 +1074,13 @@ ggplot(subset(TNFAIP2normExprsMelt, Time == "2h")) +
 
 ```{r TNFAIP2_4h}
 ggplot(subset(TNFAIP2normExprsMelt, Time == "4h")) +
+  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+```
+
+### 6h
+
+```{r TNFAIP2_6h}
+ggplot(subset(TNFAIP2normExprsMelt, Time == "6h")) +
   geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
 ```
 
