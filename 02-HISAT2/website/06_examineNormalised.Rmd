@@ -14,8 +14,18 @@ library(SummarizedExperiment)
 sce.norm <- readRDS("rds/sce.norm.rds")
 ```
 
-```{r defineTheme, child="_PCAtheme.Rmd", include=FALSE}
+# Plotting themes
+
+First of all, let us define theme elements used throughout various figures
+in the following sections:
+
+```{r PCAtheme}
+PCAtheme <- theme(
+    panel.grid = element_blank(),
+    legend.position = "bottom", legend.box = "vertical"
+  )
 ```
+
 
 # Relative importance of experimental factors {#explanatoryVariables}
 

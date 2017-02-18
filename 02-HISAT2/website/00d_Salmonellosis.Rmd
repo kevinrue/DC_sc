@@ -6,7 +6,7 @@ nocite: |
   @Leekitcharoenphon_2013, @Ramachandran_2015, @Singletary_2016, @Yang_2015
 ---
 
-### Pathogenic *Salmonella*
+# Pathogenic *Salmonella*
 
 Pathogenic *Salmonella* fall into two broad categories: typhoidal and non-typhoidal (NTS). 
 
@@ -27,7 +27,8 @@ healthy people.
 
 ![Typhoidal and nontyphoidal Salmonella infections. A generalized comparison of infection associated with (a) gastroenteritis (NTS) and (b) typhoid (S. Typhi).](img/Typhoidal_NTS.png)
 
-### Invasive salmonellosis in sub-Saharan Africa
+# Invasive salmonellosis in sub-Saharan Africa
+
 A highly invasive form of NTS disease, frequently associated with *S.* Typhimurium 
 isolates, has emerged as a major public health problem in sub-Saharan Africa. 
 This disease is characterized by bacteraemia and/or meningitis, with septic arthritis
@@ -55,7 +56,7 @@ invasive NTS strains to cause disease in order to facilitate the development of 
 
 ![Radial phylogram showing the phylogenetic relationship of *S.* Typhimurium sequence types (STs). The S. Typhimurium STs (red and yellow circles) are rooted to S. Typhi (blue circle). The length of the connecting line is proportional to the degree of divergence. S.Typhimurium STs from various worldwide locations outside sub-Saharan Africa SSA (red) and NTS STs predominantly from SSA (yellow) are indicated.](img/D23580_tree.png)
 
-### *S*. Typhimurium pathovar D23580
+# *S*. Typhimurium pathovar D23580
 Sequencing of a representative ST313 isolate, D23580, revealed a large number of 
 pseudogenes and deletions. As genomic degradation is a hallmark of host-adapted 
 or restricted *Salmonella* serovars, like *S.* Typhi, in contrast to most strains of 
@@ -64,7 +65,7 @@ to be evolving to become more host-adapted to humans.
 Thus, whereas categorized as NTS, Salmonella strain D23580 appears to lie somewhere 
 in between the conventional designations of typhoidal and non-typhoidal *Salmonella*.
 
-### *S*. Typhimurium pathovar D23580: genes, pseudogenes and prophages
+# *S*. Typhimurium pathovar D23580: genes, pseudogenes and prophages
 In bacteria, host restriction and change of ecological niche (gut to systemic
 disease) have been linked to the accumulation of large numbers of pseudogenes and 
 an overall reduction in genome size. 

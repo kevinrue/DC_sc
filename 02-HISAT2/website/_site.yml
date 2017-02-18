@@ -44,9 +44,6 @@ navbar:
         href: 08_SCDE.html
       - text: "BASiCS"
         href: 09_BASiCS.html
-    - text: "Themes"
-      icon: fa-picture-o
-      href: 00a_themes.html
     - text: "About"
       href: about.html
 output:

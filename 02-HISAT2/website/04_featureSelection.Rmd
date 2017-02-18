@@ -247,11 +247,11 @@ abline(v = log10(1), col = "blue", lwd = 2, lty = 2)
 
 In the context of the present multifactorial experimental design, let us define
 informative endogenous features as those with an average count above a
-threshold of **20** counts per million (CPM) in at least one experimental
+threshold of **20** counts per million (CPM) in at least **1** experimental
 group of cells (`r min(table(sce.pass$Group))`-`r max(table(sce.pass$Group))`
 cells per group, after exclusion of outliers).
 In contrast, let us define informative spike-in features
-as those with an average count greater or equal to a threhsold of 2 counts.
+as those with an average count greater or equal to a threhsold of **1** count.
 Note that the count of cells per group was reported
 [here](03_sampleQC#cellSelection)
 
@@ -286,8 +286,8 @@ avgCPMbyGroup$Status = factor(
   gsub(".*_(.*)$", "\\1", avgCPMbyGroup$Group), c("infected","exposed","uninfected"))
 ```
 
-The figure below indicates the 3 quartiles for
-each experimental group, *after removal of features with zero counts
+The figure below indicates the three quartiles for each experimental group,
+*after removal of features with zero counts
 (indicated in the label displayed at the bottom of each violin)*.
 For instance, generally ~30% of "detectable" features are
 found below 1 CPM (across all cells that passed QC filtering),

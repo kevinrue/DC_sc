@@ -18,7 +18,15 @@ sce.norm <- readRDS("rds/sce.norm.rds")
 EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
 ```
 
-```{r defineTheme, child="_exprsViolinTheme.Rmd", include=FALSE}
+# Plotting themes
+
+First of all, let us define theme elements used throughout various figures
+in the following sections:
+
+```{r exprsViolinTheme}
+exprsViolinTheme <- theme(
+    panel.grid.major.x = element_blank(),
+    legend.position = "bottom", legend.box = "vertical")
 ```
 
 # Prepare data
