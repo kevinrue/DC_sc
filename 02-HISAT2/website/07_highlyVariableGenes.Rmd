@@ -46,7 +46,7 @@ most significantly greater than the technical component.
 This avoids prioritizing genes that are highly variable due to technical
 factors such as sampling noise during RNA capture and library preparation.
 
-## Identifying variable genes {#identifyHVGs}
+## Define technical component by mean-variance trend {#trendMeanVarHVGs .tabset}
 
 ### Using ERCC spike-in features
 
@@ -117,7 +117,7 @@ endogenous features at moderately high levels of detection
 ### Using endogenous features
 
 Considering the technical variance in ERCC spike-in detection levels observed
-in the previous section, an alternate method of estimating technical variation
+in the previous tab, an alternate method of estimating technical variation
 across the dynamic range of expression uses endogenous features expression
 levels under the assumption that most endogenous features exhibit mostly
 technical variation, in contrast to little biological variation.
@@ -177,8 +177,8 @@ converge for ERCC spike-in features.
 
 ## Model selection
 
-The two methods (*i.e.*, ERCC spike-in and endogenous features) yield markedly
-distinct trends.
+The two methods presented above
+(*i.e.*, ERCC spike-in and endogenous features) yield markedly distinct trends.
 
 In particular, the limited count of spike-in features robustly detected
 across cells
@@ -207,7 +207,7 @@ estimated from the endogenous features) as it is consistent with the spike-in
 variances, and as such supporting the assumption that most genes have low
 levels of biological variability is valid in this data set.
 
-## Ranked HVGs {#HVGs}
+## Identify variable genes {#identifyHVGs .tabset}
 
 HVGs are defined as genes with biological components that are significantly
 greater than zero at a false discovery rate (FDR) of 5%.
@@ -218,11 +218,13 @@ transcriptional variance across all cells in the data set.
 
 In addition to the definition above, let us define as HVGs endogenous features
 with an estimated biological component of variance greater than or equal to
-0.5.
+**0.5**.
 For transformed expression values on the log~2~ scale, this means that the
 average difference in true expression between any two cells will be at least
 2-fold. This reasoning assumes that the true log-expression
 values are Normally distributed with variance of 0.5 [@67].
+
+### Identification
 
 ```{r hvg.out}
 hvg.out <- var.out.endo[which(
@@ -231,6 +233,11 @@ hvg.out <- var.out.endo[which(
 hvg.out <- hvg.out[order(hvg.out$bio, decreasing=TRUE),]
 nrow(hvg.out)
 ```
+
+\bioccomment{
+P-value and FDR of ERCC spike-in features are set to `NA` in the result table.
+As a result, any filter on those fields will remove those features.
+}
 
 Let us annotate features with their associated gene name:
 
@@ -252,12 +259,14 @@ for (cname in c("mean","total","bio","tech","p.value","FDR")){
 }
 ```
 
+### Table
+
 ```{r pandoc_topBioVariance, results='asis'}
 DT::datatable(
-  hvg.trim,
-  options = list(pageLength = 10, searching = TRUE), filter = "top"
+  hvg.trim, options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
+
 
 ## Expression levels {.tabset}
 
@@ -308,33 +317,71 @@ plotExpressionSCESet(
 The figure above reinforces clear-cut differences between cells
 stimulated by bacterial infection or exposure and `uninfected` cells.
 
+
+## GO enrichment
+
+Let us use the [goseq](http://bioconductor.org/packages/goseq) package to
+identify the most enriched gene ontologies among the HVGs.
+Note that we restrict the results to GO categories associated with at least
+**10** genes, for robustness:
+
+```{r GO.out}
+endoFeatures <- rownames(sce.norm)[!isSpike(sce.norm)]
+hvgs <- as.integer(endoFeatures %in% rownames(hvg.out))
+names(hvgs) <- endoFeatures
+table(hvgs)
+geneLengths <- read.delim(
+  "counts/WTCHG_305264_201201", row.names = 1)[,1, drop = FALSE]
+pwf <- goseq::nullp(hvgs, bias.data=geneLengths[names(hvgs),], plot.fit=FALSE)
+GO.out <- goseq::goseq(pwf, "hg38", "ensGene")
+GO.out$ontology <- as.factor(GO.out$ontology)
+GO.out.trim <- arrange(
+    subset(
+      GO.out,
+      p.adjust(over_represented_pvalue, "BH") < 0.05 & numInCat >= 10
+    ),
+    over_represented_pvalue
+  )
+```
+
+We may then display the table restricted to a maximum of **500**
+significantly enriched GO categories:
+
+```{r GO.out.trim}
+DT::datatable(
+  head(GO.out.trim, 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+```{r GO_HVGs_all, include=FALSE}
+write.csv(GO.out, "GO/HVGs.csv", row.names = FALSE)
+```
+
 # Expression heatmap {.tabset}
 
 We may then visualise normalised and scaled expression values in
 a heat map manually organised by phenotype, while allowing genes with similar
 expression profiles to cluster.
 
-Let us first subset the normalised data set to retain only endogenous features:
+## Preprocessing
 
-```{r excludeERCC}
-sce.endo <- sce.norm[!fData(sce.norm)$is_feature_control_ERCC,]
-dim(sce.endo)
-```
-
-In addition, let us also reorder samples by `Time`, `Status`, and `Infection`,
+Let us first subset the normalised data set to retain only endogenous features,
+and also reorder samples by `Time`, `Status`, and `Infection`,
 to facilitate interpretation of the expression data:
 
 ```{r orderSamples}
+sce.endo <- sce.norm[endoFeatures,]
 sce.endo <- sce.endo[,with(pData(sce.endo), order(Time, Status, Infection))]
 dim(sce.endo)
 ```
 
-We may now examine the expression data of the ``r nrow(sce.endo)``
-endogenous HVGs identified [above](#identifyHVGs):
+We may now examine the expression data of the endogenous HVGs identified
+[above](#identifyHVGs):
 
 ```{r topHVG.norm}
-hvg.endo <- norm_exprs(sce.endo)[rownames(hvg.out),]
-dim(hvg.endo)
+norm.endo.hvg <- norm_exprs(sce.endo)[rownames(hvg.out),]
+dim(norm.endo.hvg)
 ```
 
 Let us prepare colours to indicate phenotype levels:
@@ -360,8 +407,8 @@ h_column <- HeatmapAnnotation(
 Let us first cluster HVGs according to their expression profile across *all*
 single cells:
 
-```{r hvg.endo.clust}
-hvg.endo.d <- dist(hvg.endo)
+```{r norm.endo.hvg.clust}
+hvg.endo.d <- dist(norm.endo.hvg)
 hvg.endo.clust <- hclust(hvg.endo.d)
 rm(hvg.endo.d)
 ```
@@ -372,7 +419,7 @@ while grouping samples arbitrarily according to their respective
 
 ```{r heatmap_supervised}
 ht_supervised <- Heatmap(
-  hvg.endo,
+  norm.endo.hvg,
   name = "norm_exprs", column_title = "Normalised expression",
   top_annotation = h_column,
   row_order = hvg.endo.clust$order,
@@ -395,7 +442,7 @@ for (groupIndex in seq_len(nrow(expGroups))){
   sample.index <- with(pData(sce.endo), which(
     Time == time & Infection == infection & Status == status
   ))
-  hvg.sample.d <- dist(t(hvg.endo[,sample.index]))
+  hvg.sample.d <- dist(t(norm.endo.hvg[,sample.index]))
   local.order <- sample.index[hclust(hvg.sample.d)$order]
   sample.order <- c(sample.order, local.order)
   rm(sample.index, local.order, time, infection, status)
@@ -409,7 +456,7 @@ sub-structure within the otherwise homogeneous experimental groups:
 
 ```{r heatmap_semiSupervised}
 ht_semisupervised <- Heatmap(
-  hvg.endo,
+  norm.endo.hvg,
   name = "norm_exprs", column_title = "Normalised expression",
   top_annotation = h_column,
   row_order = hvg.endo.clust$order, column_order = sample.order,
@@ -418,41 +465,17 @@ ht_semisupervised <- Heatmap(
 )
 ```
 
-Let us use the [goseq](http://bioconductor.org/packages/goseq) package to
-identify the most enriched gene ontologies among the HVGs.
-Note that we restrict the results to GO categories associated with at least
-**10** genes, for robustness:
-
-```{r GO.out}
-hvgs <- as.integer(rownames(sce.endo) %in% rownames(hvg.endo))
-names(hvgs) <- rownames(sce.endo)
-table(hvgs)
-geneLengths <- read.delim(
-  "counts/WTCHG_305264_201201", row.names = 1)[,1, drop = FALSE]
-pwf <- goseq::nullp(hvgs, bias.data=geneLengths[names(hvgs),], plot.fit=FALSE)
-GO.out <- goseq::goseq(pwf, "hg38", "ensGene")
-GO.out$ontology <- as.factor(GO.out$ontology)
-GO.out.trim <- arrange(
-    subset(
-      GO.out,
-      p.adjust(over_represented_pvalue, "BH") < 0.05 & numInCat >= 10
-    ),
-    over_represented_pvalue
-  )
-DT::datatable(
-  head(GO.out.trim, 500), # restrict to top 500
-  options = list(pageLength = 10, searching = TRUE), filter = "top"
-)
-```
+## Gene ontology
 
 Let us retrieve the identifier of genes associated with the most enriched
-category ``r GO.out$term[1]`` with identifier ``r GO.out$category[1]``:
+category *`r GO.out.trim$term[1]`* with identifier
+*`r GO.out.trim$category[1]`*:
 
 ```{r genes.top, message=FALSE}
 genes.topCategory <- unique(AnnotationDbi::select(
   org.Hs.eg.db, GO.out.trim$category[1], "ENSEMBL", "GOALL")$ENSEMBL
 )
-table(rownames(hvg.endo) %in% genes.topCategory)
+table(rownames(norm.endo.hvg) %in% genes.topCategory)
 ```
 
 In the same manner, let us also annotated genes relating to **4** more
@@ -470,38 +493,38 @@ GO categories relevant to the experimental design:
 ```{r genes.ifn, message=FALSE}
 genes.ifn <- unique(AnnotationDbi::select(
   org.Hs.eg.db, "GO:0060337", "ENSEMBL", "GOALL")$ENSEMBL)
-table(rownames(hvg.endo) %in% genes.ifn)
+table(rownames(norm.endo.hvg) %in% genes.ifn)
 genes.death <- unique(AnnotationDbi::select(
   org.Hs.eg.db, "GO:0008219", "ENSEMBL", "GOALL")$ENSEMBL)
-table(rownames(hvg.endo) %in% genes.death)
+table(rownames(norm.endo.hvg) %in% genes.death)
 genes.lipid <- unique(AnnotationDbi::select(
   org.Hs.eg.db, "GO:0006629", "ENSEMBL", "GOALL")$ENSEMBL)
-table(rownames(hvg.endo) %in% genes.lipid)
+table(rownames(norm.endo.hvg) %in% genes.lipid)
 genes.tf <- unique(AnnotationDbi::select(
   org.Hs.eg.db, "GO:0051090", "ENSEMBL", "GOALL")$ENSEMBL)
-table(rownames(hvg.endo) %in% genes.tf)
+table(rownames(norm.endo.hvg) %in% genes.tf)
 ```
 
 Let us annotate genes associated with the above GO categories on the heat map:
 
 ```{r heatmap_GO_annotations}
-top_l <- rownames(hvg.endo) %in% genes.topCategory
+top_l <- rownames(norm.endo.hvg) %in% genes.topCategory
 h_top <- Heatmap(
   top_l + 0, name = GO.out.trim$term[1], col = c("0" = "white", "1" = "purple"),
   show_heatmap_legend = FALSE, width = unit(5, "mm"))
-ifn_l <- rownames(hvg.endo) %in% genes.ifn
+ifn_l <- rownames(norm.endo.hvg) %in% genes.ifn
 h_ifn <- Heatmap(
   ifn_l + 0, name = "Type I IFN", col = c("0" = "white", "1" = "red"),
   show_heatmap_legend = FALSE, width = unit(5, "mm"))
-death_l <- rownames(hvg.endo) %in% genes.death
+death_l <- rownames(norm.endo.hvg) %in% genes.death
 h_death <- Heatmap(
   death_l + 0, name = "Cell death", col = c("0" = "white", "1" = "red"),
   show_heatmap_legend = FALSE, width = unit(5, "mm"))
-lipid_l <- rownames(hvg.endo) %in% genes.lipid
+lipid_l <- rownames(norm.endo.hvg) %in% genes.lipid
 h_lipid <- Heatmap(
   lipid_l + 0, name = "Lipid metab.", col = c("0" = "white", "1" = "red"),
   show_heatmap_legend = FALSE, width = unit(5, "mm"))
-tf_l <- rownames(hvg.endo) %in% genes.tf
+tf_l <- rownames(norm.endo.hvg) %in% genes.tf
 h_tf <- Heatmap(
   tf_l + 0, name = "TF activity", col = c("0" = "white", "1" = "red"),
   show_heatmap_legend = FALSE, width = unit(5, "mm"))
@@ -529,10 +552,10 @@ Calculate the Euclidian distance between samples using the
 normalised expression data calculated in a
 [previous section](05_normalisation.html#normalize)
 scaled (mean: **0**; standard deviation: **1**) for the
-`r nrow(hvg.endo)` HVGs identified [above](#HVGs):
+`r nrow(norm.endo.hvg)` HVGs identified [above](#identifyHVGs):
 
 ```{r distEuclidScaled}
-hvg.scaled <- t(scale(t(hvg.endo)))
+hvg.scaled <- t(scale(t(norm.endo.hvg)))
 d.e.s <- dist(t(hvg.scaled), diag = TRUE, upper = TRUE)
 mat.e.s <- as.matrix(d.e.s)
 ```
@@ -540,7 +563,7 @@ mat.e.s <- as.matrix(d.e.s)
 For comparison purposes, let us do the same with normalised (unscaled) values:
 
 ```{r distEuclidNorm}
-d.e.n <- dist(t(hvg.endo), diag = TRUE, upper = TRUE)
+d.e.n <- dist(t(norm.endo.hvg), diag = TRUE, upper = TRUE)
 mat.e.n <- as.matrix(d.e.n)
 ```
 
@@ -622,7 +645,7 @@ of samples are preserved by the scaling procedure). Therefore, there is
 no need to compare the identical heat maps produced for the two data sets.
 
 ```{r distSpearman}
-c.s <- MKmisc::corDist(t(hvg.endo), "spearman", diag = TRUE, upper = TRUE)
+c.s <- MKmisc::corDist(t(norm.endo.hvg), "spearman", diag = TRUE, upper = TRUE)
 mat.c.s <- as.matrix(c.s)
 ```
 
@@ -648,7 +671,7 @@ on the correlation between samples.
 We start calculating the sample correlation using the unscaled normalised data:
 
 ```{r distPearsonNorm}
-c.p.n <- MKmisc::corDist(t(hvg.endo), diag = TRUE, upper = TRUE)
+c.p.n <- MKmisc::corDist(t(norm.endo.hvg), diag = TRUE, upper = TRUE)
 mat.c.p.n <- as.matrix(c.p.n)
 ```
 
@@ -809,39 +832,229 @@ In particular, an interesting set of about a dozen of genes appears to be both
 highly expressed (mean log-expression > 10) and
 highly variable (markedly above the trend of estimated technical variance for
 most genes; blue line) in all groups of stimulated cells.
-This subset of genes is further investigated below, as they may represent
-key genes 
+This subset of genes is further investigated [below](#HVGsHE_6h),
+as they may represent key genes 
 
-## Highly expressed HVGs at 6h {.tabset}
+Let us visualise the count of HVGs identified in each experimental group:
 
-For each group of stimulated cells, the aforementioned sets of highly expressed
+```{r countHVGsByGroup, echo=FALSE}
+groupNames <- levels(sce.norm$Group)
+hvgsPerGroup <- data.frame(
+  Group = groupNames,
+  HVGs = sapply(groupNames, function(groupName){nrow(HVGs.group[[groupName]])}),
+  Time = gsub("(.*)_.*_.*", "\\1", groupNames),
+  Infection = gsub(".*_(.*)_.*", "\\1", groupNames),
+  Status = gsub(".*_.*_(.*)", "\\1", groupNames),
+  Treatment = gsub(".*h_(.*)", "\\1", groupNames)
+)
+ggplot(hvgsPerGroup) + geom_col(aes(Treatment, HVGs, alpha = Time, colour = Infection)) +
+  theme(
+    axis.text.x = element_text(angle=90, hjust = 1, vjust = 0.5),
+    axis.ticks.x = element_blank(), panel.background = element_blank(),
+    axis.title.x = element_blank()
+  ) +
+  facet_grid(. ~ Time)
+```
+
+## GO enrichment {.tabset}
+
+### Preprocessing
+
+Let us use the [goseq](http://bioconductor.org/packages/goseq) package to
+identify the most enriched gene ontologies among the HVGs identified
+within each experimental group of cells.
+Note that we restrict the results to GO categories associated with at least
+**10** genes, for robustness:
+
+```{r GO.withinGroup, message=FALSE, warning=FALSE}
+GO.HVGs.group <- list()
+for (groupName in names(HVGs.group)){
+  hvgs <- as.integer(rownames(sce.endo) %in% rownames(HVGs.group[[groupName]]))
+  names(hvgs) <- rownames(sce.endo)
+  table(hvgs)
+  geneLengths <- read.delim(
+    "counts/WTCHG_305264_201201", row.names = 1)[,1, drop = FALSE]
+  pwf <- goseq::nullp(hvgs, bias.data=geneLengths[names(hvgs),], plot.fit=FALSE)
+  GO.out <- goseq::goseq(pwf, "hg38", "ensGene")
+  GO.out$ontology <- as.factor(GO.out$ontology)
+  write.csv(GO.out, sprintf("GO/HVGs_%s.csv", groupName), row.names = FALSE)
+  GO.out.trim <- arrange(
+    subset(
+      GO.out,
+      p.adjust(over_represented_pvalue, "BH") < 0.05 & numInCat >= 10
+    ),
+    over_represented_pvalue
+  )
+  GO.HVGs.group[[groupName]] <- GO.out.trim
+}
+```
+
+### 2h_Mock_uninfected
+
+```{r HVGs_2h_Mock_uninfected}
+DT::datatable(
+  head(GO.HVGs.group[["2h_Mock_uninfected"]], 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 4h_Mock_uninfected
+
+```{r HVGs_4h_Mock_uninfected}
+DT::datatable(
+  head(GO.HVGs.group[["4h_Mock_uninfected"]], 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 6h_Mock_uninfected
+
+```{r HVGs_6h_Mock_uninfected}
+DT::datatable(
+  head(GO.HVGs.group[["6h_Mock_uninfected"]], 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 2h_D23580_exposed
+
+```{r HVGs_2h_D23580_exposed}
+DT::datatable(
+  head(GO.HVGs.group[["2h_D23580_exposed"]], 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 4h_D23580_exposed
+
+```{r HVGs_4h_D23580_exposed}
+DT::datatable(
+  head(GO.HVGs.group[["4h_D23580_exposed"]], 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 6h_D23580_exposed
+
+```{r HVGs_6h_D23580_exposed}
+DT::datatable(
+  head(GO.HVGs.group[["6h_D23580_exposed"]], 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 2h_LT2_exposed
+
+```{r HVGs_2h_LT2_exposed}
+DT::datatable(
+  head(GO.HVGs.group[["2h_LT2_exposed"]], 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 4h_LT2_exposed
+
+```{r HVGs_4h_LT2_exposed}
+DT::datatable(
+  head(GO.HVGs.group[["4h_LT2_exposed"]], 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 6h_LT2_exposed
+
+```{r HVGs_6h_LT2_exposed}
+DT::datatable(
+  head(GO.HVGs.group[["6h_LT2_exposed"]], 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 2h_D23580_infected
+
+```{r HVGs_2h_D23580_infected}
+DT::datatable(
+  head(GO.HVGs.group[["2h_D23580_infected"]], 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 4h_D23580_infected
+
+```{r HVGs_4h_D23580_infected}
+DT::datatable(
+  head(GO.HVGs.group[["4h_D23580_infected"]], 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 6h_D23580_infected
+
+```{r HVGs_6h_D23580_infected}
+DT::datatable(
+  head(GO.HVGs.group[["6h_D23580_infected"]], 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 2h_LT2_infected
+
+```{r HVGs_2h_LT2_infected}
+DT::datatable(
+  head(GO.HVGs.group[["2h_LT2_infected"]], 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 4h_LT2_infected
+
+```{r HVGs_4h_LT2_infected}
+DT::datatable(
+  head(GO.HVGs.group[["4h_LT2_infected"]], 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 6h_LT2_infected
+
+```{r HVGs_6h_LT2_infected}
+DT::datatable(
+  head(GO.HVGs.group[["6h_LT2_infected"]], 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+## Highly expressed HVGs at 6h {#HVGsHE_6h .tabset}
+
+For each group of stimulated cells, the [aforementioned](#HVGWithinGroups)
+sets of highly expressed
 and highly variable gene features are listed below and their distribution
 of expression levels displayed in the last tab:
 
 ### 6h_D23580_exposed
 
-```{r 6h_D23580_exposed}
+```{r HVGsHE_6h_D23580_exposed}
 HVG_D23_exp <- subset(HVGs.group[["6h_D23580_exposed"]], mean > 10 & bio > 5)
 DT::datatable(HVG_D23_exp)
 ```
 
 ### 6h_LT2_exposed
 
-```{r 6h_LT2_exposed}
+```{r HVGsHE_6h_LT2_exposed}
 HVG_LT2_exp <- subset(HVGs.group[["6h_LT2_exposed"]], mean > 10 & bio > 5)
 DT::datatable(HVG_LT2_exp)
 ```
 
 ### 6h_D23580_infected
 
-```{r 6h_D23580_infected}
+```{r HVGsHE_6h_D23580_infected}
 HVG_D23_inf <- subset(HVGs.group[["6h_D23580_infected"]], mean > 10 & bio > 5)
 DT::datatable(HVG_D23_inf)
 ```
 
 ### 6h_LT2_infected
 
-```{r 6h_LT2_infected}
+```{r HVGsHE_6h_LT2_infected}
 HVG_LT2_inf <- subset(HVGs.group[["6h_LT2_infected"]], mean > 10 & bio > 5)
 DT::datatable(HVG_LT2_inf)
 ```
@@ -1032,7 +1245,7 @@ ggplot(subset(normExprsMelt, gene_name == "PMAIP1")) +
 
 ### All
 
-```{r}
+```{r normExprsMelt_All}
 ggplot(normExprsMelt) + facet_wrap(~Treatment) +
   geom_density(aes(norm_exprs, colour = gene_name), alpha = 0.5)
 ```
@@ -1138,27 +1351,6 @@ for (time in levels(sce.norm$Time)){
   venn(hvgsList)
   dev.off()
 }
-```
-
-Let us visualise the count of HVGs identified in each experimental group:
-
-```{r countHVGsByGroup}
-groupNames <- levels(sce.norm$Group)
-hvgsPerGroup <- data.frame(
-  Group = groupNames,
-  HVGs = sapply(groupNames, function(groupName){nrow(HVGs.group[[groupName]])}),
-  Time = gsub("(.*)_.*_.*", "\\1", groupNames),
-  Infection = gsub(".*_(.*)_.*", "\\1", groupNames),
-  Status = gsub(".*_.*_(.*)", "\\1", groupNames),
-  Treatment = gsub(".*h_(.*)", "\\1", groupNames)
-)
-ggplot(hvgsPerGroup) + geom_col(aes(Treatment, HVGs, alpha = Time, colour = Infection)) +
-  theme(
-    axis.text.x = element_text(angle=90, hjust = 1, vjust = 0.5),
-    axis.ticks.x = element_blank(), panel.background = element_blank(),
-    axis.title.x = element_blank()
-  ) +
-  facet_grid(. ~ Time)
 ```
 
 # References
