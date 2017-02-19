@@ -107,11 +107,109 @@ for (groupName in names(Data.input)){
 saveRDS(MCMC_Output_DE, "rds/MCMC_Output.rds")
 ```
 
+```{r readRDS_MCMC, include=FALSE}
+MCMC_Output_DE <- readRDS("rds/MCMC_Output.rds")
+```
+
 Confirm that all groups of cells were run:
 
 ```{r deleteMe}
 names(MCMC_Output_DE)
 ```
+
+## Convergence diagnostics
+
+To assess convergence of each chain, some selected parameters may be
+viualised in traceplots. For a randomly selected experimental group:
+
+```{r, fig.height=6}
+rGroup <- sample(names(MCMC_Output_DE), 1)
+par(mar = c(4,6,4,2)); par(mfrow = c(3,2))
+plot(
+  apply(MCMC_Output_DE[[rGroup]]@mu,1,median), type = "l", cex.lab = 2,
+  ylab = expression(paste("Median of ",mu[iJ])), xlab = "Iteration")
+plot(
+  apply(MCMC_Output_DE[[rGroup]]@delta,1,median), type = "l", cex.lab = 2,
+  ylab = expression(paste("Median of ",delta[iJ])), xlab = "Iteration")
+plot(
+  apply(MCMC_Output_DE[[rGroup]]@phi,1,median), type = "l", cex.lab = 2,
+  ylab = expression(paste("Median of ",phi[iJ])), xlab = "Iteration")
+plot(
+  apply(MCMC_Output_DE[[rGroup]]@s,1,median), type = "l", cex.lab = 2,
+  ylab = expression(paste("Median of ",s[j[I]])), xlab = "Iteration")
+plot(
+  apply(MCMC_Output_DE[[rGroup]]@nu,1,median), type = "l", cex.lab = 2,
+  ylab = expression(paste("Median of ",nu[j[I]])), xlab = "Iteration")
+plot(
+  apply(MCMC_Output_DE[[rGroup]]@theta,1,median), type = "l", cex.lab = 2,
+  ylab = expression(paste("Median of ",theta[j[I]])), xlab = "Iteration")
+
+par(mar = c(5, 4, 4, 2) + 0.1); par(mfrow = c(1,1))
+```
+
+## Differential expression (mean and over-dispersion)
+
+Combine `BASiCS` data and chains for two groups to compare:
+
+```{r CombineBASiCS_Data}
+Data_2h_D23exp_mock <- CombineBASiCS_Data(
+  Data.input[["2h_D23580_exposed"]], Data.input[["2h_Mock_uninfected"]])
+MCMC_2h_D23exp_mock <- CombineBASiCS_Chain(
+  MCMC_Output_DE[["2h_D23580_exposed"]], MCMC_Output_DE[["2h_Mock_uninfected"]])
+```
+
+Test with **0%** fold-change tolerance:
+
+```{r Test_D23exp_mock_0}
+Test_D23exp_mock_0 <- BASiCS_D_TestDE(
+  Data_2h_D23exp_mock, MCMC_2h_D23exp_mock,
+  GeneNames = Data_2h_D23exp_mock@GeneNames[!Data_2h_D23exp_mock@Tech],
+  EpsilonM = 0, EpsilonD = 0,
+  EFDR_M = 0.05, EFDR_D = 0.05,
+  OrderVariable = "GeneIndex",
+  GroupLabelRef = "2h_uninfected", GroupLabelTest = "2h_D23580_exposed",
+  OffSet = FALSE)
+```
+
+Test with **40%** fold-change tolerance:
+
+```{r Test_D23exp_mock_40}
+Test_D23exp_mock_40 <- BASiCS_D_TestDE(
+  Data_2h_D23exp_mock, MCMC_2h_D23exp_mock,
+  GeneNames = Data_2h_D23exp_mock@GeneNames[!Data_2h_D23exp_mock@Tech],
+  EpsilonM = 0.4, EpsilonD = 0.4,
+  EFDR_M = 0.05, EFDR_D = 0.05,
+  OrderVariable = "GeneIndex",
+  GroupLabelRef = "2h_uninfected", GroupLabelTest = "2h_D23580_exposed",
+  OffSet = FALSE)
+```
+
+```{r}
+tableD23exp_2h <- cbind(
+  Symbol = fData(sce.norm)[Test_D23exp_mock_40$Table$GeneNames, "gene_name"],
+  Test_D23exp_mock_40$Table)
+```
+
+Try again with a more interesting group:
+
+```{r CombineBASiCS_Data}
+Data_4h_D23exp_mock <- CombineBASiCS_Data(
+  Data.input[["4h_D23580_exposed"]], Data.input[["4h_Mock_uninfected"]])
+MCMC_4h_D23exp_mock <- CombineBASiCS_Chain(
+  MCMC_Output_DE[["4h_D23580_exposed"]], MCMC_Output_DE[["4h_Mock_uninfected"]])
+Test_4h_D23exp_mock_40 <- BASiCS_D_TestDE(
+  Data_4h_D23exp_mock, MCMC_4h_D23exp_mock,
+  GeneNames = Data_4h_D23exp_mock@GeneNames[!Data_4h_D23exp_mock@Tech],
+  EpsilonM = 0.4, EpsilonD = 0.4,
+  EFDR_M = 0.05, EFDR_D = 0.05,
+  OrderVariable = "GeneIndex",
+  GroupLabelRef = "4h_uninfected", GroupLabelTest = "4h_D23580_exposed",
+  OffSet = FALSE)
+tableD23exp_4h <- cbind(
+  Symbol = fData(sce.norm)[Test_4h_D23exp_mock_40$Table$GeneNames, "gene_name"],
+  Test_4h_D23exp_mock_40$Table)
+```
+
 
 <!-- As HTML pages are built independently, objects need to be saved to disk
 and imported as needed by the other R mardown files -->
