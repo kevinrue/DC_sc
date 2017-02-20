@@ -45,6 +45,13 @@ cd <- apply(cd, 2, function(x){storage.mode(x) <- 'integer'; x})
 dim(cd)
 ```
 
+\bioccomment{
+The documentation of the `clean.counts` function should be improved.
+Two genes are discarded above because they are detected in a single cell each.
+The thresholds supplied are taken must be strictly met
+(i.e., stricly more than N reads, strictly more than N cells).
+}
+
 Let us also define a factor that separate cells from each experimental group:
 
 ```{r sg}
