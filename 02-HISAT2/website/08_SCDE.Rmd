@@ -453,7 +453,9 @@ ggplot(ggLong, aes(Group, norm_exprs)) +
 ## Correlation of DE genes {.tabset}
 
 In this section, let us compared the fold-change of expression between
-groups of stimulated cells relative to time-matched uninfected cells (*e.g.*, fold-change of expression in the contrast `2h_D23580_infected-2h_Mock_uninfected`
+groups of stimulated cells relative to time-matched uninfected cells
+(*e.g.*, fold-change of expression in the contrast
+`2h_D23580_infected-2h_Mock_uninfected`
 compared against the fold-change of expression in the contrast
 `2h_LT2_infected-2h_Mock_uninfected`).
 
@@ -480,7 +482,7 @@ Each table is stores the following information:
 * `Alpha`, `Size`: highlights genes significantly DE in any of the two
   groups of stimulated cells being compared
 
-```{r}
+```{r corTables}
 Contrasts <- c(
   "D23580_infected-D23580_exposed", "LT2_infected-LT2_exposed",
   "D23580_infected-LT2_infected","D23580_exposed-LT2_exposed")
@@ -548,7 +550,7 @@ Guides <- guides(alpha = "none", size = "none")
 
 ### 2h
 
-```{r, fig.height=6}
+```{r ggplotCor_2h, fig.height=6}
 ggplot(corTables[["2h"]]) +
   geom_point(aes(mle.X, mle.Y, colour = DE, alpha = Alpha, size = Size)) +
   theme_minimal()+Wrap+Labs+Scale_color+Scale_size+Scale_x+Scale_y+Guides
@@ -556,7 +558,7 @@ ggplot(corTables[["2h"]]) +
 
 ### 4h
 
-```{r, fig.height=6}
+```{r ggplotCor_4h, fig.height=6}
 ggplot(corTables[["4h"]]) +
   geom_point(aes(mle.X, mle.Y, colour = DE, alpha = Alpha, size = Size)) +
   theme_minimal()+Wrap+Labs+Scale_color+Scale_size+Scale_x+Scale_y+Guides
@@ -564,13 +566,63 @@ ggplot(corTables[["4h"]]) +
 
 ### 6h
 
-```{r, fig.height=6}
+```{r ggplotCor_6h, fig.height=6}
 ggplot(corTables[["6h"]]) +
   geom_point(aes(mle.X, mle.Y, colour = DE, alpha = Alpha, size = Size)) +
   theme_minimal()+Wrap+Labs+Scale_color+Scale_size+Scale_x+Scale_y+Guides
 ```
 
+### Differences
+
+In the `6h` panel, a number of genes appears to be differentially expressed
+in opposite direction between `D23580` and `LT2` infections (relative
+to `uninfected` time-mached controls).
+In this section, let us identify those genes.
+
+```{r corTables_Direction}
+corTables[["6h"]][,"Direction"] <- NA
+corTables[["6h"]][
+  with(corTables[["6h"]], which(DE != "Both")),"Size"] <- 0.4
+corTables[["6h"]][
+  with(corTables[["6h"]], which(DE == "Both" & mle.X > 0 & mle.Y > 0)),
+  "Direction"] <- "X: up - Y: up"
+corTables[["6h"]][
+  with(corTables[["6h"]], which(DE == "Both" & mle.X > 0 & mle.Y < 0)),
+  "Direction"] <- "X: up - Y: down"
+corTables[["6h"]][
+  with(corTables[["6h"]], which(DE == "Both" & mle.X < 0 & mle.Y > 0)),
+  "Direction"] <- "X: down - Y: up"
+corTables[["6h"]][
+  with(corTables[["6h"]], which(DE == "Both" & mle.X < 0 & mle.Y < 0)),
+  "Direction"] <- "X: down - Y: down"
+```
+
+### 6h - Opposite
+
+```{r ggplot_Direction, fig.height=6}
+ggplot(corTables[["6h"]]) +
+  geom_point(aes(mle.X, mle.Y, colour = Direction, alpha = Alpha, size = Size)) +
+  theme_minimal()+Wrap+Labs+Scale_size+Scale_x+Scale_y+Guides
+```
+
+```{r opposite_6h_CSVs, include=FALSE}
+for (tmpContrast in unique(corTables[["6h"]]$Contrast)){
+  csvName <- gsub("^(.*) \\(Y\\)\n(.*) \\(X\\)$", "\\1-\\2", tmpContrast)
+  tableOut <- subset(
+      corTables[["6h"]],
+      Contrast == tmpContrast & ((mle.Y * mle.X) < 0) & DE == "Both"
+    )
+  tableOut[,"Contrast"] <- gsub("\n", "-", tableOut[,"Contrast"])
+  tableOut[,"GENENAME"] <- mapIds(
+    EnsDb.Hsapiens.v79, as.character(tableOut[,"Gene"]), "GENENAME", "GENEID")
+  write.csv(tableOut, sprintf("SCDE/6h_opposite_%s.csv", csvName)
+  )
+}
+```
+
+
 # DE between groups of stimulated cells
+
 ## Testing for DE genes {.tabset}
 
 Similarly to the above code chunk to estimate differential expression
