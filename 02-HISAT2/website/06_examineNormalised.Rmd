@@ -69,7 +69,7 @@ clustering of those cells using different approaches.
 Let us initially focus our attention on the two principal components that
 explain the largest amount of variance in the endogenous features.
 
-**Note 1:** Some important default values are:
+**Note 1:** Some important *default* values are:
 
 * `ntop=500`: only the `500` most variable features are used
 * `scale_features=TRUE`: standardises expression values so that each feature
@@ -77,12 +77,12 @@ explain the largest amount of variance in the endogenous features.
   features expressed at high and low levels in the calculation of principal
   components.
 
-**Note 2:** Some important non-default values are:
+**Note 2:** Some important *non-default* values are:
 
 * `exprs_values="norm_exprs"`: the normalised log~2~-transformed CPM are used.
 * `feature_set=!isSpike(sce.norm)`: ERCC spike-in features are not considered
-  (see this [earlier section](05_normalisation.html#setSpike) for the
-  definition of spike-in features).
+  (see this [earlier section](05_normalisation.html#setSpike) where the
+  set of spike-in features is defined).
 
 ```{r plotPCASCESet}
 sce.norm <- plotPCASCESet(
@@ -172,8 +172,8 @@ plotReducedDim.SCESet(sce.norm, 3, colour_by = "Infection", shape_by = "Time") +
 ## Time-independent PCA analyses {.tabset}
 
 In the above [section](#PCA), the overwhelming influence of the `Time` factor
-likely shadows the relatively weaker effect of biologically relevant
-`Infection` and `Status` factors.
+likely shadows the relatively weaker effect of other biologically relevant
+factors `Infection` and `Status`.
 
 Let us perform PCA at each time point:
 
