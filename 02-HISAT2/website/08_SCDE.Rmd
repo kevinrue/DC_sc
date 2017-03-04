@@ -535,7 +535,7 @@ Here, let us store shared elements of the figures used across the following
 panels:
 
 ```{r corMleTheme}
-Wrap <- facet_wrap(~Contrast, nrow = 1)
+Wrap <- facet_wrap(~Contrast, nrow = 2)
 Labs <- labs(
     x="maximum likelihood estimate of expression-fold change",
     y="mle of fold-change")
@@ -548,7 +548,7 @@ Guides <- guides(alpha = "none", size = "none")
 
 ### 2h
 
-```{r, fig.height=3}
+```{r, fig.height=6}
 ggplot(corTables[["2h"]]) +
   geom_point(aes(mle.X, mle.Y, colour = DE, alpha = Alpha, size = Size)) +
   theme_minimal()+Wrap+Labs+Scale_color+Scale_size+Scale_x+Scale_y+Guides
@@ -556,7 +556,7 @@ ggplot(corTables[["2h"]]) +
 
 ### 4h
 
-```{r, fig.height=3}
+```{r, fig.height=6}
 ggplot(corTables[["4h"]]) +
   geom_point(aes(mle.X, mle.Y, colour = DE, alpha = Alpha, size = Size)) +
   theme_minimal()+Wrap+Labs+Scale_color+Scale_size+Scale_x+Scale_y+Guides
@@ -564,7 +564,7 @@ ggplot(corTables[["4h"]]) +
 
 ### 6h
 
-```{r, fig.height=3}
+```{r, fig.height=6}
 ggplot(corTables[["6h"]]) +
   geom_point(aes(mle.X, mle.Y, colour = DE, alpha = Alpha, size = Size)) +
   theme_minimal()+Wrap+Labs+Scale_color+Scale_size+Scale_x+Scale_y+Guides
