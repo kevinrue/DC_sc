@@ -21,8 +21,8 @@ Adapter and quality trimming using
 [Trim Galore!](http://www.bioinformatics.babraham.ac.uk/projects/trim_galore)
 (version **0.4.1**; using [cutadapt](https://pypi.python.org/pypi/cutadapt)
 version **1.10**) was tested;
-however, the marginal improvement of alignment rate (~ 1%) did not justify
-additional processing time and disk space.
+however, the high quality of the raw data, and the marginal improvement of
+alignment rate (~ 1%) did not justify additional processing time and disk space.
 
 # Composite genome (*Ensembl*)
 
