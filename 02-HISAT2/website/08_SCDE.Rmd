@@ -862,7 +862,7 @@ DT::datatable(
 
 ## Expression profile of DE genes {.tabset}
 
-Let us display the expression level of `CCL7`,
+Let us display the expression level of *CCL7*,
 a DE gene significantly more expressed in
 `4h_D23580_infected` than `4h_D23580_exposed`:
 
@@ -879,7 +879,7 @@ ggplot(ggData, aes(Status, norm_exprs, colour = Plate)) +
   ggtitle(sprintf("%s (symbol: %s)", geneId, geneName))
 ```
 
-Let us compare the posterior of `CCL7` for the four comparisons of interest:
+Let us compare the posterior of *CCL7* for the four comparisons of interest:
 
 ### 6h_D23_inf - 6h_D23_exp
 
