@@ -160,7 +160,7 @@ MCMC_2h_D23exp_mock <- CombineBASiCS_Chain(
 
 Test with **0%** fold-change tolerance:
 
-```{r Test_D23exp_mock_0}
+```{r Test_D23exp_mock_0, eval=FALSE}
 Test_D23exp_mock_0 <- BASiCS_D_TestDE(
   Data_2h_D23exp_mock, MCMC_2h_D23exp_mock,
   GeneNames = Data_2h_D23exp_mock@GeneNames[!Data_2h_D23exp_mock@Tech],
@@ -173,7 +173,7 @@ Test_D23exp_mock_0 <- BASiCS_D_TestDE(
 
 Test with **40%** fold-change tolerance:
 
-```{r Test_D23exp_mock_40}
+```{r Test_D23exp_mock_40, eval=FALSE}
 Test_D23exp_mock_40 <- BASiCS_D_TestDE(
   Data_2h_D23exp_mock, MCMC_2h_D23exp_mock,
   GeneNames = Data_2h_D23exp_mock@GeneNames[!Data_2h_D23exp_mock@Tech],
@@ -184,7 +184,7 @@ Test_D23exp_mock_40 <- BASiCS_D_TestDE(
   OffSet = FALSE)
 ```
 
-```{r}
+```{r, eval=FALSE}
 tableD23exp_2h <- cbind(
   Symbol = fData(sce.norm)[Test_D23exp_mock_40$Table$GeneNames, "gene_name"],
   Test_D23exp_mock_40$Table)
@@ -192,7 +192,7 @@ tableD23exp_2h <- cbind(
 
 Try again with a more interesting group:
 
-```{r CombineBASiCS_Data}
+```{r CombineBASiCS_Data_4h, eval=FALSE}
 Data_4h_D23exp_mock <- CombineBASiCS_Data(
   Data.input[["4h_D23580_exposed"]], Data.input[["4h_Mock_uninfected"]])
 MCMC_4h_D23exp_mock <- CombineBASiCS_Chain(
