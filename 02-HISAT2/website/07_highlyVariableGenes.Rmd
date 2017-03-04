@@ -60,7 +60,7 @@ variability, *i.e.*, any variance in their counts should be technical
 in origin.
 Given the mean abundance of a gene, the fitted value of the trend can be used
 as an estimate of the technical component for that gene.
-The biological component of the variance can then be calculated by subtracting
+The biological component of the variance may then be calculated by subtracting
 the technical component from the total variance of each gene with the
 [scran](http://bioconductor.org/packages/scran) `decomposeVar` function.
 
@@ -145,15 +145,16 @@ names(var.out.endo)
 
 We assess the suitability of the trend fitted to the endogenous variances by
 examining whether it is consistent with the spike-in variances.
-The trend passes through or close to most of the spike-in variances, indicating
-that our assumption (that most genes have low levels of biological variability)
-is valid.
+Notably, the trend passes through or close to most of the spike-in variances,
+indicating that our assumption
+(that most genes have low levels of biological variability) is valid.
 This strategy exploits the large number of endogenous genes to obtain a stable
 trend, with the ERCC spike-in feature used as diagnostic features rather than
 in the trend fitting itself.
-However, if our assumption did not hold, we would instead use the trend fitted
-to the ERCC spike-in variances with the default `use.spikes=TRUE`. This would 
-sacrifice stability to reduce systematic errors in the estimate of
+
+Importantly, if our assumption did not hold, we would instead use the trend
+fitted to the ERCC spike-in variances with the default `use.spikes=TRUE`.
+This would sacrifice stability to reduce systematic errors in the estimate of
 the biological component for each gene [@67].
 
 ```{r plot_var.out.endo}
@@ -203,14 +204,15 @@ assumption that most spike-in and endogenous features only show technical
 variation).
 
 Let us adopt a conservative approach and use the latter trend (*i.e.*,
-estimated from the endogenous features) as it is consistent with the spike-in
-variances, and as such supporting the assumption that most genes have low
+estimated from the endogenous features) as it appears to be more consistent
+with the spike-in variances,
+and as such supports the assumption that most genes have low
 levels of biological variability is valid in this data set.
 
 ## Identify variable genes {#identifyHVGs .tabset}
 
 HVGs are defined as genes with biological components that are significantly
-greater than zero at a false discovery rate (FDR) of 5%.
+greater than **0** at a false discovery rate (FDR) of **5%**.
 These genes are interesting as they are most likely to drive differences in the
 expression profiles between cells that belong to different experimental groups,
 while more generally explaining a substantial proportion of the
@@ -221,8 +223,9 @@ with an estimated biological component of variance greater than or equal to
 **0.5**.
 For transformed expression values on the log~2~ scale, this means that the
 average difference in true expression between any two cells will be at least
-2-fold. This reasoning assumes that the true log-expression
-values are Normally distributed with variance of 0.5 [@67].
+**2**-fold.
+This reasoning assumes that the true log-expression
+values are *Normally distributed* with variance of **0.5** [@67].
 
 ### Identification
 
@@ -233,6 +236,9 @@ hvg.out <- var.out.endo[which(
 hvg.out <- hvg.out[order(hvg.out$bio, decreasing=TRUE),]
 nrow(hvg.out)
 ```
+
+The above criteria have identified `r nrow(hvg.out)` endogenous genes as
+*highly variable*.
 
 \bioccomment{
 P-value and FDR of ERCC spike-in features are set to `NA` in the result table.
@@ -266,6 +272,8 @@ DT::datatable(
   hvg.trim, options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
+
+**Note**: the table is initially sorted by decreasing biological variance.
 
 
 ## Expression levels {.tabset}
@@ -303,7 +311,8 @@ plotExpressionSCESet(
 ```
 
 The figure above further links the high variance of those genes to
-the differences between bacteria-stimulated and mock-infected cells.
+the differences between bacteria-stimulated and mock-infected cells,
+particularly at the later time-points.
 
 ### Status
 
@@ -315,7 +324,8 @@ plotExpressionSCESet(
 ```
 
 The figure above reinforces clear-cut differences between cells
-stimulated by bacterial infection or exposure and `uninfected` cells.
+stimulated by bacterial infection or exposure and `uninfected` cells,
+particularly at the later time-points.
 
 
 ## GO enrichment
@@ -323,17 +333,49 @@ stimulated by bacterial infection or exposure and `uninfected` cells.
 Let us use the [goseq](http://bioconductor.org/packages/goseq) package to
 identify the most enriched gene ontologies among the HVGs.
 Note that we restrict the results to GO categories associated with at least
-**10** genes, for robustness:
+**10** genes, for robustness.
 
-```{r GO.out}
+The initial step of the
+[goseq](http://bioconductor.org/packages/goseq) procedure
+is to create a named vector that define whether each gene (*i.e.*, `names`)
+is highly variable (*i.e.*, `1`) or not (*i.e.*, `0`):
+
+```{r}
 endoFeatures <- rownames(sce.norm)[!isSpike(sce.norm)]
 hvgs <- as.integer(endoFeatures %in% rownames(hvg.out))
 names(hvgs) <- endoFeatures
 table(hvgs)
+```
+
+Next, [goseq](http://bioconductor.org/packages/goseq) is capable of
+accounting for gene length bias during GO testing. In the current case,
+the gene length information reported by
+[featureCounts](http://bioinf.wehi.edu.au/featureCounts) is used:
+
+```{r geneLengths}
 geneLengths <- read.delim(
   "counts/WTCHG_305264_201201", row.names = 1)[,1, drop = FALSE]
+```
+
+Using the above gene length data, the probability weighting function (PWF)
+is calculated for the full gene set in this analysis:
+
+```{r nullp}
 pwf <- goseq::nullp(hvgs, bias.data=geneLengths[names(hvgs),], plot.fit=FALSE)
+```
+
+Finally, the `goseq` function is used to test for enrichment amongst the
+HVGs:
+
+```{r GO.out}
 GO.out <- goseq::goseq(pwf, "hg38", "ensGene")
+```
+
+The ontology field (*i.e.*, `"BP"`, `"MF"`, or `"CC"`) is reformatted as
+a factor, and the result table is subsetted to retain only GO categories
+associated with at least **10** genes, for robustness:
+
+```{r GO.out.trim}
 GO.out$ontology <- as.factor(GO.out$ontology)
 GO.out.trim <- arrange(
     subset(
@@ -344,10 +386,10 @@ GO.out.trim <- arrange(
   )
 ```
 
-We may then display the table restricted to a maximum of **500**
+We may then display the table restricted to a maximum of **500** most
 significantly enriched GO categories:
 
-```{r GO.out.trim}
+```{r showGO.out.trim}
 DT::datatable(
   head(GO.out.trim, 500), # restrict to top 500
   options = list(pageLength = 10, searching = TRUE), filter = "top"
@@ -362,13 +404,15 @@ write.csv(GO.out, "GO/HVGs.csv", row.names = FALSE)
 
 We may then visualise normalised and scaled expression values in
 a heat map manually organised by phenotype, while allowing genes with similar
-expression profiles to cluster.
+expression profiles to cluster. The procedure is split below in multiple panels
+for visual convenience:
 
 ## Preprocessing
 
 Let us first subset the normalised data set to retain only endogenous features,
 and also reorder samples by `Time`, `Status`, and `Infection`,
-to facilitate interpretation of the expression data:
+to facilitate interpretation of the expression data in the context of the
+present experimental design:
 
 ```{r orderSamples}
 sce.endo <- sce.norm[endoFeatures,]
@@ -376,7 +420,7 @@ sce.endo <- sce.endo[,with(pData(sce.endo), order(Time, Status, Infection))]
 dim(sce.endo)
 ```
 
-We may now examine the expression data of the endogenous HVGs identified
+We may now select the expression data of the endogenous HVGs identified
 [above](#identifyHVGs):
 
 ```{r topHVG.norm}
@@ -544,105 +588,53 @@ draw(ht_semisupervised + h_top + h_ifn + h_death + h_lipid + h_tf)
 
 # Pairwise distances between samples
 
-## Euclidian distance
+In this section, let us explore three approaches to estimate pairwise distance
+between single cell samples using the normalised expression data calculated in
+a [previous section](05_normalisation.html#normalize)
+for the `r nrow(norm.endo.hvg)` HVGs identified [above](#identifyHVGs).
 
-### Estimate distances
+## Estimate distance {.tabset}
 
-Calculate the Euclidian distance between samples using the
-normalised expression data calculated in a
-[previous section](05_normalisation.html#normalize)
-scaled (mean: **0**; standard deviation: **1**) for the
-`r nrow(norm.endo.hvg)` HVGs identified [above](#identifyHVGs):
+### Euclidian distance
 
-```{r distEuclidScaled}
-hvg.scaled <- t(scale(t(norm.endo.hvg)))
-d.e.s <- dist(t(hvg.scaled), diag = TRUE, upper = TRUE)
-mat.e.s <- as.matrix(d.e.s)
-```
-
-For comparison purposes, let us do the same with normalised (unscaled) values:
+Estimate distance between cells using Euclidian distance:
 
 ```{r distEuclidNorm}
-d.e.n <- dist(t(norm.endo.hvg), diag = TRUE, upper = TRUE)
-mat.e.n <- as.matrix(d.e.n)
+d.e <- dist(t(norm.endo.hvg), diag = TRUE, upper = TRUE)
+mat.e <- as.matrix(d.e)
 ```
 
-We may then cluster samples according to their Euclidian distance for scaled
-values, using Ward's criterion to minimize the total variance within each
-cluster [@67]:
-
-```{r clustEuclidScaled}
-h.e.s <- hclust(d.e.s, method = "ward.D2")
-ord.e.s <- mat.e.s[h.e.s$order, h.e.s$order]
-rm(mat.e.s)
-```
-
-Again, do the same for unscaled values:
+We may then cluster samples according to their Euclidian distance,
+using Ward's criterion to minimize the total variance within each cluster [@67]:
 
 ```{r clustEuclidNorm}
-h.e.n <- hclust(d.e.n, method = "ward.D2")
-ord.e.n <- mat.e.n[h.e.n$order, h.e.n$order]
-rm(mat.e.n)
+h.e <- hclust(d.e, method = "ward.D2")
+ord.e <- mat.e[h.e$order, h.e$order]
+rm(mat.e)
 ```
 
-### Heat maps {.tabset}
+Assemble the heat map:
 
-Draw the heat maps using Euclidian distance for normalised or
-normalised-scaled data:
-
-```{r heatEuclid}
-hs_column <- HeatmapAnnotation(
-  df = pData(sce.endo)[h.e.s$order,c("Time", "Status", "Infection")],
+```{r heatEuclid, fig.height=6}
+ht_column <- HeatmapAnnotation(
+  df = pData(sce.endo)[h.e$order,c("Time", "Status", "Infection")],
   col = list(
     Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
     Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
     Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
   )
 )
-hs <- Heatmap(
-  ord.e.s, name = "distance", column_title = "Normalised scaled",
-  top_annotation = hs_column,
-  cluster_rows = FALSE, cluster_columns = FALSE,
-  show_row_names = FALSE, show_column_names = FALSE
-)
-hn_column <- HeatmapAnnotation(
-  df = pData(sce.endo)[h.e.n$order,c("Time", "Status", "Infection")],
-  col = list(
-    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
-    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
-    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
-  )
-)
-hn <- Heatmap(
-  ord.e.n, name = "distance", column_title = "Normalised unscaled",
-  top_annotation = hn_column,
+ht_e <- Heatmap(
+  ord.e, name = "distance", column_title = "Euclidian distance",
+  top_annotation = ht_column,
   cluster_rows = FALSE, cluster_columns = FALSE,
   show_row_names = FALSE, show_column_names = FALSE
 )
 ```
 
-#### Scaled
+### Spearman correlation
 
-```{r heatEuclidNorm, fig.height=6}
-draw(hs)
-```
-
-#### Normalised
-
-```{r heatEuclidScaled, fig.height=6}
-draw(hn)
-```
-
-## Spearman correlation
-
-### Estimate distances
-
-Estimate distance between cells using Spearman's (rank) correlation.
-
-**Note:**
-The rank correlation is insensitive to the scaling process (the order
-of samples are preserved by the scaling procedure). Therefore, there is
-no need to compare the identical heat maps produced for the two data sets.
+Estimate distance between cells using Spearman's $\rho$ correlation.
 
 ```{r distSpearman}
 c.s <- MKmisc::corDist(t(norm.endo.hvg), "spearman", diag = TRUE, upper = TRUE)
@@ -657,50 +649,7 @@ ord.c.s <- mat.c.s[h.c.s$order, h.c.s$order]
 rm(c.s)
 ```
 
-The heat map is shown along with those using Pearson correlation further
-[below](#correlationHeatMaps).
-
-## Pearson correlation
-
-### Estimate distances
-
-Estimate distance between cells using Pearson's correlation.
-Let us compare the effect of scaling the expression data (by gene)
-on the correlation between samples.
-
-We start calculating the sample correlation using the unscaled normalised data:
-
-```{r distPearsonNorm}
-c.p.n <- MKmisc::corDist(t(norm.endo.hvg), diag = TRUE, upper = TRUE)
-mat.c.p.n <- as.matrix(c.p.n)
-```
-
-We then do the same with the scaled data:
-
-```{r distPearsonScaled}
-c.p.s <- MKmisc::corDist(t(hvg.scaled), diag = TRUE, upper = TRUE)
-mat.c.p.s <- as.matrix(c.p.s)
-```
-
-Cluster samples using Pearson's correlation for the unscaled data:
-
-```{r clustPearsonNorm}
-h.c.p.n <- hclust(c.p.n)
-ord.c.p.n <- mat.c.p.n[h.c.p.n$order, h.c.p.n$order]
-rm(c.p.n)
-```
-
-And the same for the scaled data:
-
-```{r clustPearsonScaled}
-h.c.p.s <- hclust(c.p.s)
-ord.c.p.s <- mat.c.p.s[h.c.p.s$order, h.c.p.s$order]
-rm(c.p.s)
-```
-
-### Heat maps {#correlationHeatMaps .tabset}
-
-Let us prepare the heat map using Spearman's $\rho$ correlation:
+Assemble the heat map:
 
 ```{r heatSpearman}
 ht_column <- HeatmapAnnotation(
@@ -712,63 +661,67 @@ ht_column <- HeatmapAnnotation(
   )
 )
 ht_s <- Heatmap(
-  ord.c.s, name = "distance", column_title = "Spearman distance",
+  ord.c.s, name = "distance", column_title = "Spearman absolute correlation distance",
   top_annotation = ht_column,
   cluster_rows = FALSE, cluster_columns = FALSE,
   show_row_names = FALSE, show_column_names = FALSE
 )
 ```
 
-Followed by the heat maps using Pearson's _r_ correlation
-(*i.e.*, normalised, and normalised scaled):
+### Pearson correlation
+
+Estimate distance between cells using Pearson's $r$ correlation:
+
+```{r distPearsonNorm}
+c.p <- MKmisc::corDist(t(norm.endo.hvg), diag = TRUE, upper = TRUE)
+mat.c.p <- as.matrix(c.p)
+```
+
+Cluster samples using Pearson's correlation:
+
+```{r clustPearsonNorm}
+h.c.p <- hclust(c.p)
+ord.c.p <- mat.c.p[h.c.p$order, h.c.p$order]
+rm(c.p)
+```
+
+Assemble the heat map:
 
 ```{r heatPearson}
 hn_column <- HeatmapAnnotation(
-  df = pData(sce.endo)[h.c.p.n$order,c("Time", "Status", "Infection")],
+  df = pData(sce.endo)[h.c.p$order,c("Time", "Status", "Infection")],
   col = list(
     Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
     Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
     Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
   )
 )
-ht_pn <- Heatmap(
-  ord.c.p.n, name = "distance", column_title = "Normalised unscaled",
+ht_p <- Heatmap(
+  ord.c.p, name = "distance", column_title = "Pearson absolute correlation distance",
   top_annotation = hn_column,
-  cluster_rows = FALSE, cluster_columns = FALSE,
-  show_row_names = FALSE, show_column_names = FALSE
-)
-hs_column <- HeatmapAnnotation(
-  df = pData(sce.endo)[h.c.p.s$order,c("Time", "Status", "Infection")],
-  col = list(
-    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
-    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
-    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
-  )
-)
-ht_ps <- Heatmap(
-  ord.c.p.s, name = "distance", column_title = "Normalised scaled",
-  top_annotation = hs_column,
   cluster_rows = FALSE, cluster_columns = FALSE,
   show_row_names = FALSE, show_column_names = FALSE
 )
 ```
 
-#### Spearman
+## Heat maps {#correlationHeatMaps .tabset}
+
+### Euclidian
+
+```{r ht_e, fig.height=6}
+draw(ht_e)
+```
+
+### Spearman
 
 ```{r ht_s, fig.height=6}
 draw(ht_s)
 ```
 
-#### Pearson (normalised)
+### Pearson
 
-```{r heatPearsonNorm, fig.height=6}
-draw(ht_pn)
-```
-
-#### Pearson (scaled)
-
-```{r heatPearsonScaled, fig.height=6}
-draw(ht_ps)
+```{r ht_p, fig.height=6}
+draw(ht_p)
 ```
 
 <!-- As HTML pages are built independently, objects need to be saved to disk
@@ -825,17 +778,22 @@ for (group in levels(sce.norm$Group)){
 par(mfrow=c(1,1))
 ```
 
-Note how, in the stimulated cells, the mean-variance trend shifts to the right
-over time, with increasing variability of moderately to highly expressed genes
-at later time points.
-In particular, an interesting set of about a dozen of genes appears to be both
-highly expressed (mean log-expression > 10) and
-highly variable (markedly above the trend of estimated technical variance for
-most genes; blue line) in all groups of stimulated cells.
-This subset of genes is further investigated [below](#HVGsHE_6h),
-as they may represent key genes 
+In the figure above, note how---in the stimulated cells---the mean-variance
+trend shifts to the right over time;
+variability increases among moderately to highly expressed genes at later time
+points.
 
-Let us visualise the count of HVGs identified in each experimental group:
+Interestingly, at the `6h` time point, all groups of stimulated cells
+present a small set of genes that appear to be both
+highly expressed (mean log-expression > 10) and highly variable
+(markedly above the trend of estimated technical variance for most genes;
+blue line).
+Those subsets of genes are further investigated [below](#HVGsHE_6h),
+as they may represent key markers of polarisation toward distinct
+phenotypes (*e.g.*, states of cellular activation).
+
+Let us visualise the count of HVGs identified in each experimental group,
+while indicating the count of cells per group for reference:
 
 ```{r countHVGsByGroup, echo=FALSE}
 groupNames <- levels(sce.norm$Group)
@@ -845,22 +803,26 @@ hvgsPerGroup <- data.frame(
   Time = gsub("(.*)_.*_.*", "\\1", groupNames),
   Infection = gsub(".*_(.*)_.*", "\\1", groupNames),
   Status = gsub(".*_.*_(.*)", "\\1", groupNames),
-  Treatment = gsub(".*h_(.*)", "\\1", groupNames)
+  Treatment = gsub(".*h_(.*)", "\\1", groupNames),
+  Cells = as.numeric(table(sce.norm$Group)[groupNames])
 )
 ggplot(hvgsPerGroup) + geom_col(aes(Treatment, HVGs, alpha = Time, colour = Infection)) +
   theme(
     axis.text.x = element_text(angle=90, hjust = 1, vjust = 0.5),
     axis.ticks.x = element_blank(), panel.background = element_blank(),
     axis.title.x = element_blank()
-  ) +
+  ) + geom_label(aes(x = Treatment, y = 0, label = Cells)) +
   facet_grid(. ~ Time)
 ```
 
 ## GO enrichment {.tabset}
 
+For convenience, this section separates the code chunks from the result tables
+in multiple panels.
+
 ### Preprocessing
 
-Let us use the [goseq](http://bioconductor.org/packages/goseq) package to
+Let us use again the [goseq](http://bioconductor.org/packages/goseq) package to
 identify the most enriched gene ontologies among the HVGs identified
 within each experimental group of cells.
 Note that we restrict the results to GO categories associated with at least
@@ -1026,7 +988,7 @@ DT::datatable(
 
 ## Highly expressed HVGs at 6h {#HVGsHE_6h .tabset}
 
-For each group of stimulated cells, the [aforementioned](#HVGWithinGroups)
+For each group of stimulated cells, the [aforementioned](#HVGsWithinGroups)
 sets of highly expressed
 and highly variable gene features are listed below and their distribution
 of expression levels displayed in the last tab:
@@ -1336,6 +1298,7 @@ ggplot(CV2data) +
     size = 0.5, alpha = 0.5) +
   scale_x_log10() + scale_y_log10() +
   facet_grid(Treatment ~ Time) +
+  labs(x = "Average scaled read count", y = expression(CV^{2})) +
   theme(legend.text = element_text(size=7), legend.title = element_text(size=7))
 ```
 
