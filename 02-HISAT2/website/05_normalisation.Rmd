@@ -166,6 +166,7 @@ transcripts separately from the endogenous features:
 
 ```{r normalise}
 sce.norm <- normalize(sce.filtered)
+dim(sce.norm)
 ```
 
 <!-- As HTML pages are built independently, objects need to be saved to disk
