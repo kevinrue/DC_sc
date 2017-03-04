@@ -272,7 +272,8 @@ avgCPMbyGroup <- reshape2::melt(
 ```
 
 The following figure display the distribution of average log~10~(CPM)
-within each experimental group of single cells:
+within each experimental group of single cells
+(after removing zero-count genes):
 
 ```{r density_avgCPM}
 ggplot(avgCPMbyGroup) + geom_density(aes(log10(AvgCPM))) +
