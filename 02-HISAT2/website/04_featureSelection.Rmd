@@ -200,15 +200,17 @@ plotExprsFreqVsMean(
 ## Spike-in expectations
 
 Let us compare the expected number of spike-in molecules introduced in each
-sample (calculated in this [section](00b_moleculesERCC.html)), against the
-average count detected across all single cells:
+sample (calculated in this [section](00b_moleculesERCC.html)) against the
+average count detected across all single cells, while indicating the identity
+relationship $y = x$ as a solid black line:
 
-```{r ERCCcorrelation, warning=FALSE}
+```{r ERCCcorrelation, warning=FALSE, fig.height=6}
 mixC$avgCount <- rowMeans(counts(sce.pass)[mixC$ID,])
 names(mixC)
 maxPlot <- max(mixC$avgCount, mixC$ERCCmolecules)
 ggplot(mixC) + geom_point(aes(ERCCmolecules, avgCount)) +
   labs(x = "ERCC molecules injected", y = "Average count in cells passed QC") +
+  geom_abline(slope = 1, intercept = 0) +
   scale_x_log10() + scale_y_log10() + coord_fixed(ratio = 1)
 ```
 
@@ -264,122 +266,48 @@ may be inappropriately calculated.
 
 ```{r avgCPMbyGroup}
 avgCPMbyGroup <- apply(scater::cpm(sce.pass), 1, function(x){
-  tapply(x, sce.pass$Group, mean)
-})
+  tapply(x, sce.pass$Group, mean)})
 avgCPMbyGroup <- reshape2::melt(
   avgCPMbyGroup, varnames = c("Group", "Feature"), value.name = "AvgCPM")
 ```
 
-Let us examine the proportion of gene features expressed at various levels in 
-each experimental groups:
+The following figure display the distribution of average log~10~(CPM)
+within each experimental group of single cells:
 
-```{r}
-zeroCounts <- data.frame(
-  Group = levels(avgCPMbyGroup$Group),
-  y = 1E-2,
-  Count = with(avgCPMbyGroup, tapply(AvgCPM, Group, function(x){sum(x>0)}))
-)
-avgCPMbyGroup$Time = gsub("^(.*h)_.*", "\\1", avgCPMbyGroup$Group)
-avgCPMbyGroup$Infection = factor(
-  gsub(".*_(.*)_.*", "\\1", avgCPMbyGroup$Group), c("D23580","LT2","Mock"))
-avgCPMbyGroup$Status = factor(
-  gsub(".*_(.*)$", "\\1", avgCPMbyGroup$Group), c("infected","exposed","uninfected"))
+```{r density_avgCPM}
+ggplot(avgCPMbyGroup) + geom_density(aes(log10(AvgCPM))) +
+  facet_wrap(~ Group)
 ```
 
-The figure below indicates the three quartiles for each experimental group,
-*after removal of features with zero counts
-(indicated in the label displayed at the bottom of each violin)*.
-For instance, generally ~30% of "detectable" features are
-found below 1 CPM (across all cells that passed QC filtering),
-while ~50-60% of features are detected above 10 CPM:
+Let us now obtain---for each feature---the proportion of cells within each
+experimental group of cells that display an expression level above **10** CPM:
 
-```{r violinAvgCPMbyGroup, warning=FALSE}
-ggplot(avgCPMbyGroup, aes(Group, AvgCPM)) +
-  geom_violin(draw_quantiles = seq(0.25, 0.75, 0.25)) +
-  geom_label(aes(Group, y, label = Count), data = zeroCounts, size = 2) +
-  scale_y_log10(limits = c(1E-2, 1E5)) +
-  theme(
-    axis.text.x = element_text(angle = 90), panel.grid.major.x = element_blank()
-  )
+```{r propOver20byGroup}
+propOver20byGroup <- apply(scater::cpm(sce.pass), 1, function(x){
+  tapply(x, sce.pass$Group, function(x){sum(x > 10) / length(x)})
+})
+propOver20byGroup <- reshape2::melt(
+  propOver20byGroup, varnames = c("Group", "Feature"), value.name = "Proportion")
 ```
-
-Let us now count and display for each feature the number of experimental groups
-with an average CPM above various threshold:
-
-```{r}
-cutoffs <- c(10,20,50,100)
-groupsAboveCPM <- as.data.frame(sapply(
-  cutoffs,
-  function(cutoff){
-    with(avgCPMbyGroup, tapply(AvgCPM, Feature, function(x){sum(x > cutoff)}))
-  }
-))
-colnames(groupsAboveCPM) <- paste0("cpm", cutoffs)
-axisLabels <- labs(x="Feature index",y="Count of groups above CPM cutoff")
-```
-
-Let us remove ERCC spike-in identifiers from this table, as their detection
-level is not expected to vary between experimental conditions:
-
-```{r rmERCCcpm}
-endoGroupsAboveCPM <- subset(
-  groupsAboveCPM, !grepl("^ERCC-",rownames(groupsAboveCPM)))
-cpmIndex <- seq_len(nrow(endoGroupsAboveCPM))
-```
-
-## 10 CPM
-
-```{r endoGroupsAbove10cpm}
-ggplot(endoGroupsAboveCPM) + axisLabels +
-  geom_line(aes(cpmIndex, sort(cpm10, decreasing=TRUE)))
-```
-
-`r sum(endoGroupsAboveCPM$cpm10 >= 1)` endogenous features have an average CPM
-above **10** in at least **1** experimental group.
-
-## 20 CPM
-
-```{r groupsAbove20cpm}
-ggplot(endoGroupsAboveCPM) + axisLabels +
-  geom_line(aes(cpmIndex, sort(cpm20, decreasing=TRUE)))
-```
-
-`r sum(endoGroupsAboveCPM$cpm20 >= 1)` endogenous features have an average CPM
-above **20** in at least **1** experimental group.
-
-## 50 CPM
-
-```{r endoGroupsAbove50cpm}
-ggplot(endoGroupsAboveCPM) + axisLabels +
-  geom_line(aes(cpmIndex, sort(cpm50, decreasing=TRUE)))
-```
-
-`r sum(endoGroupsAboveCPM$cpm50 >= 1)` endogenous features have an average CPM above
-**50** in at least **1** experimental group.
-
-## 100 CPM
-
-```{r endoGroupsAbove100cpm}
-ggplot(endoGroupsAboveCPM) + axisLabels +
-  geom_line(aes(cpmIndex, sort(cpm100, decreasing=TRUE)))
-  axisLabels
-```
-
-`r sum(endoGroupsAboveCPM$cpm100 >= 1)` endogenous features have an average CPM above
-**100** in at least **1** experimental group.
 
 # Selection of detected features {#selectFeatures}
 
 Following the above observations, let us retain for further analysis:
 
-* endogenous features detected at an average level greater than **20** CPM in
-  **≥ 1** experimental group,
+* endogenous features detected above **10** CPM in at least **25%** of at least
+  **1** experimental group of cells
 * ERCC spike-in features detected at an average level greater than **1** count
   across all cells:
 
+```{r}
+detectedFeatures <- names(which(tapply(
+  propOver20byGroup$Proportion, propOver20byGroup$Feature,
+  function(x){sum(x > 0.25) > 0})))
+```
+
 ```{r detectedFeatures}
-stopifnot(all(rownames(groupsAboveCPM) == rownames(sce.pass)))
-keepEndogenous <- (groupsAboveCPM[,"cpm20"] >= 1) & (!isSpike(sce.pass))
+keepEndogenous <- (featureNames(sce.pass) %in% detectedFeatures) &
+  (!isSpike(sce.pass))
 keepSpike <- (rowMeans(counts(sce.pass)) > 1) & (isSpike(sce.pass))
 table(keepEndogenous); table(keepSpike)
 ```
@@ -387,16 +315,6 @@ table(keepEndogenous); table(keepSpike)
 ```{r sce.filtered}
 sce.filtered <- sce.pass[keepEndogenous | keepSpike,]
 dim(sce.filtered)
-```
-
-
-To facilitate later interpretation, let us annotate endogenous feature
-identifiers in the `SCESet` with gene symbols extracted from the same GTF file
-that was supplied to _featureCounts_ for quantitation:
-
-```{r annotateSymbol_sce.filtered}
-fData(sce.filtered)$gene_name <-
-  gtfData$gene_name[match(rownames(sce.filtered), gtfData$gene_id)]
 ```
 
 # References

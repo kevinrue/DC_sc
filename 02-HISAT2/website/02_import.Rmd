@@ -61,6 +61,30 @@ RG <- readDGE(
 dim(RG)
 ```
 
+# Gene annotations
+
+To ensure coherence between gene annotations and gene expression data,
+let us also import the `gene` records from the same GTF file that was supplied
+to *featureCounts* as `GRanges` of the
+[GenomicRanges](http://bioconductor.org/packages/GenomicRanges) package:
+
+```{r import.gff}
+gtfData <- import.gff(
+  "expdata/genes_with_ERCC.gtf", feature.type = "gene")
+names(as.data.frame(gtfData))
+```
+
+**Note:** the above code does *not* import records that relate to ERCC
+spike-in features, as these are annotated with **exon** *type* (GTF column 2)
+from the **ERCC** *soure* (GTF column 3).
+
+Let us match the order of the features in the GTF file to the order of the
+features imported from the count files:
+
+```{r gtfOrder}
+orderGtf <- match(rownames(RG$counts), gtfData$gene_id)
+```
+
 # `SCESet`
 
 Let us assemble the phenotype information and count data above into
@@ -83,48 +107,43 @@ associated with the count data imported [above](#Counts):
 rownames(pheno) <- pheno$Sample
 ```
 
+Similarly, we let us also prepare an `AnnotatedDataFrame` with appropriate
+`rownames` to describe the feature meta-information:
+
+```{r}
+fdata <- AnnotatedDataFrame(as.data.frame(mcols(gtfData)[orderGtf,]))
+rownames(fdata) <- rownames(RG$counts)
+```
+
+
 We may then create the four data sets:
 
 ```{r sce.all}
 pd.all <- new("AnnotatedDataFrame", data = pheno)
-sce.all <- newSCESet(countData = RG$counts, phenoData = pd.all)
+sce.all <- newSCESet(countData = RG$counts, phenoData = pd.all, featureData = fdata)
 dim(sce.all)
 ```
 ```{r sce.blank}
 idx.blank <- pheno$Status == "Blank"
 pd.blank <- new("AnnotatedDataFrame", data = droplevels(pheno[idx.blank,]))
-sce.blank <- newSCESet(countData = RG$counts[,idx.blank], phenoData = pd.blank)
+sce.blank <- newSCESet(
+  countData = RG$counts[,idx.blank], phenoData = pd.blank, featureData = fdata)
 dim(sce.blank)
 ```
 ```{r sce.bulk}
 idx.bulk<- pheno$Status == "BULK"
 pd.bulk <- new("AnnotatedDataFrame", data = droplevels(pheno[idx.bulk,]))
-sce.bulk <- newSCESet(countData = RG$counts[,idx.bulk], phenoData = pd.bulk)
+sce.bulk <- newSCESet(
+  countData = RG$counts[,idx.bulk], phenoData = pd.bulk, featureData = fdata)
 dim(sce.bulk)
 ```
 ```{r sce.sc}
 idx.sc <- pheno$Status %in% c("exposed","infected","uninfected")
 pd.sc <- new("AnnotatedDataFrame", data = droplevels(pheno[idx.sc,]))
-sce.sc <- newSCESet(countData = RG$counts[,idx.sc], phenoData = pd.sc)
+sce.sc <- newSCESet(
+  countData = RG$counts[,idx.sc], phenoData = pd.sc, featureData = fdata)
 dim(sce.sc)
 ```
-
-# Gene annotations
-
-To ensure coherence between gene annotations and gene expression data,
-let us also import the `gene` records from the same GTF file that was supplied
-to *featureCounts* as `GRanges` of the
-[GenomicRanges](http://bioconductor.org/packages/GenomicRanges) package:
-
-```{r import.gff}
-gtfData <- import.gff(
-  "expdata/genes_with_ERCC.gtf", feature.type = "gene")
-names(as.data.frame(gtfData))
-```
-
-**Note:** the above code does *not* import records that relate to ERCC
-spike-in features, as these are annotated with **exon** *type* (GTF column 2)
-from the **ERCC** *soure* (GTF column 3).
 
 <!-- As HTML pages are built independently, objects need to be saved to disk
 and imported as needed by the following R mardown files -->
