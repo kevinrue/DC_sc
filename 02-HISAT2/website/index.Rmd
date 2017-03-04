@@ -8,7 +8,9 @@ Welcome !
 
 # Introduction
 
-This *R Markdown Website* presents a single-cell RNA-sequencing experiment
+This
+[R Markdown Website](http://rmarkdown.rstudio.com/rmarkdown_websites.html)
+presents a single-cell RNA-sequencing experiment
 and analysis of dendritic cells following *Salmonella* infection.
 
 # Background
