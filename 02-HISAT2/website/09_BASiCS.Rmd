@@ -4,6 +4,10 @@ bibliography:
   bibtex.bib
 ---
 
+**IMPORTANT**:
+This analysis has not been completed successfully yet.
+Please ignore what follows.
+
 <!-- As HTML pages are built independently, large objects need to be
 reimported from disk, and smaller ones quickly recomputed. -->
 
