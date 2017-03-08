@@ -278,8 +278,8 @@ sce.norm <- plotTSNE(
   colour_by = "Status", shape_by = "Time", return_SCESet = TRUE,
   feature_set = !isSpike(sce.norm),
   perplexity = round(mean(table(sce.norm$Group)) / 2),
-  rand_seed = 1794, draw_plot = FALSE,
-) 
+  rand_seed = 1794, draw_plot = FALSE
+)
 ```
 
 #### Status
