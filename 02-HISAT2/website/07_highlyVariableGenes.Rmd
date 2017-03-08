@@ -778,6 +778,11 @@ for (group in levels(sce.norm$Group)){
 par(mfrow=c(1,1))
 ```
 
+```{r, include=FALSE}
+saveRDS(HVGs.group, "HVGs/HVGsByGroups.rds")
+```
+
+
 In the figure above, note how---in the stimulated cells---the mean-variance
 trend shifts to the right over time;
 variability increases among moderately to highly expressed genes at later time
