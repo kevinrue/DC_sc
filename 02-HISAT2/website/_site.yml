@@ -42,8 +42,8 @@ navbar:
         href: 07_highlyVariableGenes.html
       - text: "SCDE"
         href: 08_SCDE.html
-      - text: "BASiCS"
-        href: 09_BASiCS.html
+      - text: "Sub-group"
+        href: 10_subgroups.html
     - text: "About"
       href: about.html
 output:
