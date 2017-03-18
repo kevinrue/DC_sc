@@ -1,0 +1,265 @@
+---
+title: "Time course analysis using SCPattern and WaveCrest"
+bibliography:
+  bibtex.bib
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+library(scater)
+library(scran)
+library(SCPattern)
+library(ensembldb)
+sce.norm <- readRDS("rds/sce.norm.rds")
+EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
+```
+
+## Required inputs
+
+Matrix of expression values (normalised by `scran`)
+
+```{r}
+normExprs <- norm_exprs(sce.norm)[!isSpike(sce.norm),]
+dim(normExprs)
+```
+
+Vector of time covariate information:
+
+```{r}
+CondVector <- factor(sce.norm$Time, levels = levels(sce.norm$Time), ordered = TRUE)
+```
+
+## Analyse treatments separately
+
+Each `Treatment` (*i.e.*, `Infection:Status`) represents a different condition
+that may be tracked over time to identify divergent trends.
+
+### Data subsets
+
+```{r}
+norm.Mock <- normExprs[,which(sce.norm$Treatment == 'Mock_uninfected')]
+cond.Mock <- CondVector[which(sce.norm$Treatment == 'Mock_uninfected')]
+norm.D23inf <- normExprs[,which(sce.norm$Treatment == 'D23580_infected')]
+cond.D23inf <- CondVector[which(sce.norm$Treatment == 'D23580_infected')]
+norm.LT2inf <- normExprs[,which(sce.norm$Treatment == 'LT2_infected')]
+cond.LT2inf <- CondVector[which(sce.norm$Treatment == 'LT2_infected')]
+norm.D23exp <- normExprs[,which(sce.norm$Treatment == 'D23580_exposed')]
+cond.D23exp <- CondVector[which(sce.norm$Treatment == 'D23580_exposed')]
+norm.LT2exp <- normExprs[,which(sce.norm$Treatment == 'LT2_exposed')]
+cond.LT2exp <- CondVector[which(sce.norm$Treatment == 'LT2_exposed')]
+```
+
+## Posterior probability of expression patterns {.tabset}
+
+### Description
+
+Calculates gene-specic posterior probability (PP) of having each
+expression pattern.
+
+### Preprocessing
+
+```{r}
+multi.Mock <- SCPTest(norm.Mock, cond.Mock, rep(1, ncol(norm.Mock)))
+multi.D23inf <- SCPTest(norm.D23inf, cond.D23inf, rep(1, ncol(norm.D23inf)))
+multi.LT2inf <- SCPTest(norm.LT2inf, cond.LT2inf, rep(1, ncol(norm.LT2inf)))
+multi.D23exp <- SCPTest(norm.D23exp, cond.D23exp, rep(1, ncol(norm.D23exp)))
+multi.LT2exp <- SCPTest(norm.LT2exp, cond.LT2exp, rep(1, ncol(norm.LT2exp)))
+```
+
+### Annotation
+
+Annotate the result tables with gene names:
+
+```{r}
+mock.table <- data.frame(
+  multi.Mock$sortedlist, Gene = mapIds(
+    EnsDb.Hsapiens.v79, rownames(multi.Mock$sortedlist), "GENENAME", "GENEID")
+)
+D23inf.table <- data.frame(
+  multi.D23inf$sortedlist, Gene = mapIds(
+    EnsDb.Hsapiens.v79, rownames(multi.D23inf$sortedlist), "GENENAME", "GENEID")
+)
+LT2inf.table <- data.frame(
+  multi.LT2inf$sortedlist, Gene = mapIds(
+    EnsDb.Hsapiens.v79, rownames(multi.LT2inf$sortedlist), "GENENAME", "GENEID")
+)
+D23exp.table <- data.frame(
+  multi.D23exp$sortedlist, Gene = mapIds(
+    EnsDb.Hsapiens.v79, rownames(multi.D23exp$sortedlist), "GENENAME", "GENEID")
+)
+LT2exp.table <- data.frame(
+  multi.LT2exp$sortedlist, Gene = mapIds(
+    EnsDb.Hsapiens.v79, rownames(multi.LT2exp$sortedlist), "GENENAME", "GENEID")
+)
+```
+
+## DE genes {.tabset}
+
+The DE genes can be obtained from:
+
+### Mock
+
+```{r}
+DT::datatable(mock.table,options=list(pageLength=10,searching=TRUE),filter ="top")
+```
+
+### D23580-infected
+
+```{r}
+DT::datatable(D23inf.table,options=list(pageLength=10,searching=TRUE),filter ="top")
+```
+
+### LT2-infected
+
+```{r}
+DT::datatable(LT2inf.table,options=list(pageLength=10,searching=TRUE),filter ="top")
+```
+
+### D23580-exposed
+
+```{r}
+DT::datatable(D23exp.table,options=list(pageLength=10,searching=TRUE),filter ="top")
+```
+
+### LT2-exposed
+
+```{r}
+DT::datatable(LT2exp.table,options=list(pageLength=10,searching=TRUE),filter ="top")
+```
+
+## Visualisation
+
+Let us visualise:
+
+* the top **6** genes assigned to pattern with the highest confidence
+  *in each group*,
+* manually curated genes of interest to compare *across groups*.
+
+### MultiViolin
+
+Let us first define a wrapper function around the `SCPattern` `VioFun` function
+to display the expression profile for each of the **5** experimental groups
+in a figure by column:
+
+* **First column**: `Mock` / `uninfected` cells
+* **Second column**: `exposed` cells
+* **Third column**: `infected` cells
+
+And by row:
+
+* **First column**: `Mock` / `LT2` cells
+* **Second column**: `D23580` cells
+
+```{r}
+multiViolin <- function(geneName){
+  geneId <- mapIds(EnsDb.Hsapiens.v79, geneName, "GENEID", "GENENAME")
+  par(mfrow=c(2,3))
+  VioFun(
+    geneId, norm.Mock, cond.Mock,
+    main_pre=sprintf(": %s\n(Mock)", geneName))
+  VioFun(
+    geneId, norm.LT2exp, cond.LT2exp,
+    main_pre=sprintf(": %s\n(LT2 exposed)", geneName))
+  VioFun(
+    geneId, norm.LT2inf, cond.LT2inf,
+    main_pre=sprintf(": %s\n(LT2 infected)", geneName))
+  plot.new()
+  VioFun(
+    geneId, norm.D23exp, cond.D23exp,
+    main_pre=sprintf(": %s\n(D23580 exposed)", geneName))
+  VioFun(
+    geneId, norm.D23inf, cond.D23inf,
+    main_pre=sprintf(": %s\n(D23580 infected)", geneName))
+  par(mfrow=c(1,1))
+}
+```
+
+### Highest confidence patterns by group {.tabset}
+
+#### Mock
+
+```{r, results='hold'}
+par(mfrow=c(2,3))
+for (i in 1:6){
+  geneId <- rownames(mock.table)[i]
+  VioFun(
+    geneId, norm.Mock, cond.Mock, main_pre=sprintf(
+      ': %s\n%s',mock.table[geneId,'Gene'],mock.table[geneId,'Path']))
+}
+par(mfrow=c(1,1))
+```
+
+#### D23580 (inf)
+
+```{r, results='hold'}
+par(mfrow=c(2,3))
+for (i in 1:6){
+  geneId <- rownames(D23inf.table)[i]
+  VioFun(
+    geneId, norm.D23inf, cond.D23inf, main_pre=sprintf(
+      ': %s\n%s', D23inf.table[geneId,'Gene'], D23inf.table[geneId,'Path']))
+}
+par(mfrow=c(1,1))
+```
+
+#### LT2 (inf)
+
+```{r, results='hold'}
+par(mfrow=c(2,3))
+for (i in 1:6){
+  geneId <- rownames(LT2inf.table)[i]
+  VioFun(
+    geneId, norm.LT2inf, cond.LT2inf, main_pre=sprintf(
+      ': %s\n%s', LT2inf.table[geneId,'Gene'], LT2inf.table[geneId,'Path']))
+}
+par(mfrow=c(1,1))
+```
+
+#### D23580 (exp)
+
+```{r, results='hold'}
+par(mfrow=c(2,3))
+for (i in 1:6){
+  geneId <- rownames(D23exp.table)[i]
+  VioFun(
+    geneId, norm.D23exp, cond.D23exp, main_pre=sprintf(
+      ': %s\n%s', D23exp.table[geneId,'Gene'], D23exp.table[geneId,'Path']))
+}
+par(mfrow=c(1,1))
+```
+
+#### LT2 (exp)
+
+```{r, results='hold'}
+par(mfrow=c(2,3))
+for (i in 1:6){
+  geneId <- rownames(LT2exp.table)[i]
+  VioFun(
+    geneId, norm.LT2exp, cond.LT2exp, main_pre=sprintf(
+      ': %s\n%s', LT2exp.table[geneId,'Gene'], LT2exp.table[geneId,'Path']))
+}
+par(mfrow=c(1,1))
+```
+
+### Genes of interest {.tabset}
+
+#### RAB7B
+
+```{r}
+multiViolin("RAB7B")
+```
+
+#### IFIT2
+
+```{r}
+multiViolin("IFIT2")
+```
+
+#### IDO1
+
+```{r}
+multiViolin("IDO1")
+```

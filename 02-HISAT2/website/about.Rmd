@@ -164,6 +164,16 @@ An integrated Bayesian hierarchical model where:
   artificially introduced to each analysed cells lysate.
 * The total variability of the expression counts is decomposed into technical
   and biological components.
+  
+### [SCPattern](https://github.com/lengning/SCPattern)
+
+Identify and characterize expression changes in a single cell RNA-seq
+experiment with ordered conditions.
+
+### [WaveCrest](https://github.com/lengning/WaveCrest)
+
+Reconstruct gene expression trajectory in single cell RNA-seq experiments with
+ordered conditions.
 
 # Session info
 

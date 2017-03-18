@@ -44,6 +44,8 @@ navbar:
         href: 08_SCDE.html
       - text: "Sub-group"
         href: 10_subgroups.html
+      - text: "Temporal"
+        href: 11_SCPattern.html
     - text: "About"
       href: about.html
 output:
@@ -58,4 +60,4 @@ output:
       smooth_scroll: true
 exclude: [
   "rds", "counts", "expdata", "*.R", "*.pdf",
-  "t-test", "SCDE", "BASiCS", "HVGs"]
+  "t-test", "SCDE", "BASiCS", "HVGs", "poster"]
