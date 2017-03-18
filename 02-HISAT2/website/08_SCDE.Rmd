@@ -14,6 +14,9 @@ library(scran)
 library(scde)
 library(ensembldb)
 library(RColorBrewer)
+library(goseq)
+library(dplyr)
+library(ComplexHeatmap)
 sce.norm <- readRDS("rds/sce.norm.rds")
 EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
 ```
@@ -503,7 +506,7 @@ for (time in levels(sce.norm$Time)){
       mle.X = DE.res.X[ensGenes,"mle"],
       DE = c("None" ,"Group Y", "Group X", "Both")[
         1+(DE.res.Y[ensGenes,"cZ"]!=0) + 2*(DE.res.X[ensGenes,"cZ"]!=0)],
-      Alpha = c(0.5, 0.75)[
+      Alpha = c(0.5, 1)[
         1+((DE.res.Y[ensGenes,"cZ"]!=0)|(DE.res.X[ensGenes,"cZ"]!=0))],
       Size = c(0.4, 0.6)[
         1+((DE.res.Y[ensGenes,"cZ"]!=0)|(DE.res.X[ensGenes,"cZ"]!=0))]
@@ -542,7 +545,7 @@ Labs <- labs(
     x="maximum likelihood estimate of expression-fold change",
     y="mle of fold-change")
 Scale_color <- scale_color_manual(values = corDEcolors)
-Scale_size <- scale_size(range = 0:1)
+Scale_size <- scale_size(range = c(0,0.5))
 Scale_x <- scale_x_continuous(limits=mleRange)
 Scale_y <- scale_y_continuous(limits=mleRange)
 Guides <- guides(alpha = "none", size = "none")
@@ -580,9 +583,9 @@ to `uninfected` time-mached controls).
 In this section, let us identify those genes.
 
 ```{r corTables_Direction}
-corTables[["6h"]][,"Direction"] <- NA
+corTables[["6h"]][,"Direction"] <- "None"
 corTables[["6h"]][
-  with(corTables[["6h"]], which(DE != "Both")),"Size"] <- 0.4
+  with(corTables[["6h"]], which(DE != "Both")),"Size"] <- 0.3
 corTables[["6h"]][
   with(corTables[["6h"]], which(DE == "Both" & mle.X > 0 & mle.Y > 0)),
   "Direction"] <- "X: up - Y: up"
@@ -597,12 +600,62 @@ corTables[["6h"]][
   "Direction"] <- "X: down - Y: down"
 ```
 
+```{r oppositeDEcolors}
+oppositeDEcolors <- brewer.pal(8, "Set2")[c(1:4, 8)]
+names(oppositeDEcolors) <- c(
+  "X: up - Y: up", "X: up - Y: down",
+  "X: down - Y: up", "X: down - Y: down", "None")
+Scale_colorOpp <- scale_color_manual(values = oppositeDEcolors)
+```
+
 ### 6h - Opposite
 
 ```{r ggplot_Direction, fig.height=6}
 ggplot(corTables[["6h"]]) +
   geom_point(aes(mle.X, mle.Y, colour = Direction, alpha = Alpha, size = Size)) +
-  theme_minimal()+Wrap+Labs+Scale_size+Scale_x+Scale_y+Guides
+  theme_minimal()+Wrap+Labs+Scale_colorOpp+Scale_size+Scale_x+Scale_y+Guides
+```
+
+```{r posterOpposite, include=FALSE}
+library(ggrepel)
+posterData <- cbind(
+  corTables[["6h"]],
+  GeneName = mapIds(
+    EnsDb.Hsapiens.v79, as.character(corTables[["6h"]][,"Gene"]),
+    "GENENAME", "GENEID"
+  )
+)
+infectedGeneList <-  c(
+  "HPS6","RAB13","TLR8","BLOC1S3","TBC1D15","RAB29","MVB12A",
+  "RAD50","AIMP2","TNFSF18","NLRP1","GSDMA","DCSTAMP","CCR1")
+exposedGeneList <-  c(
+  "MAFF","ZNF83","ZBTB46","E4F1",
+  "HLA-DOA","RIPK3","CD209","LIMD1")
+posterOpposite <- ggplot(posterData, aes(mle.X, mle.Y)) +
+  geom_point(aes(colour=Direction,alpha=Alpha,size=Size)) +
+  geom_text_repel(
+    aes(label = GeneName),
+    subset(
+      posterData,
+      Contrast == "D23580_infected (Y)\nLT2_infected (X)" &
+         GeneName %in% infectedGeneList
+    ), size = 2,
+    min.segment.length = unit(0, "lines"), segment.size = 0.2,
+    box.padding = unit(1, "lines")
+  ) +
+  geom_text_repel(
+    aes(label = GeneName),
+    subset(
+      posterData,
+      Contrast == "D23580_exposed (Y)\nLT2_exposed (X)" &
+         GeneName %in% exposedGeneList
+    ), size = 2,
+    min.segment.length = unit(0, "lines"), segment.size = 0.2,
+    box.padding = unit(1, "lines")
+  ) +
+  theme_minimal()+Wrap+Labs+Scale_colorOpp+Scale_size+Scale_x+Scale_y+Guides
+posterOpposite
+ggsave("poster/opposite_DE.pdf", posterOpposite, width = 7, height = 6)
 ```
 
 ```{r opposite_6h_CSVs, include=FALSE}
@@ -620,9 +673,95 @@ for (tmpContrast in unique(corTables[["6h"]]$Contrast)){
 }
 ```
 
+```{r GOopposite, include=FALSE}
+D23_LT2 <-
+  subset(corTables[["6h"]], Contrast == 'D23580_infected (Y)\nLT2_infected (X)')
+upD23580 <- D23_LT2$Direction == 'X: down - Y: up'
+names(upD23580) <- D23_LT2$Gene
+upLT2 <- D23_LT2$Direction == 'X: up - Y: down'
+names(upLT2) <- D23_LT2$Gene
+oppositeD23_LT2 <- D23_LT2$Direction %in% c('X: up - Y: down','X: down - Y: up')
+names(oppositeD23_LT2) <- D23_LT2$Gene
+table(upD23580)
+table(upLT2)
+table(oppositeD23_LT2)
+#
+geneLengths <- read.delim(
+  "counts/WTCHG_305264_201201", row.names = 1)[,1, drop = FALSE]
+par(mfrow=c(1,3))
+#
+pwf.D23580<-nullp(upD23580,bias.data=geneLengths[names(upD23580),],plot.fit=TRUE)
+pwf.LT2<-nullp(upLT2,bias.data=geneLengths[names(upLT2),],plot.fit=TRUE)
+pwf.opp <-
+  nullp(oppositeD23_LT2,bias.data=geneLengths[names(oppositeD23_LT2),],plot.fit=TRUE)
+par(mfrow=c(1,1))
+GO.D23580 <- goseq::goseq(pwf.D23580, "hg38", "ensGene")
+GO.LT2 <- goseq::goseq(pwf.LT2, "hg38", "ensGene")
+GO.opp <- goseq::goseq(pwf.opp, "hg38", "ensGene")
+#
+GO.D23580$ontology <- as.factor(GO.D23580$ontology)
+GO.LT2$ontology <- as.factor(GO.LT2$ontology)
+GO.opp$ontology <- as.factor(GO.opp$ontology)
+GO.D23580.trim <- arrange(
+  subset(
+    GO.D23580, p.adjust(over_represented_pvalue, "BH") < 0.05 & numInCat >= 10),
+    over_represented_pvalue)
+GO.LT2.trim <- arrange(
+  subset(
+    GO.LT2, p.adjust(over_represented_pvalue, "BH") < 0.05 & numInCat >= 10),
+    over_represented_pvalue)
+GO.opp.trim <- arrange(
+  subset(
+    GO.opp, p.adjust(over_represented_pvalue, "BH") < 0.05 & numInCat >= 10),
+    over_represented_pvalue)
+DT::datatable(
+  head(GO.D23580.trim, 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+DT::datatable(
+  head(GO.LT2.trim, 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+DT::datatable(
+  head(GO.opp.trim, 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+```{r}
+head(corTables[["6h"]])
+oppInfectedGenes <- as.character(subset(
+  corTables[["6h"]],
+  Contrast == 'D23580_infected (Y)\nLT2_infected (X)' &
+    Direction %in% c('X: up - Y: down','X: down - Y: up'),
+  select = 'Gene', drop = TRUE))
+normExprsOpp <- norm_exprs(sce.norm)[
+  oppInfectedGenes,
+  sce.norm$Time == '6h' &
+    sce.norm$Status != 'exposed']
+col9 <- RColorBrewer::brewer.pal(10, "Set3")[c(1:8, 10)]
+h_column <- HeatmapAnnotation(
+  df = pData(sce.norm)[colnames(normExprsOpp),c("Treatment"),drop=FALSE],
+  col = list(
+    Treatment = c(
+      "Mock_uninfected" = col9[3],
+      "D23580_infected" = col9[1], 
+      "LT2_infected" = col9[2]
+    )
+  )
+)
+ht_supervised <- Heatmap(
+  normExprsOpp,
+  name = "norm_exprs", column_title = "Normalised expression",
+  top_annotation = h_column,
+  cluster_columns = TRUE,
+  show_row_names = FALSE, show_column_names = FALSE
+)
+ht_supervised
+```
+
 
 # DE between groups of stimulated cells
-
 ## Testing for DE genes {.tabset}
 
 Similarly to the above code chunk to estimate differential expression
@@ -711,6 +850,69 @@ DE.res.raw <- readRDS("rds/DE.res.raw.rds")
 DE.res.adjusted <- readRDS("rds/DE.res.adjusted.rds")
 DE.res.batch <- readRDS("rds/DE.res.batch.rds")
 ```
+
+```{r, include=FALSE}
+# Overlaid distribution of mle inf-exp in D23 vs LT2
+plot(density(DE.res.raw[["4h_D23580_infected-4h_D23580_exposed"]]$mle),col="red")
+lines(density(DE.res.raw[["4h_LT2_infected-4h_LT2_exposed"]]$mle))
+```
+
+```{r, include=FALSE}
+# Correlation plot of inf-exp in D23580 vs LT2
+tmpFields <- c("mle","cZ","GENENAME")
+geneNames <- rownames(DE.res.raw[["4h_D23580_infected-4h_D23580_exposed"]])
+tmpDf <- data.frame(
+  D23580 = DE.res.raw[["4h_D23580_infected-4h_D23580_exposed"]][geneNames,tmpFields],
+  LT2 = DE.res.raw[["4h_LT2_infected-4h_LT2_exposed"]][geneNames,tmpFields],
+  row.names = geneNames
+)
+tmpSig <- c(NA,"LT2","D23580","Both")
+tmpAlpha <- c(0.5, 1)
+tmpSize <- c(0.5, 1)
+tmpDf[,"sig"] <-
+  tmpSig[1 + (tmpDf[,"LT2.cZ"] != 0) + (2*(tmpDf[,"D23580.cZ"] != 0))]
+tmpDf[,"Alpha"] <-
+  tmpAlpha[1 + (tmpDf[,"LT2.cZ"] != 0) | (tmpDf[,"D23580.cZ"] != 0)]
+tmpDf[,"Size"] <-
+  tmpSize[1 + (tmpDf[,"LT2.cZ"] != 0) | (tmpDf[,"D23580.cZ"] != 0)]
+table(tmpDf$sig)
+ggplot(tmpDf) +
+  geom_point(aes(LT2.mle, D23580.mle, colour = sig, alpha = Alpha, size = Size))
+# View(subset(tmpDf, D23580.cZ != 0 & LT2.cZ == 0))
+# View(subset(tmpDf, D23580.cZ == 0 & LT2.cZ != 0))
+```
+
+```{r, include=FALSE}
+# Violin plots of expression
+col2 <- RColorBrewer::brewer.pal(3, "Set1")[2:3]
+names(col2) <- c("infected","exposed")
+colScale <- scale_fill_manual(values = col2)
+idx.4hStim <- which(sce.norm$Time == "4h" & sce.norm$Infection != "Mock")
+geneNamesD23 <- c("CD83","CD40","TLR8")
+geneNamesLT2 <- c("IL36B","CTSL","RIPK3")
+geneNames <- c(geneNamesLT2, geneNamesD23)
+geneIds <- mapIds(EnsDb.Hsapiens.v79, geneNames, "GENEID", "GENENAME")
+posterData <- t(norm_exprs(sce.norm)[geneIds,idx.4hStim])
+colnames(posterData) <- geneNames
+posterData <- cbind(posterData, pData(sce.norm)[idx.4hStim,c("Infection","Status")])
+posterData <- reshape2::melt(posterData, variable.name = "GeneName", value.name = "norm_exprs")
+valueScale <- range(posterData$norm_exprs)
+posterPlot <- ggplot(
+  subset(posterData, GeneName %in% geneNamesD23),
+  aes(Status, norm_exprs)) + colScale +
+  scale_y_continuous(limits = valueScale) +
+  geom_violin(aes(fill=Status), draw_quantiles = c(0.25, 0.5, 0.75), alpha=0.5) +
+  facet_grid(GeneName~Infection) + ggtitle("D23580") + theme_minimal()
+ggsave("poster/violin_D23580.pdf", posterPlot, height = 8, width = 6)
+posterPlot <- ggplot(
+  subset(posterData, GeneName %in% geneNamesLT2),
+  aes(Status, norm_exprs)) + colScale +
+  scale_y_continuous(limits = valueScale) +
+  geom_violin(aes(fill=Status), draw_quantiles = c(0.25, 0.5, 0.75), alpha=0.5) +
+  facet_grid(GeneName~Infection) + ggtitle("LT2") + theme_minimal()
+ggsave("poster/violin_LT2.pdf", posterPlot, height = 8, width = 6)
+```
+
 
 ## Count of DE genes
 
