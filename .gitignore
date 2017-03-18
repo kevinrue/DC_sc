@@ -10,19 +10,20 @@ _site
 # Data folders / files
 *.csv
 *.xlsx
-MultiQC
-counts
-quant
-expData
-qc
-rds
-boot
-featureCounts
-trimgalore
+MultiQC/
+counts/
+quant/
+expData/
+qc/
+rds/
+boot/
+featureCounts/
+trimgalore/
 *.log
 HVGs/
 SCDE/
-BASiCS
+BASiCS/
+GOexpress/
 
 # R Markdown website
 *_cache

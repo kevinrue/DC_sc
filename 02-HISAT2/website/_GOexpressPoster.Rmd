@@ -1,0 +1,76 @@
+---
+title: "GOexpress for poster"
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+library(GOexpress)
+sce.norm <- readRDS("rds/sce.norm.rds")
+EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
+```
+
+```{r}
+eset <- as(sce.norm, "ExpressionSet")
+gores <- GO_analyse(eset, "Infection", subset = list(Time = "6h"))
+View(gores$GO)
+```
+
+```{r}
+saveRDS(gores, 'GOexpress/gores.rds')
+```
+
+```{r}
+gosub.BP <- subset_scores(gores, total_count = 5, namespace = 'BP')
+gosub.MF <- subset_scores(gores, total_count = 5, namespace = 'MF')
+```
+
+```{r}
+View(gosub.BP$GO)
+View(gosub.MF$GO)
+View(subset_scores(gores, total_count = 10, namespace = 'BP')$GO)
+```
+
+```{r}
+heatmap_GO("GO:0032020", gores, eset, "Infection", subset = list(Time="6h"))
+heatmap_GO("GO:0034340", gores, eset, "Infection", subset = list(Time="6h"))
+pdf("GOexpress/ESCRT_heatmap.pdf")
+heatmap_GO("GO:1904903", gores, eset, "Infection", subset = list(Time="6h"))
+dev.off()
+heatmap_GO("GO:0039702", gores, eset, "Infection", subset = list(Time="6h"))
+heatmap_GO("GO:0030970", gores, eset, "Infection", subset = list(Time="6h"))
+heatmap_GO("GO:0031663", gores, eset, "Infection", subset = list(Time="6h"))
+heatmap_GO("GO:0031982", gores, eset, "Infection", subset = list(Time="6h"), cexCol = 0.7)
+
+```
+
+```{r}
+expression_plot_symbol("ISG15", gores, eset, "Time", "Infection")
+expression_plot_symbol("ISG15", gores, eset, "Time", "Status")
+expression_plot_symbol("RAB29", gores, eset, "Time", "Infection")
+expression_plot_symbol("RAB29", gores, eset, "Time", "Status")
+expression_plot_symbol(
+  "RAB29", gores, eset, "Time", "Treatment", list(Status = "infected"))
+expression_plot_symbol(
+  "HPS6", gores, eset, "Time", "Treatment", list(Status = "infected"))
+expression_plot_symbol(
+  "BLOC1S3", gores, eset, "Time", "Treatment", list(Status = "infected"))
+expression_plot_symbol(
+  "ANXA7", gores, eset, "Time", "Treatment", list(Status = "infected"))
+expression_plot_symbol(
+  "TLR8", gores, eset, "Time", "Treatment", list(Status = "infected"))
+```
+
+```{r}
+names(gores)
+head(gores$genes)
+subset(gores$genes, external_gene_name == "RAB29")
+head(gores$mapping)
+rab29map <- subset(gores$mapping, gene_id == "ENSG00000117280")
+View(rab29map)
+head(gores$GO)
+rab29map[,"count"] <- gores$GO$total_count[match(rab29map$go_id, gores$GO$go_id)]
+View(rab29map)
+```
+
