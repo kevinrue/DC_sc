@@ -188,6 +188,25 @@ ggplot(multiqc, aes(Sample, Bowtie.2_overall_alignment_rate)) +
   ylab("HISAT.2_overall_alignment_rate") + sampleQCtheme
 ```
 
+```{r posterAligned, include=FALSE}
+posterAligned <-
+  ggplot(multiqc, aes(Sample, Bowtie.2_overall_alignment_rate)) +
+  geom_point(aes(colour = Status, shape = Infection)) +
+  geom_text_repel(
+    aes(label = Sample), subset(multiqc[idx.sc,], multiqc.aligned.outliers),
+    alpha = 0.4
+  ) +
+  geom_hline(
+    yintercept = multiqc.aligned.M + 3*c(1,-1)*multiqc.aligned.MAD,
+    colour = "red",
+    linetype = 2:1
+  ) +
+  geom_hline(yintercept = multiqc.aligned.M) +
+  ylab("HISAT2 overall alignment rate") +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+ggsave("poster/alignedQC.pdf", posterAligned, width=9, height = 6)
+```
+
 ## Percentage assigned (*featureCounts*)
 
 After alignment, unusually *low* assignment rate of reads to annotated genomic
@@ -746,6 +765,16 @@ and imported as needed by the other R mardown files -->
 ```{r save_sce.pass, include=FALSE}
 saveRDS(sce.pass, "rds/sce.pass.rds")
 ```
+
+```{r posterAlignedDensity, include=FALSE}
+# Distribution of library size per group _after filtering out outliers!_
+posterDensity <-
+  ggplot(subset(multiqc, Sample %in% colnames(sce.pass) & Status != "BULK")) +
+  geom_density(aes(Bowtie.2_overall_alignment_rate, colour = Group)) +
+  scale_x_continuous(name = "HISAT.2_overall_alignment_rate", limits = c(0,100))
+ggsave("poster/densityLibrary.pdf", posterDensity, width=8, height = 6)
+```
+
 
 [^1]: Note that shared theme settings are defined in the
 [Themes](00a_themes.html) panel.
