@@ -282,7 +282,36 @@ sce.norm <- plotTSNE(
 )
 ```
 
-#### Status
+```{r postertSNE, include=FALSE}
+posterPCA <- reducedDimension(sce.norm)
+colnames(posterPCA) <- paste("Dimension", 1:2)
+posterSamples <- rownames(posterPCA)
+posterPCA <- cbind(posterPCA, pData(sce.norm)[
+  posterSamples,c("Status","Infection","Time")])
+lc <- RColorBrewer::brewer.pal(3, "Set1")[c(1,3,2)] # RGB
+posterLabels <- data.frame(
+  x = c(-20, -2.5, -5, 10, 15),
+  y = c(-12.5, -5, 10, -2.5, 10),
+  label = c("2h", "4h", "6h", "4h", "6h"),
+  col = c("black", lc[1], lc[1], "black", "black")
+)
+posterPCA <- ggplot(
+  posterPCA,
+  aes_string("`Dimension 1`","`Dimension 2`")) +
+  geom_point(aes(colour=Status,shape=Infection)) + 
+  geom_label(aes(x, y, label = label), posterLabels, inherit.aes = FALSE) +
+  theme_light()
+posterPCA
+ggsave("poster/tSNE_right.pdf", posterPCA, width = 7, height = 6)
+ggsave(
+  "poster/tSNE_bottom.pdf",
+  posterPCA + theme(
+    legend.position = "bottom", legend.box = "vertical"
+  ),
+  width = 6, height = 6)
+```
+
+#### Status {#tSNEstatus}
 
 ```{r plotTSNE_status}
 plotReducedDim.SCESet(sce.norm,2,colour_by="Status",shape_by="Time") + PCAtheme
