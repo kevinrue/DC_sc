@@ -778,10 +778,9 @@ for (group in levels(sce.norm$Group)){
 par(mfrow=c(1,1))
 ```
 
-```{r, include=FALSE}
+```{r saveHVGsGroup, include=FALSE}
 saveRDS(HVGs.group, "HVGs/HVGsByGroups.rds")
 ```
-
 
 In the figure above, note how---in the stimulated cells---the mean-variance
 trend shifts to the right over time;
@@ -1320,5 +1319,103 @@ for (time in levels(sce.norm$Time)){
   dev.off()
 }
 ```
+
+```{r HVGs4hStim, warning=FALSE, include=FALSE}
+# [earlier tSNE results](06_examineNormalised.hmtl#tSNEstatus)
+# larger differences between D23 exp/inf relative to LT2
+idx.4hStim <- which(sce.norm$Time == "4h" & sce.norm$Infection != "Mock")
+dm <- model.matrix(~Plate+Lane, data = pData(sce.norm)[idx.4hStim,])
+var.fit.endo <- trendVar(
+  sce.norm[,idx.4hStim], assay = "norm_exprs", trend = "loess", design = dm,
+  use.spikes = FALSE, span = 0.1
+)
+var.out.endo.4h <- decomposeVar(sce.norm[,idx.4hStim], var.fit.endo)
+plot(
+  var.out.endo.4h$mean, var.out.endo.4h$total, pch=16, cex=0.2,
+  xlab="Mean log-expression", ylab="Variance of log-expression",
+  main = "4h stimulated"
+)
+o <- order(var.out.endo.4h$mean)
+lines(var.out.endo.4h$mean[o], var.out.endo.4h$tech[o], col="dodgerblue", lwd=2)
+spike.fit <- trendVar(sce.norm[,idx.4hStim], use.spikes=TRUE)
+points(spike.fit$mean, spike.fit$var, col="red", pch=16)
+var.out.endo.4h <- cbind(
+  Symbol=mapIds(EnsDb.Hsapiens.v79,rownames(var.out.endo.4h),"GENENAME","GENEID"),
+  var.out.endo.4h
+)
+write.csv(var.out.endo.4h, sprintf("HVGs/4h_stimulated_full.csv", group))
+hvg.out <- var.out.endo.4h[which(
+  var.out.endo.4h$FDR <= 0.05 & var.out.endo.4h$bio >= 0.5
+  ),]
+write.csv(hvg.out, sprintf("HVGs/4h_stimulated_significant.csv", group))
+sce.endo.4hStim <- sce.norm[rownames(hvg.out),idx.4hStim]
+#sce.endo.4hStim <- sce.endo[,with(pData(sce.endo),order(Time,Status,Infection))]
+dim(sce.endo.4hStim)
+norm.endo.4hStim <- norm_exprs(sce.endo.4hStim)
+sce.endo.4hStim <-
+  sce.endo.4hStim[,with(pData(sce.endo.4hStim), order(Infection,Status))]
+dim(norm.endo.4hStim)
+h_column <- HeatmapAnnotation(
+  df = pData(sce.endo.4hStim)[,c("Status", "Infection")],
+  col = list(
+    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+  )
+)
+ht_supervised <- Heatmap(
+  norm.endo.4hStim,
+  name = "norm_exprs", column_title = "Normalised expression",
+  top_annotation = h_column,
+  # row_order = hvg.endo.clust$order,
+  # cluster_rows = hvg.endo.clust, 
+  cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE
+)
+draw(ht_supervised)
+```
+
+```{r euclid4h, include=FALSE}
+d.e <- dist(t(norm.endo.4hStim), diag = TRUE, upper = TRUE)
+mat.e <- as.matrix(d.e)
+h.e <- hclust(d.e, method = "ward.D2")
+ord.e <- mat.e[h.e$order, h.e$order]
+rm(mat.e)
+ht_column <- HeatmapAnnotation(
+  df = pData(sce.endo.4hStim)[h.e$order,c("Status", "Infection")],
+  col = list(
+    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+  )
+)
+Heatmap(
+  ord.e, name = "distance", column_title = "Euclidian distance",
+  top_annotation = ht_column,
+  cluster_rows = FALSE, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE
+)
+```
+
+
+```{r spearman4h, include=FALSE}
+c.s <- MKmisc::corDist(t(norm.endo.4hStim), "spearman",diag=TRUE,upper=TRUE)
+mat.c.s <- as.matrix(c.s)
+h.c.s <- hclust(c.s)
+ord.c.s <- mat.c.s[h.c.s$order, h.c.s$order]
+rm(c.s)
+ht_column <- HeatmapAnnotation(
+  df = pData(sce.endo.4hStim)[h.c.s$order,c("Status", "Infection")],
+  col = list(
+    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+  )
+)
+Heatmap(
+  ord.c.s, name = "distance", column_title = "Spearman absolute correlation distance",
+  top_annotation = ht_column,
+  cluster_rows = FALSE, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE
+)
+```
+
 
 # References
