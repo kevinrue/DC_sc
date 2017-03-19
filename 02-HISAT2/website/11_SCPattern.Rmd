@@ -12,32 +12,114 @@ knitr::opts_chunk$set(cache = TRUE)
 library(scater)
 library(scran)
 library(SCPattern)
+library(WaveCrest)
 library(ensembldb)
+library(dplyr)
 sce.norm <- readRDS("rds/sce.norm.rds")
 EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
 ```
 
-## Required inputs
+# Preliminary notes
 
-Matrix of expression values (normalised by `scran`)
+## Comparative temporal analyses
+
+The [SCPattern](https://github.com/lengning/SCPattern) package is designed to
+identify and characterize expression changes in a single cell RNA-seq experiment
+with ordered conditions (*e.g.*, `Time`).
+However, the package is not designed to carry out *comparative* temporal
+analyses; each analysis assigns genes to one of the possible expression profiles,
+but it does not address the hypothesis of *differential* expression profiles
+between two or more groups.
+
+In particular, each experimental group (*i.e.*, `Treatment`)
+in the present multi-factorial experimental design must be the object of a
+separate temporal analysis to identify relevant expression profiles.
+Nevertheless, comparison of those expression profiles *between* groups
+in up to the user, as the package does not address this hypothesis.
+
+## Shared reference time point
+
+The expression profiles described here refer to the variation of gene expression
+between the available time points (*i.e.*, `2h` to `4h`, and `4h` to `6h`).
+As a result, no information is available to describe the variation of
+gene expression between the origin of the experiment (*i.e.*, `0h`)
+and the first measured time point (*i.e.*, `2h`).
+
+However, it can be argued that:
+
+1)
+    a) Even the highest confidence temporal expression patterns
+      identified for `uninfected` cells show significantly more stable
+      temporal profiles than stimulated cells (see [below](#highestConf)).
+    b) This observation is consistent with the *tSNE* figures obtained in a
+      previous section, showing modest spatial trajectories of `uninfected`
+      cells relative to stimulated cells.
+2) As a consequence, it is possible to assume that the initial (*i.e.*, `0h`)
+  expression level of most genes---both in `uninfected` and stimulated cells---is
+  reasonably similar to the expression level of `uninfected` cells at the `2h`
+  time point.
+
+## Reconstruction of temporal trajectory
+
+It is important to bear in mind at all time that temporal trajectories and
+recovered order of cells obtained by any algorithm are best guesses, under the
+assumptions that:
+
+* Cells from a given experimental group follow a *common* gene expression
+  trajectory,
+* Within each time point, the temporal order of individual cells can be
+  recovered from the common gene expression trajectory,
+
+More specifically, [WaveCrest](https://github.com/lengning/WaveCrest) makes
+the following additional assumptions:
+
+* A small number of marker genes may be sufficient to accurately
+  recover the temporal order of cells,
+* Expression levels similar to earlier or later time points may be used to
+  place the corresponding cells earlier or later in the recovered order,
+  respectively.
+  
+As a consequence, significant sub-group behaviour and variability of
+transcriptional profiles within experimental groups *may* negatively affect
+reconstruction of accurate temporal trajectories.
+
+# Required inputs
+
+## Expression matrix
+
+The [SCPattern](https://github.com/lengning/SCPattern) package
+requires for input a matrix of expression values;
+Here, let us provide the matrix of normalised expression values obtained in a
+[previous section](05_normalisation.html) using the [scran](http://bioconductor.org/packages/scran) package:
 
 ```{r}
 normExprs <- norm_exprs(sce.norm)[!isSpike(sce.norm),]
 dim(normExprs)
 ```
 
-Vector of time covariate information:
+To scale the axis displaying expression levels in following figures, let us
+obtain the range of expression values observed in the data set:
+
+```{r}
+exprsRange <- range(normExprs)
+```
+
+## Ordered condition
+
+The [SCPattern](https://github.com/lengning/SCPattern) package
+also requires a `factor` with ordered conditions.
+Here, let us provide the `Time` covariate, ordered from `2h` to `6h`:
 
 ```{r}
 CondVector <- factor(sce.norm$Time, levels = levels(sce.norm$Time), ordered = TRUE)
 ```
 
-## Analyse treatments separately
+# Analyse treatments separately
 
 Each `Treatment` (*i.e.*, `Infection:Status`) represents a different condition
 that may be tracked over time to identify divergent trends.
 
-### Data subsets
+## Data subsets
 
 ```{r}
 norm.Mock <- normExprs[,which(sce.norm$Treatment == 'Mock_uninfected')]
@@ -52,14 +134,14 @@ norm.LT2exp <- normExprs[,which(sce.norm$Treatment == 'LT2_exposed')]
 cond.LT2exp <- CondVector[which(sce.norm$Treatment == 'LT2_exposed')]
 ```
 
-## Posterior probability of expression patterns {.tabset}
+# Posterior probability of expression patterns {.tabset}
 
-### Description
+## Description
 
 Calculates gene-specic posterior probability (PP) of having each
 expression pattern.
 
-### Preprocessing
+## Preprocessing
 
 ```{r}
 multi.Mock <- SCPTest(norm.Mock, cond.Mock, rep(1, ncol(norm.Mock)))
@@ -69,7 +151,7 @@ multi.D23exp <- SCPTest(norm.D23exp, cond.D23exp, rep(1, ncol(norm.D23exp)))
 multi.LT2exp <- SCPTest(norm.LT2exp, cond.LT2exp, rep(1, ncol(norm.LT2exp)))
 ```
 
-### Annotation
+## Annotation
 
 Annotate the result tables with gene names:
 
@@ -96,47 +178,167 @@ LT2exp.table <- data.frame(
 )
 ```
 
-## DE genes {.tabset}
+# DE genes {.tabset}
 
 The DE genes can be obtained from:
 
-### Mock
+## Mock
 
 ```{r}
 DT::datatable(mock.table,options=list(pageLength=10,searching=TRUE),filter ="top")
 ```
 
-### D23580-infected
+## D23580-infected
 
 ```{r}
 DT::datatable(D23inf.table,options=list(pageLength=10,searching=TRUE),filter ="top")
 ```
 
-### LT2-infected
+## LT2-infected
 
 ```{r}
 DT::datatable(LT2inf.table,options=list(pageLength=10,searching=TRUE),filter ="top")
 ```
 
-### D23580-exposed
+## D23580-exposed
 
 ```{r}
 DT::datatable(D23exp.table,options=list(pageLength=10,searching=TRUE),filter ="top")
 ```
 
-### LT2-exposed
+## LT2-exposed
 
 ```{r}
 DT::datatable(LT2exp.table,options=list(pageLength=10,searching=TRUE),filter ="top")
 ```
 
-## Visualisation
+# Visualisation
 
 Let us visualise:
 
 * the top **6** genes assigned to pattern with the highest confidence
   *in each group*,
 * manually curated genes of interest to compare *across groups*.
+
+## Highest confidence patterns by group {#highestConf .tabset}
+
+### Mock
+
+```{r, results='hold'}
+par(mfrow=c(2,3))
+for (i in 1:6){
+  geneId <- rownames(mock.table)[i]
+  VioFun(
+    geneId, norm.Mock, cond.Mock, main_pre=sprintf(
+      ': %s\n%s',mock.table[geneId,'Gene'], mock.table[geneId,'Path']),
+    ylim = exprsRange)
+}
+par(mfrow=c(1,1))
+```
+
+### D23580 (inf)
+
+```{r, results='hold'}
+par(mfrow=c(2,3))
+for (i in 1:6){
+  geneId <- rownames(D23inf.table)[i]
+  VioFun(
+    geneId, norm.D23inf, cond.D23inf, main_pre=sprintf(
+      ': %s\n%s', D23inf.table[geneId,'Gene'], D23inf.table[geneId,'Path']),
+    ylim = exprsRange
+  )
+}
+par(mfrow=c(1,1))
+```
+
+### LT2 (inf)
+
+```{r, results='hold'}
+par(mfrow=c(2,3))
+for (i in 1:6){
+  geneId <- rownames(LT2inf.table)[i]
+  VioFun(
+    geneId, norm.LT2inf, cond.LT2inf, main_pre=sprintf(
+      ': %s\n%s', LT2inf.table[geneId,'Gene'], LT2inf.table[geneId,'Path']),
+    ylim = exprsRange
+  )
+}
+par(mfrow=c(1,1))
+```
+
+### D23580 (exp)
+
+```{r, results='hold'}
+par(mfrow=c(2,3))
+for (i in 1:6){
+  geneId <- rownames(D23exp.table)[i]
+  VioFun(
+    geneId, norm.D23exp, cond.D23exp, main_pre=sprintf(
+      ': %s\n%s', D23exp.table[geneId,'Gene'], D23exp.table[geneId,'Path']),
+    ylim = exprsRange
+  )
+}
+par(mfrow=c(1,1))
+```
+
+### LT2 (exp)
+
+```{r, results='hold'}
+par(mfrow=c(2,3))
+for (i in 1:6){
+  geneId <- rownames(LT2exp.table)[i]
+  VioFun(
+    geneId, norm.LT2exp, cond.LT2exp, main_pre=sprintf(
+      ': %s\n%s', LT2exp.table[geneId,'Gene'], LT2exp.table[geneId,'Path']),
+    ylim = exprsRange
+  )
+}
+par(mfrow=c(1,1))
+```
+
+## Comparison of high-confidence temporal patterns {.tabset}
+
+Let us compare the temporal patterns obtained above for each group,
+to identify genes with *different* patterns *between* groups, while taking
+into account the posterior probability (*i.e.*, confidence) of both
+temporal patterns.
+
+### Preprocessing
+
+For this, let us identify genes with:
+
+* *different* patterns (*i.e.*, `Path.1!=Path.2`)
+* ordered by decreasing product of posterior probability
+  (*i.e.*, `PPP=(PP_marginal.1*PP_marginal.2)`)
+
+```{r}
+geneIds <- intersect(
+  rownames(multi.D23inf$sortedlist), rownames(multi.LT2inf$sortedlist)
+)
+parseNumeric <- function(x){as.numeric(as.character(x))}
+D23.LT2.inf <- merge(
+  multi.D23inf$sortedlist[geneIds,], multi.LT2inf$sortedlist[geneIds,],
+  by = "row.names", sort = FALSE, suffixes = c(".D23580",".LT2")
+)#; rownames(D23.LT2.inf) <- D23.LT2.inf$Row.names; D23.LT2.inf$Row.names <- NULL
+D23.LT2.inf <- with(
+  D23.LT2.inf,
+  cbind(
+    GeneName=mapIds(EnsDb.Hsapiens.v79,as.character(Row.names),"GENENAME","GENEID"),
+    D23.LT2.inf,
+    diff = (as.character(Path.D23580) != as.character(Path.LT2)),
+    PPP = (parseNumeric(PP_marginal.D23580) * parseNumeric(PP_marginal.LT2))
+  )
+)
+D23.LT2.inf_sub <- arrange(subset(D23.LT2.inf, diff), desc(PPP))
+```
+
+### Table (overlap)
+
+```{r}
+DT::datatable(D23.LT2.inf,options=list(pageLength=10,searching=TRUE),filter ="top")
+```
+
+## Genes of interest
 
 ### MultiViolin
 
@@ -154,97 +356,64 @@ And by row:
 * **Second column**: `D23580` cells
 
 ```{r}
-multiViolin <- function(geneName){
-  geneId <- mapIds(EnsDb.Hsapiens.v79, geneName, "GENEID", "GENENAME")
+multiViolin <- function(geneName, geneId = NULL){
+  if (is.null(geneId)){
+    geneId <- mapIds(EnsDb.Hsapiens.v79, geneName, "GENEID", "GENENAME")}
   par(mfrow=c(2,3))
   VioFun(
     geneId, norm.Mock, cond.Mock,
-    main_pre=sprintf(": %s\n(Mock)", geneName))
+    main_pre=sprintf(
+      ": %s\n(Mock) - %s", geneName, mock.table[geneId,'Path']), ylim = exprsRange)
   VioFun(
     geneId, norm.LT2exp, cond.LT2exp,
-    main_pre=sprintf(": %s\n(LT2 exposed)", geneName))
+    main_pre=sprintf(
+      ": %s\n(LT2 exposed) - %s", geneName, LT2exp.table[geneId,'Path']),
+    ylim = exprsRange)
   VioFun(
     geneId, norm.LT2inf, cond.LT2inf,
-    main_pre=sprintf(": %s\n(LT2 infected)", geneName))
+    main_pre=sprintf(
+      ": %s\n(LT2 infected) - %s", geneName, LT2inf.table[geneId,'Path']),
+    ylim = exprsRange)
   plot.new()
   VioFun(
     geneId, norm.D23exp, cond.D23exp,
-    main_pre=sprintf(": %s\n(D23580 exposed)", geneName))
+    main_pre=sprintf(
+      ": %s\n(D23580 exposed) - %s", geneName, D23exp.table[geneId,'Path']),
+    ylim = exprsRange)
   VioFun(
     geneId, norm.D23inf, cond.D23inf,
-    main_pre=sprintf(": %s\n(D23580 infected)", geneName))
+    main_pre=sprintf(
+      ": %s\n(D23580 infected) - %s", geneName, D23inf.table[geneId,'Path']),
+    ylim = exprsRange)
   par(mfrow=c(1,1))
 }
 ```
 
-### Highest confidence patterns by group {.tabset}
+### Different patterns D23580 - LT2 (infected) {.tabset}
 
-#### Mock
+#### DDX58
 
-```{r, results='hold'}
-par(mfrow=c(2,3))
-for (i in 1:6){
-  geneId <- rownames(mock.table)[i]
-  VioFun(
-    geneId, norm.Mock, cond.Mock, main_pre=sprintf(
-      ': %s\n%s',mock.table[geneId,'Gene'],mock.table[geneId,'Path']))
-}
-par(mfrow=c(1,1))
+```{r}
+multiViolin("DDX58")
 ```
 
-#### D23580 (inf)
+#### TNFSF10
 
-```{r, results='hold'}
-par(mfrow=c(2,3))
-for (i in 1:6){
-  geneId <- rownames(D23inf.table)[i]
-  VioFun(
-    geneId, norm.D23inf, cond.D23inf, main_pre=sprintf(
-      ': %s\n%s', D23inf.table[geneId,'Gene'], D23inf.table[geneId,'Path']))
-}
-par(mfrow=c(1,1))
+```{r}
+multiViolin("TNFSF10")
 ```
 
-#### LT2 (inf)
+#### CCL3
 
-```{r, results='hold'}
-par(mfrow=c(2,3))
-for (i in 1:6){
-  geneId <- rownames(LT2inf.table)[i]
-  VioFun(
-    geneId, norm.LT2inf, cond.LT2inf, main_pre=sprintf(
-      ': %s\n%s', LT2inf.table[geneId,'Gene'], LT2inf.table[geneId,'Path']))
-}
-par(mfrow=c(1,1))
+```{r}
+multiViolin("CCL3", "ENSG00000277632")
 ```
 
-#### D23580 (exp)
+#### CCL3L3
 
-```{r, results='hold'}
-par(mfrow=c(2,3))
-for (i in 1:6){
-  geneId <- rownames(D23exp.table)[i]
-  VioFun(
-    geneId, norm.D23exp, cond.D23exp, main_pre=sprintf(
-      ': %s\n%s', D23exp.table[geneId,'Gene'], D23exp.table[geneId,'Path']))
-}
-par(mfrow=c(1,1))
+```{r}
+multiViolin("CCL3L3")
 ```
-
-#### LT2 (exp)
-
-```{r, results='hold'}
-par(mfrow=c(2,3))
-for (i in 1:6){
-  geneId <- rownames(LT2exp.table)[i]
-  VioFun(
-    geneId, norm.LT2exp, cond.LT2exp, main_pre=sprintf(
-      ': %s\n%s', LT2exp.table[geneId,'Gene'], LT2exp.table[geneId,'Path']))
-}
-par(mfrow=c(1,1))
-```
-
-### Genes of interest {.tabset}
 
 #### RAB7B
 
@@ -252,10 +421,90 @@ par(mfrow=c(1,1))
 multiViolin("RAB7B")
 ```
 
-#### IFIT2
+#### CXCL1
 
 ```{r}
-multiViolin("IFIT2")
+multiViolin("CXCL1")
+```
+
+#### CCL4
+
+```{r}
+multiViolin("CCL4", "ENSG00000275302")
+```
+
+#### SERPINA1
+
+```{r}
+multiViolin("SERPINA1")
+```
+
+#### TNF
+
+```{r}
+multiViolin("TNF", "ENSG00000232810")
+```
+
+#### CLEC10A
+
+```{r}
+multiViolin("CLEC10A")
+```
+
+#### SAMD9
+
+```{r}
+multiViolin("SAMD9")
+```
+
+#### CSTB
+
+```{r}
+multiViolin("CSTB")
+```
+
+#### CCL4L1
+
+```{r}
+multiViolin("CCL4L1", "ENSG00000276070")
+```
+
+#### DUSP6
+
+```{r}
+multiViolin("DUSP6")
+```
+
+#### IRF7
+
+```{r}
+multiViolin("IRF7")
+```
+
+#### SAMD9L
+
+```{r}
+multiViolin("SAMD9L")
+```
+
+### Identical patterns D23580 - LT2 (infected) {.tabset}
+
+#### ISG20
+
+```{r}
+multiViolin("ISG20")
+```
+
+#### ISG15
+
+```{r}
+multiViolin("ISG15")
+```
+
+#### OASL
+
+```{r}
+multiViolin("OASL")
 ```
 
 #### IDO1
@@ -263,3 +512,178 @@ multiViolin("IFIT2")
 ```{r}
 multiViolin("IDO1")
 ```
+
+### Opposite DE genes {.tabset}
+
+#### RAB29
+
+```{r}
+multiViolin("RAB29")
+```
+
+# Reconstruction of gene expression trajectory {.tabset}
+
+Let us use the top **11** genes identified above
+with identical patterns and highest confidence
+in both `D23580_infected` and `LT2_infected`,
+to reconstruct gene expression trajectories.
+
+```{r}
+Markers <- as.character(
+  subset(D23.LT2.inf, !diff, select = Row.names, drop = TRUE)[1:11])
+print(mapIds(EnsDb.Hsapiens.v79, Markers, "GENENAME", "GENEID"))
+```
+
+```{r, message=FALSE}
+ENI.D23inf <- WaveCrestENI(Markers, norm.D23inf, cond.D23inf, N=1000)
+ENI.LT2inf <- WaveCrestENI(Markers, norm.LT2inf, cond.LT2inf, N=1000)
+length(ENI.D23inf); length(ENI.LT2inf)
+```
+
+**Note:** the code presented in the [vignette](https://github.com/lengning/WaveCrest/blob/master/package/WaveCrestVig_v1.pdf)
+erroneously colours the reordered cells with their original `Time` value.
+The vignette code was amended here to reorder the original vector of `Time`
+condition according to the reconstructed order as follows:
+
+```
+col=as.numeric(cond.D23inf)[ENI.D23inf]
+```
+
+## D23580 infected
+
+```{r, echo=FALSE, fig.height=8}
+par(mfrow=c(4,3))
+frame()
+legend("top", levels(cond.D23inf),col=1:4,pch=1,ncol=1)
+for(i in 1:11) {
+  plot(
+    norm.D23inf[Markers[i], ENI.D23inf],col=as.numeric(cond.D23inf)[ENI.D23inf],
+    ylab="Normalized expression", ylim = exprsRange,
+    main=sprintf(
+      "%s : %s",
+      Markers[i],
+      mapIds(EnsDb.Hsapiens.v79, as.character(Markers[i]), "GENENAME", "GENEID")
+    )
+  )
+}
+par(mfrow=c(1,1))
+```
+
+## LT2 infected
+
+```{r, echo=FALSE, fig.height=8}
+par(mfrow=c(4,3))
+frame()
+legend("top", levels(cond.LT2inf),col=1:4,pch=1,ncol=1)
+for(i in 1:11) {
+  plot(
+    norm.LT2inf[Markers[i], ENI.LT2inf],col=as.numeric(cond.LT2inf)[ENI.LT2inf],
+    ylab="Normalized expression", ylim = exprsRange,
+    main=sprintf(
+      "%s : %s",
+      Markers[i],
+      mapIds(EnsDb.Hsapiens.v79, as.character(Markers[i]), "GENENAME", "GENEID")
+    )
+  )
+}
+par(mfrow=c(1,1))
+```
+
+# Identify additional dynamic genes based on the recovered order
+
+The [WaveCrest](https://github.com/lengning/WaveCrest)
+package also provides a function `WaveCrestIden` to detect
+additional dynamic genes based on the recovered order.
+
+## Identification
+
+Let us run `WaveCrestIden` on all remaining genes in our example data set:
+
+```{r}
+normD23inf.remain <- norm.D23inf[setdiff(rownames(norm.D23inf),Markers),]
+normLT2inf.remain <- norm.LT2inf[setdiff(rownames(norm.LT2inf),Markers),]
+```
+
+
+```{r}
+Iden.D23inf <- WaveCrestIden(normD23inf.remain, ENI.D23inf)
+Iden.LT2inf <- WaveCrestIden(normLT2inf.remain, ENI.LT2inf)
+length(Iden.D23inf); length(Iden.LT2inf)
+```
+
+## Recovered genes {.tabset}
+
+**Note:** again the code presented in the [vignette](https://github.com/lengning/WaveCrest/blob/master/package/WaveCrestVig_v1.pdf) was amended here to reorder the original vector of `Time`
+condition according to the reconstructed order, *e.g.*:
+
+```
+col=as.numeric(Conditions)[ENI.D23inf]
+```
+
+### D23580 infected
+
+```{r, echo=FALSE}
+par(mfrow=c(2,3))
+frame()
+legend("top", levels(cond.D23inf),col=1:4,pch=1,ncol=1)
+for(i in 1:5) {
+  plot(
+    normD23inf.remain[names(Iden.D23inf)[i],ENI.D23inf],
+    col = as.numeric(cond.D23inf)[ENI.D23inf], ylim = exprsRange,
+    ylab = "Normalized expression", xlab = "Recovered order",
+    main = sprintf(
+      "%s : %s",
+      names(Iden.D23inf)[i],
+      mapIds(EnsDb.Hsapiens.v79, names(Iden.D23inf)[i], "GENENAME", "GENEID")
+    )
+  )
+}
+par(mfrow=c(1,1))
+```
+
+### LT2 infected
+
+```{r, echo=FALSE}
+par(mfrow=c(2,3))
+frame()
+legend("top", levels(cond.LT2inf),col=1:4,pch=1,ncol=1)
+for(i in 1:5) {
+  plot(
+    normLT2inf.remain[names(Iden.LT2inf)[i],ENI.LT2inf],
+    col = as.numeric(cond.LT2inf)[ENI.LT2inf], ylim = exprsRange,
+    ylab = "Normalized expression", xlab = "Recovered order",
+    main = sprintf(
+      "%s : %s",
+      names(Iden.LT2inf)[i],
+      mapIds(EnsDb.Hsapiens.v79, names(Iden.LT2inf)[i], "GENENAME", "GENEID")
+    )
+  )
+}
+par(mfrow=c(1,1))
+```
+
+## Genes of interest {.tabset}
+
+### RAB29
+
+```{r, echo=FALSE}
+geneName <- "RAB29"
+geneId <- mapIds(EnsDb.Hsapiens.v79, geneName, "GENEID", "GENENAME")
+par(mfrow=c(1,3))
+frame()
+legend("center", levels(cond.LT2inf),col=1:4,pch=1,ncol=1)
+plot(
+  normLT2inf.remain[geneId,ENI.LT2inf],
+  col = as.numeric(cond.LT2inf)[ENI.LT2inf], ylim = exprsRange,
+  ylab = "Normalized expression", xlab = "Recovered order",
+  main = "LT2 infected"
+)
+plot(
+  normD23inf.remain[geneId,ENI.D23inf],
+  col = as.numeric(cond.D23inf)[ENI.D23inf], ylim = exprsRange,
+  ylab = "Normalized expression", xlab = "Recovered order",
+  main = "D23580 infected"
+)
+par(mfrow=c(1,1))
+```
+

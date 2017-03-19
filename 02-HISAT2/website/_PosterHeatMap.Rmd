@@ -1,0 +1,74 @@
+---
+title: "GOexpress for poster"
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+library(ComplexHeatmap)
+sce.norm <- readRDS("rds/sce.norm.rds")
+EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
+```
+
+```{r}
+geneNames <- c(
+  "CLEC16A","TLR8","AP2B1",
+  "ARFRP1","KLF5","RAB13","RAB29","GOLGA5","KIF1C","PSMG1")
+geneIds <- mapIds(EnsDb.Hsapiens.v79, geneNames,"GENEID", "GENENAME")
+D23idx <- with(pData(sce.norm), which(
+  Time == "6h" & Status == "infected" & Infection == "D23580"))
+LT2idx <- with(pData(sce.norm), which(
+  Time == "6h" & Status == "infected" & Infection == "LT2"))
+normD23 <- norm_exprs(sce.norm)[geneIds, D23idx]
+normLT2 <- norm_exprs(sce.norm)[geneIds, LT2idx]
+rownames(normD23) <- geneNames
+rownames(normLT2) <- geneNames
+```
+
+```{r palette9}
+col9 <- RColorBrewer::brewer.pal(10, "Set3")[c(1:8, 10)]
+```
+
+```{r}
+# h_column <- HeatmapAnnotation(
+#   df = pData(sce.norm)[cellId,c("Infection"), drop=FALSE],
+#   col = list(
+#     Infection = c("LT2" = col9[8], "D23580" = col9[9])
+#   )
+# )
+```
+
+```{r}
+exprsRange <- range(norm_exprs(sce.norm))
+colorMap <- colorRamp2(
+  c(min(exprsRange),median(exprsRange)/5,max(exprsRange)),
+  c("blue","white","red"))
+h_D23 <- Heatmap(
+  normD23, colorMap,
+  name = "Normalised\nexpression", column_title = "D23580 infected 6h",
+  show_column_names = FALSE, row_names_side = "left", cluster_rows = FALSE,
+  row_names_gp = gpar(fontface = "italic", fontsize = 6)
+)
+h_LT2 <- Heatmap(
+  normLT2, colorMap, show_heatmap_legend = FALSE,
+  name = "hLT2", column_title = "LT2 infected 6h",
+  show_column_names = FALSE, show_row_names = FALSE, cluster_rows = FALSE
+)
+pdf("poster/heatmap_6h-infected.pdf", width = 6, height = 3)
+h_D23 + h_LT2
+dev.off()
+```
+
+
+```{r}
+ht_supervised <- Heatmap(
+  normExprs,
+  name = "norm_exprs", column_title = "Normalised expression",
+  top_annotation = h_column,
+  cluster_rows = TRUE, cluster_columns = TRUE,
+  show_row_names = TRUE, show_column_names = FALSE
+)
+draw(ht_supervised)
+```
+
