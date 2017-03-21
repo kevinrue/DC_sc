@@ -524,13 +524,18 @@ multiViolin("RAB29")
 # Reconstruction of gene expression trajectory {.tabset}
 
 Let us use the top **11** genes identified above
-with identical patterns and highest confidence
+with highest confidence and identical patterns that do not include any
+equally expressed (EE) transition,
 in both `D23580_infected` and `LT2_infected`,
 to reconstruct gene expression trajectories.
 
 ```{r}
 Markers <- as.character(
-  subset(D23.LT2.inf, !diff, select = Row.names, drop = TRUE)[1:11])
+  subset(
+    D23.LT2.inf,
+    !diff & !grepl("EE", Path.D23580) & !grepl("EE", Path.LT2),
+    select = Row.names, drop = TRUE)[1:11]
+)
 print(mapIds(EnsDb.Hsapiens.v79, Markers, "GENENAME", "GENEID"))
 ```
 
@@ -560,9 +565,10 @@ for(i in 1:11) {
     norm.D23inf[Markers[i], ENI.D23inf],col=as.numeric(cond.D23inf)[ENI.D23inf],
     ylab="Normalized expression", ylim = exprsRange,
     main=sprintf(
-      "%s : %s",
+      "%s : %s\n%s",
       Markers[i],
-      mapIds(EnsDb.Hsapiens.v79, as.character(Markers[i]), "GENENAME", "GENEID")
+      mapIds(EnsDb.Hsapiens.v79, as.character(Markers[i]), "GENENAME", "GENEID"),
+      D23.LT2.inf[Markers[i],"Path.D23580"]
     )
   )
 }
@@ -580,9 +586,10 @@ for(i in 1:11) {
     norm.LT2inf[Markers[i], ENI.LT2inf],col=as.numeric(cond.LT2inf)[ENI.LT2inf],
     ylab="Normalized expression", ylim = exprsRange,
     main=sprintf(
-      "%s : %s",
+      "%s : %s\n%s",
       Markers[i],
-      mapIds(EnsDb.Hsapiens.v79, as.character(Markers[i]), "GENENAME", "GENEID")
+      mapIds(EnsDb.Hsapiens.v79, as.character(Markers[i]), "GENENAME", "GENEID"),
+      D23.LT2.inf[Markers[i],"Path.LT2"]
     )
   )
 }
@@ -622,19 +629,20 @@ col=as.numeric(Conditions)[ENI.D23inf]
 
 ### D23580 infected
 
-```{r, echo=FALSE}
-par(mfrow=c(2,3))
+```{r, echo=FALSE, fig.height=8}
+par(mfrow=c(4,3))
 frame()
 legend("top", levels(cond.D23inf),col=1:4,pch=1,ncol=1)
-for(i in 1:5) {
+for(i in 1:11) {
   plot(
     normD23inf.remain[names(Iden.D23inf)[i],ENI.D23inf],
     col = as.numeric(cond.D23inf)[ENI.D23inf], ylim = exprsRange,
     ylab = "Normalized expression", xlab = "Recovered order",
     main = sprintf(
-      "%s : %s",
+      "%s : %s\n%s",
       names(Iden.D23inf)[i],
-      mapIds(EnsDb.Hsapiens.v79, names(Iden.D23inf)[i], "GENENAME", "GENEID")
+      mapIds(EnsDb.Hsapiens.v79, names(Iden.D23inf)[i], "GENENAME", "GENEID"),
+      D23inf.table[names(Iden.D23inf)[i],"Path"]
     )
   )
 }
@@ -643,19 +651,20 @@ par(mfrow=c(1,1))
 
 ### LT2 infected
 
-```{r, echo=FALSE}
-par(mfrow=c(2,3))
+```{r, echo=FALSE, fig.height=8}
+par(mfrow=c(4,3))
 frame()
 legend("top", levels(cond.LT2inf),col=1:4,pch=1,ncol=1)
-for(i in 1:5) {
+for(i in 1:11) {
   plot(
     normLT2inf.remain[names(Iden.LT2inf)[i],ENI.LT2inf],
     col = as.numeric(cond.LT2inf)[ENI.LT2inf], ylim = exprsRange,
     ylab = "Normalized expression", xlab = "Recovered order",
     main = sprintf(
-      "%s : %s",
+      "%s : %s\n%s",
       names(Iden.LT2inf)[i],
-      mapIds(EnsDb.Hsapiens.v79, names(Iden.LT2inf)[i], "GENENAME", "GENEID")
+      mapIds(EnsDb.Hsapiens.v79, names(Iden.LT2inf)[i], "GENENAME", "GENEID"),
+      LT2inf.table[names(Iden.LT2inf)[i],"Path"]
     )
   )
 }
