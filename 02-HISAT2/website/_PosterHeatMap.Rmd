@@ -7,6 +7,8 @@ reimported from disk, and smaller ones quickly recomputed. -->
 
 ```{r setup, include=FALSE}
 library(ComplexHeatmap)
+library(circlize)
+library(EnsDb.Hsapiens.v79)
 sce.norm <- readRDS("rds/sce.norm.rds")
 EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
 ```
@@ -14,7 +16,9 @@ EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
 ```{r}
 geneNames <- c(
   "CLEC16A","TLR8","AP2B1",
-  "ARFRP1","KLF5","RAB13","RAB29","GOLGA5","KIF1C","PSMG1")
+  "ARFRP1","KLF5","RAB13","RAB29","GOLGA5","KIF1C","PSMG1",
+  "RAD50","RAD18",
+  "CCR1","TNFSF18")
 geneIds <- mapIds(EnsDb.Hsapiens.v79, geneNames,"GENEID", "GENENAME")
 D23idx <- with(pData(sce.norm), which(
   Time == "6h" & Status == "infected" & Infection == "D23580"))
@@ -30,13 +34,21 @@ rownames(normLT2) <- geneNames
 col9 <- RColorBrewer::brewer.pal(10, "Set3")[c(1:8, 10)]
 ```
 
+Heat map of categories:
+
 ```{r}
-# h_column <- HeatmapAnnotation(
-#   df = pData(sce.norm)[cellId,c("Infection"), drop=FALSE],
-#   col = list(
-#     Infection = c("LT2" = col9[8], "D23580" = col9[9])
-#   )
-# )
+v_categories <- factor(c(
+  rep("Endolysosome membrane", 3),
+  rep("Golgi apparatus", 7),
+  rep("DNA damage", 2),
+  rep("Monocyte chemotaxis", 2)
+), c("Endolysosome membrane","Golgi apparatus","DNA damage","Monocyte chemotaxis"))
+v_colours = col9[1:5]
+names(v_colours) <- unique(v_categories)
+ht_category <- Heatmap(
+  v_categories, name = "Categories", col = v_colours,
+  width = unit(5, "mm"), show_column_names = FALSE
+)
 ```
 
 ```{r}
@@ -46,29 +58,94 @@ colorMap <- colorRamp2(
   c("blue","white","red"))
 h_D23 <- Heatmap(
   normD23, colorMap,
-  name = "Normalised\nexpression", column_title = "D23580 infected 6h",
+  name = "Normalised\nexpression", column_title = "D23580 - 6h",
   show_column_names = FALSE, row_names_side = "left", cluster_rows = FALSE,
-  row_names_gp = gpar(fontface = "italic", fontsize = 6)
+  row_names_gp = gpar(fontface = "italic", fontsize = 6),
+  split = v_categories
 )
 h_LT2 <- Heatmap(
   normLT2, colorMap, show_heatmap_legend = FALSE,
-  name = "hLT2", column_title = "LT2 infected 6h",
+  name = "hLT2", column_title = "LT2 - 6h",
   show_column_names = FALSE, show_row_names = FALSE, cluster_rows = FALSE
 )
-pdf("poster/heatmap_6h-infected.pdf", width = 6, height = 3)
-h_D23 + h_LT2
+pdf("poster/heatmap_6h-infected.pdf", width = 6, height = 4)
+h_D23 + h_LT2 + ht_category
 dev.off()
+```
+
+Same thing adding 2h and 4h:
+
+```{r}
+D23.2h.idx <- with(pData(sce.norm), which(
+  Time == "2h" & Status == "infected" & Infection == "D23580"))
+D23.4h.idx <- with(pData(sce.norm), which(
+  Time == "4h" & Status == "infected" & Infection == "D23580"))
+D23.6h.idx <- with(pData(sce.norm), which(
+  Time == "6h" & Status == "infected" & Infection == "D23580"))
+LT2.2h.idx <- with(pData(sce.norm), which(
+  Time == "2h" & Status == "infected" & Infection == "LT2"))
+LT2.4h.idx <- with(pData(sce.norm), which(
+  Time == "4h" & Status == "infected" & Infection == "LT2"))
+LT2.6h.idx <- with(pData(sce.norm), which(
+  Time == "6h" & Status == "infected" & Infection == "LT2"))
+normD23.2h <- norm_exprs(sce.norm)[geneIds, D23.2h.idx]
+normD23.4h <- norm_exprs(sce.norm)[geneIds, D23.4h.idx]
+normD23.6h <- norm_exprs(sce.norm)[geneIds, D23.6h.idx]
+normLT2.2h <- norm_exprs(sce.norm)[geneIds, LT2.2h.idx]
+normLT2.4h <- norm_exprs(sce.norm)[geneIds, LT2.4h.idx]
+normLT2.6h <- norm_exprs(sce.norm)[geneIds, LT2.6h.idx]
+rownames(normD23.2h) <- geneNames
+rownames(normD23.4h) <- geneNames
+rownames(normD23.6h) <- geneNames
+rownames(normLT2.2h) <- geneNames
+rownames(normLT2.4h) <- geneNames
+rownames(normLT2.6h) <- geneNames
 ```
 
 
 ```{r}
-ht_supervised <- Heatmap(
-  normExprs,
-  name = "norm_exprs", column_title = "Normalised expression",
-  top_annotation = h_column,
-  cluster_rows = TRUE, cluster_columns = TRUE,
-  show_row_names = TRUE, show_column_names = FALSE
+colorMap <- colorRamp2(
+  c(min(exprsRange),median(exprsRange)/5,max(exprsRange)),
+  c("blue","white","red"))
+h_D23.2h <- Heatmap(
+  normD23.2h, colorMap,
+  name = "Normalised\nexpression", column_title = "D23580\n2h",
+  show_column_names = FALSE, row_names_side = "left", cluster_rows = FALSE,
+  row_names_gp = gpar(fontface = "italic", fontsize = 6),
+  column_title_gp = gpar(fontsize = 8),
+  split = v_categories
 )
-draw(ht_supervised)
+h_D23.4h <- Heatmap(
+  normD23.4h, colorMap, show_heatmap_legend = FALSE,
+  name = "D23_4h", column_title = "D23580\n4h",
+  show_column_names = FALSE, show_row_names = FALSE,
+  column_title_gp = gpar(fontsize = 8)
+)
+h_D23.6h <- Heatmap(
+  normD23.6h, colorMap, show_heatmap_legend = FALSE,
+  name = "D23_6h", column_title = "D23580\n6h",
+  show_column_names = FALSE, show_row_names = FALSE,
+  column_title_gp = gpar(fontsize = 8)
+)
+h_LT2.2h <- Heatmap(
+  normLT2.2h, colorMap, show_heatmap_legend = FALSE,
+  name = "hLT2_2h", column_title = "LT2\n2h",
+  show_column_names = FALSE, show_row_names = FALSE, cluster_rows = FALSE,
+  column_title_gp = gpar(fontsize = 8)
+)
+h_LT2.4h <- Heatmap(
+  normLT2.4h, colorMap, show_heatmap_legend = FALSE,
+  name = "hLT2_4h", column_title = "LT2\n4h",
+  show_column_names = FALSE, show_row_names = FALSE, cluster_rows = FALSE,
+  column_title_gp = gpar(fontsize = 8)
+)
+h_LT2.6h <- Heatmap(
+  normLT2, colorMap, show_heatmap_legend = FALSE,
+  name = "hLT2_6h", column_title = "LT2\n6h",
+  show_column_names = FALSE, show_row_names = FALSE, cluster_rows = FALSE,
+  column_title_gp = gpar(fontsize = 8)
+)
+pdf("poster/heatmap_infected.pdf", width = 8, height = 3)
+h_D23.2h + h_D23.4h + h_D23.6h + h_LT2.2h + h_LT2.4h + h_LT2.6h + ht_category
+dev.off()
 ```
-
