@@ -7,8 +7,10 @@ navbar:
     - text: "Background"
       icon: fa-newspaper-o
       menu:
-        - text: "Salmonellosis"
-          href: 00d_Salmonellosis.html
+        - text: "Invasive Salmonelloses"
+          href: 00d_Introduction_Salmonella.html
+        - text: "Dendritic Cells"
+          href: 00e_Introduction_DC.html
     - text: "Methods"
       icon: fa-flask
       menu:
