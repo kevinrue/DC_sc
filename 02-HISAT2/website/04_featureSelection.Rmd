@@ -214,7 +214,9 @@ ggplot(mixC) + geom_point(aes(ERCCmolecules, avgCount)) +
   scale_x_log10() + scale_y_log10() + coord_fixed(ratio = 1)
 ```
 
-# Definition of detected feature {.tabset}
+# Definition of detected features
+
+## Count of genes by mean expression level
 
 Let us examine the distribution of log-mean CPM across all genes, while
 indicating an average value of **1** CPM:
@@ -227,6 +229,8 @@ hist(
 )
 abline(v = log10(1), col = "blue", lwd = 2, lty = 2)
 ```
+
+## Count of cells with detectable expression
 
 We may compare the above figure with the a smoother representation of the
 count of cells in which each feature is detected against the average
@@ -247,13 +251,17 @@ points(
 abline(v = log10(1), col = "blue", lwd = 2, lty = 2)
 ```
 
+## Distribution of expression levels within groups {.tabset}
+
 In the context of the present multifactorial experimental design, let us define
-informative endogenous features as those with an average count above a
-threshold of **20** counts per million (CPM) in at least **1** experimental
-group of cells (`r min(table(sce.pass$Group))`-`r max(table(sce.pass$Group))`
+informative endogenous features as those with an average expression level
+above an expression threshold of **10** counts per million (CPM)
+in at least **25%** of at least **1** experimental group of cells
+(`r min(table(sce.pass$Group))`-`r max(table(sce.pass$Group))`
 cells per group, after exclusion of outliers).
 In contrast, let us define informative spike-in features
-as those with an average count greater or equal to a threhsold of **1** count.
+as those with an average count across all single cells greater or equal
+to a threhsold of **1** count.
 Note that the count of cells per group was reported
 [here](03_sampleQC#cellSelection)
 
@@ -271,6 +279,8 @@ avgCPMbyGroup <- reshape2::melt(
   avgCPMbyGroup, varnames = c("Group", "Feature"), value.name = "AvgCPM")
 ```
 
+### Density
+
 The following figure display the distribution of average log~10~(CPM)
 within each experimental group of single cells
 (after removing zero-count genes):
@@ -280,18 +290,37 @@ ggplot(avgCPMbyGroup) + geom_density(aes(log10(AvgCPM))) +
   facet_wrap(~ Group)
 ```
 
-Let us now obtain---for each feature---the proportion of cells within each
-experimental group of cells that display an expression level above **10** CPM:
+### Violin
 
-```{r propOver20byGroup}
-propOver20byGroup <- apply(scater::cpm(sce.pass), 1, function(x){
-  tapply(x, sce.pass$Group, function(x){sum(x > 10) / length(x)})
-})
-propOver20byGroup <- reshape2::melt(
-  propOver20byGroup, varnames = c("Group", "Feature"), value.name = "Proportion")
+The following figure display the distribution of average log~10~(CPM)
+within each experimental group of single cells,
+while indicating in each text label the count of non-zero values in each
+experimental groups (*i.e.*, the count of genes present in each violin):
+
+```{r violin_avgCPM}
+detectedCounts <- data.frame(
+  Group = levels(avgCPMbyGroup$Group), y = 1E-2,
+  Count = with(avgCPMbyGroup, tapply(AvgCPM, Group, function(x){sum(x>0)}))
+)
+ggplot(avgCPMbyGroup, aes(Group, AvgCPM)) +
+  geom_violin(draw_quantiles = seq(0.25, 0.75, 0.25)) +
+  geom_label(aes(Group, y, label = Count), data = detectedCounts, size = 2) +
+  scale_y_log10(limits = c(1E-2, 1E5)) + labs(y = "Average CPM") +
+  theme(axis.text.x=element_text(angle=90),panel.grid.major.x=element_blank())
 ```
 
 # Selection of detected features {#selectFeatures}
+
+Let us obtain---for each feature---the proportion of cells within each
+experimental group of cells that display an expression level above **10** CPM:
+
+```{r propOver10byGroup}
+propOver10byGroup <- apply(scater::cpm(sce.pass), 1, function(x){
+  tapply(x, sce.pass$Group, function(x){sum(x > 10) / length(x)})
+})
+propOver10byGroup <- reshape2::melt(
+  propOver10byGroup, varnames = c("Group", "Feature"), value.name = "Proportion")
+```
 
 Following the above observations, let us retain for further analysis:
 
@@ -302,7 +331,7 @@ Following the above observations, let us retain for further analysis:
 
 ```{r}
 detectedFeatures <- names(which(tapply(
-  propOver20byGroup$Proportion, propOver20byGroup$Feature,
+  propOver10byGroup$Proportion, propOver10byGroup$Feature,
   function(x){sum(x > 0.25) > 0})))
 ```
 
