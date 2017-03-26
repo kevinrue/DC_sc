@@ -22,7 +22,7 @@ Adapter and quality trimming using
 (version **0.4.1**; using [cutadapt](https://pypi.python.org/pypi/cutadapt)
 version **1.10**) was tested;
 however, the high quality of the raw data, and the marginal improvement of
-alignment rate (~ 1%) did not justify additional processing time and disk space.
+alignment rate (< 1%) did not justify additional processing time and disk space.
 
 # Composite genome (*Ensembl*)
 
