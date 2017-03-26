@@ -71,7 +71,7 @@ library(EnsDb.Hsapiens.v79)
 Let us set the working directory to execute the following code chunks:
 
 ```{r workdir}
-workdir <- ifelse(interactive(), ".", "..")
+workdir <- ifelse(interactive(), "..", "..")
 ```
 
 Let us set a few paths relevant to the analysis:
