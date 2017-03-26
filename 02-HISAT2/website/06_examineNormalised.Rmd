@@ -421,6 +421,15 @@ plotReducedDim.SCESet(
   scale_colour_gradientn(name="CD1B",limits=exprScale,colours=colourScale)
 ```
 
+#### CD1C
+
+```{r plotTSNE_CD1C, message=FALSE}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm),gene_name=="CD1C"))) + PCAtheme +
+  scale_colour_gradientn(name="CD1C",limits=exprScale,colours=colourScale)
+```
+
 #### RAMP1
 
 ```{r plotTSNE_RAMP1, message=FALSE}
@@ -464,6 +473,15 @@ plotReducedDim.SCESet(
   sce.norm, ncomponents = 2, shape_by = "Time",
   colour_by = rownames(subset(fData(sce.norm),gene_name=="ALOX15"))) + PCAtheme +
   scale_colour_gradientn(name="ALOX15",limits=exprScale,colours=colourScale)
+```
+
+#### CD209
+
+```{r plotTSNE_CD209, message=FALSE}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm),gene_name=="CD209"))) + PCAtheme +
+  scale_colour_gradientn(name="CD209",limits=exprScale,colours=colourScale)
 ```
 
 ## Diffusion map
