@@ -1085,7 +1085,7 @@ Let us compare the posterior of *CCL7* for the four comparisons of interest:
 
 ### 6h_D23_inf - 6h_D23_exp
 
-```{r 6h_D23_inf - 6h_D23_exp}
+```{r 6h_D23_inf_6h_D23_exp}
 groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all);
 sg.ref <- "6h_D23580_exposed"; sg.tar <- "6h_D23580_infected";
 groups[which(sg.all==sg.ref)]<-sg.ref; groups[which(sg.all==sg.tar)]<-sg.tar;
@@ -1097,7 +1097,7 @@ scde.test.gene.expression.difference(
 
 ### 6h_LT2_inf - 6h_LT2_exp
 
-```{r 6h_LT2_inf - 6h_LT2_exp}
+```{r 6h_LT2_inf_6h_LT2_exp}
 groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all)
 sg.ref <- "6h_LT2_exposed"; sg.tar <- "6h_LT2_infected"
 groups[which(sg.all == sg.ref)] <- sg.ref; groups[which(sg.all == sg.tar)] <- sg.tar
@@ -1109,7 +1109,7 @@ scde.test.gene.expression.difference(
 
 ### 6h_D23_inf - 6h_LT2_inf
 
-```{r 6h_D23_inf - 6h_LT2_inf}
+```{r 6h_D23_inf_6h_LT2_inf}
 groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all)
 sg.ref <- "6h_LT2_infected"; sg.tar <- "6h_D23580_infected"
 groups[which(sg.all == sg.ref)] <- sg.ref; groups[which(sg.all == sg.tar)] <- sg.tar
@@ -1121,7 +1121,7 @@ scde.test.gene.expression.difference(
 
 ### 6h_D23_exp - 6h_LT2_exp
 
-```{r 6h_D23_exp - 6h_LT2_exp}
+```{r 6h_D23_exp_6h_LT2_exp}
 groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all)
 sg.ref <- "6h_LT2_exposed"; sg.tar <- "6h_D23580_exposed"
 groups[which(sg.all == sg.ref)] <- sg.ref; groups[which(sg.all == sg.tar)] <- sg.tar
@@ -1129,6 +1129,20 @@ groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
 scde.test.gene.expression.difference(
   geneId, models = o.ifm, counts = cd, prior = o.prior,
   groups = groups, batch = batch)
+```
+
+```{r 6h_LT2_inf_6h_LT2_exp_CTSL, include=FALSE}
+geneName <- "CTSL"
+geneId <- mapIds(EnsDb.Hsapiens.v79, geneName, "GENEID", "GENENAME")
+groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all)
+sg.ref <- "6h_LT2_exposed"; sg.tar <- "6h_LT2_infected"
+groups[which(sg.all == sg.ref)] <- sg.ref; groups[which(sg.all == sg.tar)] <- sg.tar
+groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
+pdf("NGS-SIG/SCDE_CTSL_LT2_inf-exp.pdf", height = 6, width = 6)
+scde.test.gene.expression.difference(
+  geneId, models = o.ifm, counts = cd, prior = o.prior,
+  groups = groups, batch = batch)
+dev.off()
 ```
 
 <!-- As HTML pages are built independently, objects need to be saved to disk
