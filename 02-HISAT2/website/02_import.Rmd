@@ -97,7 +97,7 @@ Let us assemble the phenotype information and count data above into
 
 **Note:**
 This distinction will be important later, to compute and compared QC metrics
-within distinct sets of samples.
+within each sets of samples.
 
 First, let us set the `rownames` of the phenotypes information `data.frame` to
 the unique sample identifier for consistency with the sample identifier
@@ -114,7 +114,6 @@ Similarly, we let us also prepare an `AnnotatedDataFrame` with appropriate
 fdata <- AnnotatedDataFrame(as.data.frame(mcols(gtfData)[orderGtf,]))
 rownames(fdata) <- rownames(RG$counts)
 ```
-
 
 We may then create the four data sets:
 
@@ -154,4 +153,140 @@ saveRDS(sce.blank, "rds/sce.blank.rds")
 saveRDS(sce.bulk, "rds/sce.bulk.rds")
 saveRDS(sce.sc, "rds/sce.sc.rds")
 saveRDS(gtfData, "rds/gtfData.rds")
+```
+
+```{r loadKallisto, include=FALSE}
+kallisto_all <- readRDS("../../01-kallisto/rds/all_EnsDb.rds")
+```
+
+```{r overlapKallistoAligned, include=FALSE}
+fData(kallisto_all)[,"feature_id"]
+features.overlap <-
+  intersect(fData(kallisto_all)[,"feature_id"], featureNames(sce.all))
+kallisto.overlap <- kallisto_all[
+  match(features.overlap, fData(kallisto_all)$feature_id),
+]
+sce.overlap <- sce.all[features.overlap,]
+rm(kallisto_all)
+```
+
+```{r erccIds, include=FALSE}
+ercc <- grepl("^ERCC-", features.overlap)
+table(ercc)
+```
+
+
+```{r prepareBulkPlot, include=FALSE}
+comp.bulks <- data.frame(
+  Time = character(),
+  Infection = character(),
+  Kallisto = integer(),
+  HF = integer(),
+  ERCC = logical()
+)
+for (time in c("2h", "4h", "6h")){
+  for (infection in c("Mock", "D23580", "LT2")){
+    message(sprintf("%s - %s", time, infection))
+    kallisto <- counts(kallisto.overlap[
+      ,
+      kallisto.overlap$Time == time &
+        kallisto.overlap$Infection == infection &
+        kallisto.overlap$Status == "BULK"
+    ])[,1]
+    print(length(kallisto))
+    hf = counts(sce.overlap)[
+      ,
+      sce.overlap$Time == time &
+        sce.overlap$Infection == infection &
+        sce.overlap$Status == "BULK"
+    ]
+    print(length(hf))
+    new.df <- data.frame(
+      Time = time,
+      Infection = infection,
+      Kallisto = kallisto,
+      HF = hf,
+      ERCC = ercc
+    )
+    comp.bulks <- rbind(comp.bulks, new.df)
+  }
+}
+rm(kallisto, hf, time, infection, new.df)
+```
+
+```{r bulkPlot, include=FALSE}
+ggplot(comp.bulks, aes(log10(Kallisto + 1), log10(HF + 1))) +
+  geom_hex() +
+  facet_grid(Infection ~ Time) +
+  geom_point(
+    aes(log10(Kallisto + 1), log10(HF + 1)),
+    subset(comp.bulks, ERCC),
+    colour = "red", size = 0.3) +
+  labs(y = "HISAT2 + featureCounts") +
+  scale_fill_continuous(name = "Density")
+ggsave("NGS-SIG/Kallisto-HISAT2_bulk.pdf")
+```
+
+```{r prepareSCplot, include=FALSE}
+set.seed(1985)
+comp.sc <- data.frame(
+  Time = character(),
+  Infection = character(),
+  Status = character(),
+  Kallisto = numeric(),
+  THF = numeric(),
+  ERCC = logical()
+)
+cells.df <- data.frame(
+  Cell = character(),
+  Time = character(),
+  Infection  = character()
+)
+for (time in c("2h", "4h", "6h")){
+   for (infection in c("Mock", "D23580", "LT2")){
+    sname <- as.character(sample(subset(
+      pData(kallisto.overlap),
+      Time == time & Infection == infection & Status != 'BULK',
+      select = sample,
+      drop = TRUE), 1))
+    kallisto <- counts(kallisto.overlap[,sname])[,1]
+    print(length(kallisto))
+    hf = counts(sce.overlap)[,sname]
+    print(length(hf))
+    new.df <- data.frame(
+      Time = time,
+      Infection = infection,
+      Status = subset(
+        pData(kallisto.overlap), sample == sname, select = Status, drop = TRUE
+      ),
+      Kallisto = kallisto,
+      HF = hf,
+      ERCC = ercc
+    )
+    comp.sc <- rbind(comp.sc, new.df)
+    newCell <- data.frame(
+      Cell = sprintf("Cell %s", sname),
+      Time = time,
+      Infection = infection
+    )
+    cells.df <- rbind(cells.df, newCell)
+  }
+}
+```
+
+```{r SCplot, include=FALSE}
+cells.df$Y = 5
+cells.df$X = 0
+ggplot(comp.sc, aes(log10(Kallisto + 1), log10(HF + 1))) +
+  geom_hex(aes(colour = Status)) +
+  facet_grid(Infection ~ Time) +
+  geom_point(
+    aes(log10(Kallisto + 1), log10(HF + 1)),
+    subset(comp.sc, ERCC),
+    colour = "red", size = 0.3) +
+  ggrepel::geom_label_repel(
+    aes(X, Y, label = Cell), cells.df,
+    size = 2, alpha = 0.5) +
+  scale_fill_continuous(name = "Density")
+ggsave("NGS-SIG/Kallisto-HISAT2_SC9.pdf")
 ```
