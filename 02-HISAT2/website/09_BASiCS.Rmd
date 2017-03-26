@@ -35,7 +35,7 @@ For this analysis we use:
   [section](04_featureSelection#selectFeatures))
 
 **Note:** this contrasts with the stringent condition of ≥20 RPM on average
-across all cells, demonstrated in [@BASiCS2016DE]. However, feature
+across all cells, demonstrated in [@BASiCS_2016_DE]. However, feature
 selection is highly dependent on the nature of the experimental design.
 
 As a result, the input data contains `r nrow(sce.norm)` features and
