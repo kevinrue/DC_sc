@@ -327,6 +327,17 @@ The figure above reinforces clear-cut differences between cells
 stimulated by bacterial infection or exposure and `uninfected` cells,
 particularly at the later time-points.
 
+```{r LGALS3BP_violin, include=FALSE}
+geneName <- "LGALS3BP"
+geneId <- mapIds(EnsDb.Hsapiens.v79, geneName, "GENEID", "GENENAME")
+top9Id <- head(top.hvg, 4)
+top9Names <- fData(sce.norm[top9Id,])$gene_name
+plotExpressionSCESet(
+  sce.norm, geneId, exprs_values = "norm_exprs",
+  colour_by = "Status"
+  ) + scale_x_discrete(labels = geneName) +
+   theme(legend.position = "bottom", legend.box = "vertical")
+```
 
 ## GO enrichment
 
@@ -797,7 +808,7 @@ as they may represent key markers of polarisation toward distinct
 phenotypes (*e.g.*, states of cellular activation).
 
 Let us visualise the count of HVGs identified in each experimental group,
-while indicating the count of cells per group for reference:
+while indicating the count of cells per group in a text label for reference:
 
 ```{r countHVGsByGroup, echo=FALSE}
 groupNames <- levels(sce.norm$Group)
