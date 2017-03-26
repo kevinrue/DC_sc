@@ -2,7 +2,8 @@
 title: "Dendritic Cells"
 ---
 
-### Dendritic Cells characteristics
+# Dendritic Cells characteristics
+
 One of the most relevant antigen-presenting cells are dendritic cells (DCs), 
 which are a link between innate and adaptive immunity. These cells have the capacity 
 to directly recognize and uptake pathogens at the site of infection and migrate 
@@ -45,11 +46,9 @@ These two roles are relevant to vaccine research and our understanding of
 *Salmonella*- related disease
 
 
+# *Salmonella* subverts Dendritic Cells response
 
-
-
-### *Salmonella* subverts Dendtritic Cells response
-__Host Adaptation__:
+## Host Adaptation
 
 Infection of murine DCs with either *S* . Typhi or *S* . Enteritidis, 
 two serovars adapted to different hosts, leads to an efficient T-cell activation
@@ -61,28 +60,30 @@ This suggests that *Salmonella*  host restriction is characterized by the abilit
 of these bacteria to survive within DCs and avoid activation of the adaptive immune 
 response in their specific hosts.
 
-__DC ruffles__:
+
+## DC ruffle
 
 DCs infected with *S*. typhimurium present generalized ruffles on the surface of 
 the plasma membrane appearing in the form of microplicae. 
 
-__Invasion__:
 
-1) Trigger: SPI1-T3SS effectors (SipA, SipC, SopB, SopD, SopE and SopE2) induce 
+## Invasion
+
+1) **Trigger:** SPI1-T3SS effectors (SipA, SipC, SopB, SopD, SopE and SopE2) induce 
 extensive rearrangements of both the plasma membrane and the underlying actin 
 cytoskeleton, resulting in the formation of macropinosomes. Entrance mediated by 
 SPI1-T3SS may lead to excessive bacterial load and cell death.
 
-2) Zipper: through the protein Rck wich induce minor actin filament rearrangment.
+2) **Zipper:** through the protein Rck wich induce minor actin filament rearrangment.
 
-3) Classical phagocytosis: due to recognition of bacterial PAMPS by DC receptors. 
+3) **Classical phagocytosis:** due to recognition of bacterial PAMPS by DC receptors. 
 
 The Rho GTPases, CDC42,and Rac1, are required for the initiation of actin  
 polymerization during Fc gamma receptor-mediated phagocytosis as well as for 
 *Salmonella* invasion. 
 
 
-__Intracellular localization__:
+## Intracellular localization
 
 The intracellular fate of *Salmonella* in DCs differs from that in macrophages. 
 Compared with macrophages, where the pH 5.0 is reached shortly after phagocytosis, 
@@ -110,17 +111,17 @@ bacteria were degraded after internalization, as depicted by the loss of integri
 of the bacteria profiles within the phagosomes.
 The SCV biogenesis can be divided arbitrarily into three stages: 
 
-- early (10 min–1 h postinfection), 
+- **early (10 min–1 h postinfection):**
 SNX3 associates to specific tubular structures (SNX3 tubules) that last from 30 min 
 to 2 h after invasion and contribute to the recruitment of Rab7 and LAMP1 to the 
 SCV and to the movement of the vacuole.
 
-- intermediate (1 h–4 h), 
+- **intermediate (1 h–4 h):**
 The intermediate stage in the SCV development is characterized by dynein-mediated 
 movement of the vacuole along microtubules to reach a juxtanuclear position adjacent
 to the microtubule-organizing center.
 
-- late (>4h).
+- **late (>4h):**
 During the late stage of SCV maturation, a set of T3SS effectors, exhibiting both 
 cooperative and antagonistic activities, are involved in the maintenance of the 
 vacuole at its perinuclear position, as well as in the generation of different 
@@ -129,7 +130,7 @@ Salmonella-induced secretory carrier membrane protein 3 (SCAMP3) tubules (SISTs)
 and LAMP1-negative tubules (LNTs), that are more easily observed in cultured 
 epithelial cells.
 
-__Cytokine induction:__
+## Cytokine induction
 
 TNF-a production by DCs may work in an autocrine or paracrine fashion during *Salmonella* infection to orchestrate DC maturation to link the innate and adaptive immune responses. 
 IL-12 and IFN-g are also important for host survival of *Salmonella* infection, 
@@ -138,7 +139,7 @@ has been examined.
 Stimulation of DCs with *Salmonella* resulted in a rapid up-regulation of CCL5, 
 CCL20, CXCL10, TNF-a, and IL-18 mRNA expression, starting at 3 h after infection. 
 
-__Surface marker:__
+## Surface marker
 
 Genes encoded on SPI-2 T3SS appear to suppress antigen presentation by DC, which 
 limits a robust immune response by the infected cells.
@@ -156,16 +157,18 @@ loaded on MHC molecules and poor activation of T cells. Additionally, studies in
 human DCs suggest that *S*. Typhimurium infection promotes degradation of HLA-DR 
 molecules by poly-ubiquitination.
 
-__Receptors:__
+## Receptors
 
 Given the structure of bacteria, it follows that *Salmonella* expresses several 
 PAMPs that can simultaneously be recognized by TLRs, including but certainly not 
 limited to LPS, which is recognized by TLR4, as well as flagellin and CpG motifs 
 in DNA, which are recognized by TLR5 and TLR9, respectively.
 
-__Cell viability:__
+## Cell viability
 
-Although, they do not provide hospitable environment for the survival of the pathogen, DCs act as steady carrier of *Salmonella* for its passive dissemination to systemic sites. 
+Although DCs do not provide hospitable environment
+for the survival of the pathogen, they do act as steady carrier of
+*Salmonella* for its passive dissemination to systemic sites. 
 Also *Salmonella* induces caspase-1 mediated cytotoxicity in DCs depending upon 
 SPI1 needle assembly and the expression of SPI1 effector protein SipB.
 The killing is possibly mediated by stimulation of P2X7 receptor or pore forming
