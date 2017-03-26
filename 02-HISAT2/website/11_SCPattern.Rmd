@@ -675,7 +675,7 @@ par(mfrow=c(1,1))
 
 ### RAB29
 
-```{r, echo=FALSE}
+```{r, echo=FALSE, fig.height=3}
 geneName <- "RAB29"
 geneId <- mapIds(EnsDb.Hsapiens.v79, geneName, "GENEID", "GENENAME")
 par(mfrow=c(1,3))
