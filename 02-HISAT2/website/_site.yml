@@ -60,4 +60,4 @@ output:
       smooth_scroll: true
 exclude: [
   "rds", "counts", "expdata", "*.R", "*.pdf",
-  "t-test", "SCDE", "BASiCS", "HVGs", "poster"]
+  "t-test", "SCDE", "BASiCS", "HVGs", "poster", "NGS-SIG"]
