@@ -117,21 +117,21 @@ taken by cells in response to experimental stimuli.
 #### Time
 
 ```{r plotPCASCESet_Time, fig.height=5}
-plotReducedDim.SCESet(sce.norm, 2, colour_by = "Time", shape_by = "Time") +
+plotReducedDim.SCESet(sce.norm, 2, "Time", "Plate") +
   PCAtheme
 ```
 
 #### Infection
 
 ```{r plotPCASCESet_Infection, fig.height=5}
-plotReducedDim.SCESet(sce.norm, 2, colour_by = "Infection", shape_by = "Time") +
+plotReducedDim.SCESet(sce.norm, 2, "Infection", "Time") +
   PCAtheme
 ```
 
 #### Status
 
 ```{r plotPCASCESet_Status, fig.height=5}
-plotReducedDim.SCESet(sce.norm, 2, colour_by = "Status", shape_by = "Time") +
+plotReducedDim.SCESet(sce.norm, 2, "Status", "Time") +
   PCAtheme
 ```
 
@@ -151,7 +151,7 @@ plotReducedDim.SCESet(sce.norm, 3, colour_by = "Treatment", shape_by = "Time") +
 #### Time
 
 ```{r plotPCASCESet_PC1to3_Time}
-plotReducedDim.SCESet(sce.norm, 3, colour_by = "Time", shape_by = "Time") +
+plotReducedDim.SCESet(sce.norm, 3, colour_by = "Time", shape_by = "Plate") +
   PCAtheme
 ```
 
