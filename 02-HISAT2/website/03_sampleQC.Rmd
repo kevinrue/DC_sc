@@ -466,12 +466,12 @@ for reference.
 ggplot(pData(sce.all), aes(Sample, pct_counts_top_50_features)) +
   geom_point(aes(colour = Status, shape = Infection)) +
   geom_text_repel(
-    aes(label = Sample), subset(pData(sce.sc), scater.top50.outliers),
-    alpha = 0.4) +
+    aes(label=Sample),subset(pData(sce.sc),scater.top50.outliers),alpha=0.4) +
   geom_hline(
     yintercept = scater.top50.M + 3 * c(-1,1) * scater.top50.MAD,
     colour = "red", linetype = 2:1) +
-  geom_hline(yintercept = scater.top50.M) + sampleQCtheme
+  geom_hline(yintercept = scater.top50.M) + sampleQCtheme +
+  scale_y_continuous(limits = c(0,100))
 ```
 
 ### 100
@@ -480,12 +480,12 @@ ggplot(pData(sce.all), aes(Sample, pct_counts_top_50_features)) +
 ggplot(pData(sce.all), aes(Sample, pct_counts_top_100_features)) +
   geom_point(aes(colour = Status, shape = Infection)) +
   geom_text_repel(
-    aes(label = Sample), subset(pData(sce.sc), scater.top100.outliers),
-    alpha = 0.4) +
+    aes(label=Sample),subset(pData(sce.sc),scater.top100.outliers),alpha=0.4) +
   geom_hline(
     yintercept = scater.top100.M + 3 * c(-1,1) * scater.top100.MAD,
     colour = "red", linetype = 2:1) +
-  geom_hline(yintercept = scater.top100.M) + sampleQCtheme
+  geom_hline(yintercept = scater.top100.M) + sampleQCtheme +
+  scale_y_continuous(limits = c(0,100))
 ```
 
 ### 200
@@ -494,18 +494,62 @@ ggplot(pData(sce.all), aes(Sample, pct_counts_top_100_features)) +
 ggplot(pData(sce.all), aes(Sample, pct_counts_top_200_features)) +
   geom_point(aes(colour = Status, shape = Infection)) +
   geom_text_repel(
+    aes(label=Sample),subset(pData(sce.sc),scater.top200.outliers),alpha=0.4) +
+  geom_hline(
+    yintercept = scater.top200.M + 3 * c(-1,1) * scater.top200.MAD,
+    colour = "red", linetype = 2:1) +
+  geom_hline(yintercept = scater.top200.M) + sampleQCtheme +
+  scale_y_continuous(limits = c(0,100))
+```
+
+Note how two `infected:D23580` samples appear near the cut-off threshold.
+This observation can be related to the overall library complexity figure
+shown [earlier](#libraryComplexity).
+
+### 50 (Time)
+
+```{r scater_ggplot_top50Time}
+ggplot(pData(sce.all), aes(Sample, pct_counts_top_50_features)) +
+  geom_point(aes(colour = Time, shape = Infection)) +
+  geom_text_repel(
+    aes(label = Sample), subset(pData(sce.sc), scater.top50.outliers),
+    alpha = 0.4) +
+  geom_hline(
+    yintercept = scater.top50.M + 3 * c(-1,1) * scater.top50.MAD,
+    colour = "red", linetype = 2:1) +
+  geom_hline(yintercept = scater.top50.M) + sampleQCtheme +
+  scale_y_continuous(limits = c(0,100))
+```
+
+### 100 (Time)
+
+```{r scater_ggplot_top100Time}
+ggplot(pData(sce.all), aes(Sample, pct_counts_top_100_features)) +
+  geom_point(aes(colour = Time, shape = Infection)) +
+  geom_text_repel(
+    aes(label = Sample), subset(pData(sce.sc), scater.top100.outliers),
+    alpha = 0.4) +
+  geom_hline(
+    yintercept = scater.top100.M + 3 * c(-1,1) * scater.top100.MAD,
+    colour = "red", linetype = 2:1) +
+  geom_hline(yintercept = scater.top100.M) + sampleQCtheme +
+  scale_y_continuous(limits = c(0,100))
+```
+
+### 200 (Time)
+
+```{r scater_ggplot_top200Time}
+ggplot(pData(sce.all), aes(Sample, pct_counts_top_200_features)) +
+  geom_point(aes(colour = Time, shape = Infection)) +
+  geom_text_repel(
     aes(label = Sample), subset(pData(sce.sc), scater.top200.outliers),
     alpha = 0.4) +
   geom_hline(
     yintercept = scater.top200.M + 3 * c(-1,1) * scater.top200.MAD,
     colour = "red", linetype = 2:1) +
-  geom_hline(yintercept = scater.top200.M) + sampleQCtheme
+  geom_hline(yintercept = scater.top200.M) + sampleQCtheme +
+  scale_y_continuous(limits = c(0,100))
 ```
-
-In this last figure (*i.e.*, `200` most abundant features),
-note how two `infected:D23580` samples appear near the cut-off threshold.
-This observation can be related to the overall library complexity figure
-shown [earlier](#libraryComplexity).
 
 ## Count of detected features
 
