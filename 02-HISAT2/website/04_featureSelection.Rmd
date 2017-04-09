@@ -306,7 +306,10 @@ ggplot(avgCPMbyGroup, aes(Group, AvgCPM)) +
   geom_violin(draw_quantiles = seq(0.25, 0.75, 0.25)) +
   geom_label(aes(Group, y, label = Count), data = detectedCounts, size = 2) +
   scale_y_log10(limits = c(1E-2, 1E5)) + labs(y = "Average CPM") +
-  theme(axis.text.x=element_text(angle=90),panel.grid.major.x=element_blank())
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5),
+    panel.grid.major.x = element_blank()
+  )
 ```
 
 # Selection of detected features {#selectFeatures}
