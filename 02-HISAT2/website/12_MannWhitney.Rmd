@@ -1,0 +1,225 @@
+---
+title: "Mann Whitney differential expression"
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+library(scater)
+library(broom)
+library(reshape2)
+library(ensembldb)
+EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
+sce.norm <- readRDS("rds/sce.norm.rds")
+```
+
+# Plotting themes
+
+First of all, let us identify the minimum and maximum expression values in the
+normalised data set:
+
+```{r mleRange}
+exprRange <- range(norm_exprs(sce.norm))
+```
+
+Let us also define theme elements used throughout various figures
+in the following sections:
+
+```{r exprsViolinTheme}
+exprsTheme <- theme(
+  panel.grid.major.x = element_blank(),
+  legend.position = "bottom", legend.box = "vertical",
+  axis.text.x = element_text(size = rel(0.75))
+)
+```
+
+# An example
+
+```{r, warning=FALSE}
+groupRef <- '6h_LT2_infected'; groupTarget <- '6h_D23580_infected'
+refIdx <- sce.norm$Group == groupRef;targetIdx <- sce.norm$Group == groupTarget
+sum(refIdx); sum(targetIdx); max(refIdx + targetIdx) == 1
+wt <- do.call("rbind", apply(
+  norm_exprs(sce.norm), 1, function(x){
+    tidy(wilcox.test(x[refIdx], x[targetIdx]))[
+      ,c("statistic","p.value")]
+  }
+))
+wt[,"p.adjust"] <- p.adjust(wt[,"p.value"], "BH")
+```
+
+Unfortunately, no gene remains significant after correction for
+multiple testing:
+
+```{r}
+head(wt[order(wt$p.value),])
+```
+
+Let us examine the gene with lowest *P*-value anyway:
+
+```{r}
+topGeneId <- rownames(wt[order(wt$p.value),][1,])
+topGeneName <- mapIds(EnsDb.Hsapiens.v79, topGeneId, 'GENENAME', 'GENEID')
+ggData <- data.frame(
+  norm_exprs = norm_exprs(sce.norm)[topGeneId, refIdx | targetIdx],
+  group = pData(sce.norm)[refIdx | targetIdx, 'Group']
+)
+ggplot(ggData, aes(group, norm_exprs)) + geom_jitter(width = 0.2) +
+  ggtitle(sprintf("%s - %s", topGeneId, topGeneName))
+```
+
+# Pairwise comparison of all stimulated groups {.tabset}
+
+## Functions
+
+To estimate differential expression:
+
+```{r}
+genewise.wilcox.test <- function(groupRef, groupTarget){
+  stopifnot(groupRef %in% sce.norm$Group)
+  stopifnot(groupTarget %in% sce.norm$Group)
+  refIdx <- sce.norm$Group == groupRef
+  targetIdx <- sce.norm$Group == groupTarget
+  cat(sprintf(
+    "%s (%i) - %s (%i)", groupTarget, sum(targetIdx), groupRef, sum(refIdx)
+  ))
+  wt <- do.call("rbind", apply(
+    norm_exprs(sce.norm), 1, function(x){
+      tidy(wilcox.test(x[refIdx], x[targetIdx]))[
+        ,c("statistic","p.value")]
+    }
+  ))
+  wt[,"p.adjust"] <- p.adjust(wt[,"p.value"], "BH")
+  cat(sprintf(
+    " => FDR < 0.05: %i\n", sum(wt[,"p.adjust"] < 0.05, na.rm = TRUE)
+  ))
+  return(wt)
+}
+```
+
+To visualise the top **9** genes (by *P*-value / statistic):
+
+```{r}
+ggTop9 <- function(cName){
+  cNames <- strsplit(cName, "-")[[1]]
+  cIndex <- sce.norm$Group %in% cNames
+  cGroup <- sce.norm$Group[cIndex]
+  cTable <- wt.list[[cName]]
+  top9geneIds <- head(rownames(cTable[order(cTable[,"p.value"]),]), 9)
+  exprWide <- norm_exprs(sce.norm)[top9geneIds, cIndex]
+  exprLong <- melt(
+    exprWide, value.name = "norm_exprs", varnames = c('GENEID','Sample'))
+  exprLong[,"Group"] <- cGroup
+  merge
+  ggplot(exprLong, aes(Group, norm_exprs)) +
+    geom_violin(draw_quantiles = 0.5) + geom_jitter(width = 0.1) +
+    facet_wrap(~GENEID) + scale_y_continuous(limits = exprRange) + exprsTheme
+}
+```
+
+## Preprocessing
+
+```{r, warning=FALSE}
+wt.list <- list()
+contrasts <- list(
+  c("%s_D23580_infected","%s_LT2_infected"),
+  c("%s_D23580_infected","%s_D23580_exposed"),
+  c("%s_LT2_infected","%s_LT2_exposed"),
+  c("%s_D23580_exposed","%s_LT2_exposed")
+)
+for (time in levels(sce.norm$Time)){
+  for (cindex in 1:4){
+    sg.ref <- sprintf(contrasts[[cindex]][2], time)
+    sg.tar <- sprintf(contrasts[[cindex]][1], time)
+    contrast <- sprintf("%s-%s", sg.tar, sg.ref); #message(contrast)
+    wt.list[[contrast]] <- genewise.wilcox.test(sg.ref, sg.tar)
+  }
+}
+```
+
+## DE count
+
+```{r}
+DT::datatable(
+  data.frame(
+  DE = sapply(wt.list, function(x){sum(x[,"p.adjust"] < 0.05, na.rm = TRUE)}),
+  row.names = names(wt.list)
+)
+)
+```
+
+## `r names(wt.list)[1]`
+
+```{r}
+ggTop9(names(wt.list)[1])
+```
+
+## `r names(wt.list)[2]`
+
+```{r}
+ggTop9(names(wt.list)[2])
+```
+
+## `r names(wt.list)[3]`
+
+```{r}
+ggTop9(names(wt.list)[3])
+```
+
+## `r names(wt.list)[4]`
+
+```{r}
+ggTop9(names(wt.list)[4])
+```
+
+## `r names(wt.list)[5]`
+
+```{r}
+ggTop9(names(wt.list)[5])
+```
+
+## `r names(wt.list)[6]`
+
+```{r}
+ggTop9(names(wt.list)[6])
+```
+
+## `r names(wt.list)[7]`
+
+```{r}
+ggTop9(names(wt.list)[7])
+```
+
+## `r names(wt.list)[8]`
+
+```{r}
+ggTop9(names(wt.list)[8])
+```
+
+## `r names(wt.list)[9]`
+
+```{r}
+ggTop9(names(wt.list)[9])
+```
+
+## `r names(wt.list)[10]`
+
+```{r}
+ggTop9(names(wt.list)[10])
+```
+
+## `r names(wt.list)[11]`
+
+```{r}
+ggTop9(names(wt.list)[11])
+```
+
+## `r names(wt.list)[12]`
+
+```{r}
+ggTop9(names(wt.list)[12])
+```
+
+
