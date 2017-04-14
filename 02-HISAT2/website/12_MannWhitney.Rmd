@@ -35,65 +35,48 @@ exprsTheme <- theme(
 )
 ```
 
-# An example
-
-```{r, warning=FALSE}
-groupRef <- '6h_LT2_infected'; groupTarget <- '6h_D23580_infected'
-refIdx <- sce.norm$Group == groupRef;targetIdx <- sce.norm$Group == groupTarget
-sum(refIdx); sum(targetIdx); max(refIdx + targetIdx) == 1
-wt <- do.call("rbind", apply(
-  norm_exprs(sce.norm), 1, function(x){
-    tidy(wilcox.test(x[refIdx], x[targetIdx]))[
-      ,c("statistic","p.value")]
-  }
-))
-wt[,"p.adjust"] <- p.adjust(wt[,"p.value"], "BH")
-```
-
-Unfortunately, no gene remains significant after correction for
-multiple testing:
-
-```{r}
-head(wt[order(wt$p.value),])
-```
-
-Let us examine the gene with lowest *P*-value anyway:
-
-```{r}
-topGeneId <- rownames(wt[order(wt$p.value),][1,])
-topGeneName <- mapIds(EnsDb.Hsapiens.v79, topGeneId, 'GENENAME', 'GENEID')
-ggData <- data.frame(
-  norm_exprs = norm_exprs(sce.norm)[topGeneId, refIdx | targetIdx],
-  group = pData(sce.norm)[refIdx | targetIdx, 'Group']
-)
-ggplot(ggData, aes(group, norm_exprs)) + geom_jitter(width = 0.2) +
-  ggtitle(sprintf("%s - %s", topGeneId, topGeneName))
-```
-
 # Pairwise comparison of all stimulated groups {.tabset}
+
+For simplicity, let us remove spike-in features:
+
+```{r}
+sce.endo <- sce.norm[!isSpike(sce.norm),]
+```
 
 ## Functions
 
 To estimate differential expression:
 
+* For each pairwise comparison, let us test only features that are detected
+  above **10** CPM in at least **25%** of cells in at least one of the
+  two groups
+
 ```{r}
 genewise.wilcox.test <- function(groupRef, groupTarget){
-  stopifnot(groupRef %in% sce.norm$Group)
-  stopifnot(groupTarget %in% sce.norm$Group)
-  refIdx <- sce.norm$Group == groupRef
-  targetIdx <- sce.norm$Group == groupTarget
+  stopifnot(all(c(groupRef, groupTarget) %in% sce.norm$Group))
+  refIdx<-sce.norm$Group == groupRef;targetIdx<-sce.norm$Group==groupTarget
   cat(sprintf(
     "%s (%i) - %s (%i)", groupTarget, sum(targetIdx), groupRef, sum(refIdx)
   ))
+  detectedRef <-
+    rowSums(norm_exprs(sce.endo)[,refIdx] > 10) > (0.25 * sum(refIdx))
+  detectedTarget <-
+    rowSums(norm_exprs(sce.endo)[,targetIdx] > 10) > (0.25 * sum(targetIdx))
+  featureIdx <- (detectedRef | detectedTarget)
+  cat(sprintf("\n%i endogenous features tested", sum(featureIdx)))
   wt <- do.call("rbind", apply(
-    norm_exprs(sce.norm), 1, function(x){
-      tidy(wilcox.test(x[refIdx], x[targetIdx]))[
-        ,c("statistic","p.value")]
-    }
+    norm_exprs(sce.norm)[featureIdx,], 1, function(x){
+      tidy(wilcox.test(x[refIdx], x[targetIdx]))[,c("statistic","p.value")]
+      }
   ))
-  wt[,"p.adjust"] <- p.adjust(wt[,"p.value"], "BH")
+  wt[,"BH"] <- p.adjust(wt[,"p.value"], "BH")
+  wt[,"medianDiff"] <- apply(
+    norm_exprs(sce.norm)[featureIdx,], 1, function(x){
+      median(x[targetIdx]) - median(x[refIdx])
+      }
+  )
   cat(sprintf(
-    " => FDR < 0.05: %i\n", sum(wt[,"p.adjust"] < 0.05, na.rm = TRUE)
+    " => FDR < 0.05: %i\n", sum(wt[,"BH"] < 0.05, na.rm = TRUE)
   ))
   return(wt)
 }
@@ -106,16 +89,22 @@ ggTop9 <- function(cName){
   cNames <- strsplit(cName, "-")[[1]]
   cIndex <- sce.norm$Group %in% cNames
   cGroup <- sce.norm$Group[cIndex]
+  names(cGroup) <- sampleNames(sce.norm)[cIndex]
   cTable <- wt.list[[cName]]
   top9geneIds <- head(rownames(cTable[order(cTable[,"p.value"]),]), 9)
+  top9geneNames <- mapIds(EnsDb.Hsapiens.v79, top9geneIds, "GENENAME", "GENEID")
   exprWide <- norm_exprs(sce.norm)[top9geneIds, cIndex]
   exprLong <- melt(
     exprWide, value.name = "norm_exprs", varnames = c('GENEID','Sample'))
-  exprLong[,"Group"] <- cGroup
-  merge
+  exprLong[,"Group"] <- cGroup[as.character(exprLong[,"Sample"])]
+  exprLong[,"Feature"] <- factor(
+    paste(exprLong[,"GENEID"],top9geneNames[exprLong[,"GENEID"]],sep=" - "),
+    paste(top9geneIds, top9geneNames, sep=" - ")
+  )
   ggplot(exprLong, aes(Group, norm_exprs)) +
     geom_violin(draw_quantiles = 0.5) + geom_jitter(width = 0.1) +
-    facet_wrap(~GENEID) + scale_y_continuous(limits = exprRange) + exprsTheme
+    facet_wrap(~Feature) + scale_y_continuous(limits = exprRange) + exprsTheme +
+    ggtitle(cName)
 }
 ```
 
@@ -133,9 +122,25 @@ for (time in levels(sce.norm$Time)){
   for (cindex in 1:4){
     sg.ref <- sprintf(contrasts[[cindex]][2], time)
     sg.tar <- sprintf(contrasts[[cindex]][1], time)
-    contrast <- sprintf("%s-%s", sg.tar, sg.ref); #message(contrast)
+    contrast <- sprintf("%s-%s", sg.tar, sg.ref);# message(contrast)
     wt.list[[contrast]] <- genewise.wilcox.test(sg.ref, sg.tar)
   }
+}
+```
+
+```{r, include=FALSE}
+for (cName in names(wt.list)){
+  cTable <- wt.list[[cName]]
+  cTable <- cTable[order(cTable[,"p.value"]),]
+  cTable <- cbind(
+    GENENAME = mapIds(
+      EnsDb.Hsapiens.v79, rownames(cTable), "GENENAME", "GENEID"
+    ),
+    cTable
+  )
+  write.csv(
+    cTable, sprintf("wilcox.test/%s.csv", cName)
+  )
 }
 ```
 
@@ -144,7 +149,7 @@ for (time in levels(sce.norm$Time)){
 ```{r}
 DT::datatable(
   data.frame(
-  DE = sapply(wt.list, function(x){sum(x[,"p.adjust"] < 0.05, na.rm = TRUE)}),
+  DE = sapply(wt.list, function(x){sum(x[,"BH"] < 0.05, na.rm = TRUE)}),
   row.names = names(wt.list)
 )
 )

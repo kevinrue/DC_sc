@@ -1,5 +1,9 @@
 ---
 title: "Invasive Salmonellosis"
+bibliography: bibtex.bib
+nocite: | 
+  @Dougan_2014, @Herrero_ST64B, @Herrero_st313, @Jacobsen_2011, @Kingsley_2009,
+  @Leekitcharoenphon_2013, @Ramachandran_2015, @Singletary_2016, @Yang_2015
 ---
 
 # Pathogenic *Salmonella*
@@ -8,30 +12,34 @@ Pathogenic *Salmonella* fall into two broad categories: typhoidal and non-typhoi
 
 The former, responsible for typhoid fever, include *Salmonella enterica* serovar
 Typhi (*S.* Typhi) and *Salmonella enterica* serovar Paratyphi (*S.* Paratyphi).
-Such pathogens are considered "host-restricted" since they target only humans and 
-higher primates. The typhoidal strains cause severe blood borne infections and are 
+Such pathogens are considered "host-restricted" since they target only humans
+and higher primates.
+The typhoidal strains cause severe blood borne infections and are 
 more common in underdeveloped countries, where contaminated water often harbors 
-the bacteria. Left untreated, typhoid fever can lead to shock, organ failure and death.
+the bacteria. Left untreated, typhoid fever can lead to shock, organ failure and
+death.
 
 On the other hand,Non-typhoidal *Salmonella* (NTS) serovars such as
 *Salmonella enterica* serovar Typhimurium (*S.* Typhimurium) are ubiquitous and
-they  are the 
-leading cause of bacterial food-borne illness, which typically involves 
-gastrointestinal distress, nausea, vomiting and diarrhea.
-Over 2,500 variant forms of NTS exist. Unlike typhoidal strains, NTS infect a wide
-variety of animal hosts, including humans.
-While no vaccine exists for NTS, associated illness is usually self-limiting in 
-healthy people.
+they are the leading cause of bacterial food-borne illness, which typically
+involves gastrointestinal distress, nausea, vomiting and diarrhea.
+Over 2,500 variant forms of NTS exist. Unlike typhoidal strains, NTS infect a
+wide variety of animal hosts, including humans.
+Although no vaccine exists for NTS, associated illness is usually self-limiting
+in healthy individuals.
 
 ![Typhoidal and nontyphoidal Salmonella infections. A generalized comparison of infection associated with (a) gastroenteritis (NTS) and (b) typhoid (S. Typhi).](img/Typhoidal_NTS.png)
 
 # Invasive salmonellosis in sub-Saharan Africa
 
-A highly invasive form of NTS disease, frequently associated with *S.* Typhimurium 
-isolates, has emerged as a major public health problem in sub-Saharan Africa. 
-This disease is characterized by bacteraemia and/or meningitis, with septic arthritis
-also reported. The clinical presentation is nonspecific, with fever often the only 
-clinical sign and a history of gastroenteritis present in under half of all cases.
+A highly invasive form of NTS disease, frequently associated with *S.*
+Typhimurium isolates, has emerged as a major public health problem in
+sub-Saharan Africa. 
+This disease is characterized by bacteraemia and/or meningitis, with septic
+arthritis also reported.
+The clinical presentation is nonspecific, with fever often the only 
+clinical sign and a history of gastroenteritis present in under half of all
+cases.
 Many NTS *S.* Typhimurium isolates causing invasive disease are multiply antibiotic 
 resistant, compromising the clinical treatment of the disease.
 
@@ -150,9 +158,4 @@ differentiated it from S. Typhimurium strains LT2, DT104 NCTC13348, and SL1344.
 
 ![The BLAST atlas is a visualization of gene conservation in a number of species against a single reference genome. The BLAST atlas thus shows which genes from the reference genome are present in the other genomes. As references, we selected the genome of *S.* Typhimurium D23580 and *S.* Typhi Ty2 because they are human-adapted and human specific, respectively.](img/D23580_BLAST.png)
 
-
-
-
-
-
-
+# References

@@ -1,0 +1,219 @@
+---
+title: "Differential expression using BASiCS"
+bibliography:
+  bibtex.bib
+---
+
+**IMPORTANT**:
+This analysis has not been completed successfully yet.
+Please ignore what follows.
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+library(scran)
+library(scater)
+library(BASiCS)
+library(ggplot2)
+sce.norm <- readRDS("rds/sce.norm.rds")
+mixC <- readRDS("rds/mixC.rds")
+EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
+```
+
+# Data pre-processing
+
+## Input data
+
+For this analysis we use:
+
+* the matrix of expression *counts*
+* single cells that passed all quality control filters (see this earlier
+  [section](03_sampleQC.html#cellSelection))
+* features with an average count equal or higher than $1$ (see this earlier
+  [section](04_featureSelection#selectFeatures))
+
+**Note:** this contrasts with the stringent condition of ≥20 RPM on average
+across all cells, demonstrated in [@BASiCS_2016_DE]. However, feature
+selection is highly dependent on the nature of the experimental design.
+
+As a result, the input data contains `r nrow(sce.norm)` features and
+`r ncol(sce.norm)` cells.
+
+# BASiCS analysis
+
+## The input dataset
+
+### Spike-in genes information
+
+In subsequent steps of the analysis, technical spike-in features are identified using the `scater::isSpike` method:
+
+```{r isSpike, include=FALSE}
+table(isSpike(sce.norm))
+```
+
+This confirms that `r sum(isSpike(sce.norm))` ERCC spike-in features are left in
+the filtered dataset.
+
+### Creating the input objects
+
+To use BASiCS, we need to create a `BASiCS_Data` object containing the
+expression counts, a vector of logical spike-in gene indicators
+and the input number of mRNA molecules for each spike-in gene.
+
+```{r Data.input, results='hide', message=FALSE, warning=FALSE}
+Data.input <- list()
+ERCCnames <- rownames(sce.norm)[isSpike(sce.norm)]
+for (groupName in unique(sce.norm$Group)){
+  cellIndex <- which(sce.norm$Group == groupName)
+  Data.input[[groupName]] <- newBASiCS_Data(
+    Counts = counts(sce.norm)[,cellIndex],
+    Tech = isSpike(sce.norm),
+    SpikeInfo = mixC[ERCCnames, c("ID","ERCCmolecules")],
+    BatchInfo = sce.norm$Plate[cellIndex])
+}
+```
+
+**Note:**
+Due to the nature of the feature selection filters, in the above code chunk
+the `newBASiCS_Data` method prints the following message for all 15 groups
+of cells:
+
+```{r warning_newData, echo=FALSE}
+warning("Some genes have zero counts across all cells. Unless running a differential expression analysis, please remove those genes. Otherwise, the BASiCS_Data object is still a valid object. However, due to the lack of counts, posterior estimates for mu[i] and delta[i] associated to those genes will be driven by the prior. In such case, you must specify `PriorDelta = 'log-normal' in BASiCS_MCMC function.")
+```
+
+## Fitting the BASiCS model (for differential expression)
+
+To run the MCMC algorithm for differential expression,
+we use the function `BASiCS_MCMC`, following the recommendation prompted
+by the `newBASiCS_Data` function:
+
+* `PriorDelta` argument set to `"log-normal"`
+* due to the presence, within each experimental group of cells, of genes with
+  zero counts across all cells within that group, only use those `BASiCS_Data`
+  objects for differential expression analysis, *not*
+  differential over-dispersion
+
+```{r BASiCS_MCMC, results='hide', message=FALSE, eval=FALSE}
+MCMC_Output_DE <- list()
+N <- 20E3; Thin <- 10; Burn <- 10E3; chains.path <- "BASiCS"
+for (groupName in names(Data.input)){
+  MCMC_Output_DE[[groupName]] <- BASiCS_MCMC(
+    Data.input[[groupName]], N = N, Thin = Thin, Burn = Burn,
+    PrintProgress = TRUE, StoreChains = TRUE, PriorDelta = 'log-normal',
+    StoreDir = chains.path, RunName = paste(groupName, N, sep= "_"))
+}
+```
+
+```{r saveRDS, eval=FALSE}
+saveRDS(MCMC_Output_DE, "rds/MCMC_Output.rds")
+```
+
+```{r readRDS_MCMC, include=FALSE}
+MCMC_Output_DE <- readRDS("rds/MCMC_Output.rds")
+```
+
+Confirm that all groups of cells were run:
+
+```{r deleteMe}
+names(MCMC_Output_DE)
+```
+
+## Convergence diagnostics
+
+To assess convergence of each chain, some selected parameters may be
+viualised in traceplots. For a randomly selected experimental group:
+
+```{r, fig.height=6}
+rGroup <- sample(names(MCMC_Output_DE), 1)
+par(mar = c(4,6,4,2)); par(mfrow = c(3,2))
+plot(
+  apply(MCMC_Output_DE[[rGroup]]@mu,1,median), type = "l", cex.lab = 2,
+  ylab = expression(paste("Median of ",mu[iJ])), xlab = "Iteration")
+plot(
+  apply(MCMC_Output_DE[[rGroup]]@delta,1,median), type = "l", cex.lab = 2,
+  ylab = expression(paste("Median of ",delta[iJ])), xlab = "Iteration")
+plot(
+  apply(MCMC_Output_DE[[rGroup]]@phi,1,median), type = "l", cex.lab = 2,
+  ylab = expression(paste("Median of ",phi[iJ])), xlab = "Iteration")
+plot(
+  apply(MCMC_Output_DE[[rGroup]]@s,1,median), type = "l", cex.lab = 2,
+  ylab = expression(paste("Median of ",s[j[I]])), xlab = "Iteration")
+plot(
+  apply(MCMC_Output_DE[[rGroup]]@nu,1,median), type = "l", cex.lab = 2,
+  ylab = expression(paste("Median of ",nu[j[I]])), xlab = "Iteration")
+plot(
+  apply(MCMC_Output_DE[[rGroup]]@theta,1,median), type = "l", cex.lab = 2,
+  ylab = expression(paste("Median of ",theta[j[I]])), xlab = "Iteration")
+
+par(mar = c(5, 4, 4, 2) + 0.1); par(mfrow = c(1,1))
+```
+
+## Differential expression (mean and over-dispersion)
+
+Combine `BASiCS` data and chains for two groups to compare:
+
+```{r CombineBASiCS_Data}
+Data_2h_D23exp_mock <- CombineBASiCS_Data(
+  Data.input[["2h_D23580_exposed"]], Data.input[["2h_Mock_uninfected"]])
+MCMC_2h_D23exp_mock <- CombineBASiCS_Chain(
+  MCMC_Output_DE[["2h_D23580_exposed"]], MCMC_Output_DE[["2h_Mock_uninfected"]])
+```
+
+Test with **0%** fold-change tolerance:
+
+```{r Test_D23exp_mock_0, eval=FALSE}
+Test_D23exp_mock_0 <- BASiCS_D_TestDE(
+  Data_2h_D23exp_mock, MCMC_2h_D23exp_mock,
+  GeneNames = Data_2h_D23exp_mock@GeneNames[!Data_2h_D23exp_mock@Tech],
+  EpsilonM = 0, EpsilonD = 0,
+  EFDR_M = 0.05, EFDR_D = 0.05,
+  OrderVariable = "GeneIndex",
+  GroupLabelRef = "2h_uninfected", GroupLabelTest = "2h_D23580_exposed",
+  OffSet = FALSE)
+```
+
+Test with **40%** fold-change tolerance:
+
+```{r Test_D23exp_mock_40, eval=FALSE}
+Test_D23exp_mock_40 <- BASiCS_D_TestDE(
+  Data_2h_D23exp_mock, MCMC_2h_D23exp_mock,
+  GeneNames = Data_2h_D23exp_mock@GeneNames[!Data_2h_D23exp_mock@Tech],
+  EpsilonM = 0.4, EpsilonD = 0.4,
+  EFDR_M = 0.05, EFDR_D = 0.05,
+  OrderVariable = "GeneIndex",
+  GroupLabelRef = "2h_uninfected", GroupLabelTest = "2h_D23580_exposed",
+  OffSet = FALSE)
+```
+
+```{r, eval=FALSE}
+tableD23exp_2h <- cbind(
+  Symbol = fData(sce.norm)[Test_D23exp_mock_40$Table$GeneNames, "gene_name"],
+  Test_D23exp_mock_40$Table)
+```
+
+Try again with a more interesting group:
+
+```{r CombineBASiCS_Data_4h, eval=FALSE}
+Data_4h_D23exp_mock <- CombineBASiCS_Data(
+  Data.input[["4h_D23580_exposed"]], Data.input[["4h_Mock_uninfected"]])
+MCMC_4h_D23exp_mock <- CombineBASiCS_Chain(
+  MCMC_Output_DE[["4h_D23580_exposed"]], MCMC_Output_DE[["4h_Mock_uninfected"]])
+Test_4h_D23exp_mock_40 <- BASiCS_D_TestDE(
+  Data_4h_D23exp_mock, MCMC_4h_D23exp_mock,
+  GeneNames = Data_4h_D23exp_mock@GeneNames[!Data_4h_D23exp_mock@Tech],
+  EpsilonM = 0.4, EpsilonD = 0.4,
+  EFDR_M = 0.05, EFDR_D = 0.05,
+  OrderVariable = "GeneIndex",
+  GroupLabelRef = "4h_uninfected", GroupLabelTest = "4h_D23580_exposed",
+  OffSet = FALSE)
+tableD23exp_4h <- cbind(
+  Symbol = fData(sce.norm)[Test_4h_D23exp_mock_40$Table$GeneNames, "gene_name"],
+  Test_4h_D23exp_mock_40$Table)
+```
+
+
+<!-- As HTML pages are built independently, objects need to be saved to disk
+and imported as needed by the other R mardown files -->

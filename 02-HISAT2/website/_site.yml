@@ -44,6 +44,8 @@ navbar:
         href: 07_highlyVariableGenes.html
       - text: "SCDE"
         href: 08_SCDE.html
+      - text: "Mann-Whitney"
+        href: 12_MannWhitney.html
       - text: "Sub-group"
         href: 10_subgroups.html
       - text: "Temporal"
