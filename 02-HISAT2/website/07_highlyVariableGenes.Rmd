@@ -1,5 +1,5 @@
 ---
-title: "Overview of normalised expression data"
+title: "Highly variable genes (HVGs)"
 bibliography:
   bibtex.bib
 ---
@@ -16,12 +16,14 @@ library(gplots)
 library(SummarizedExperiment)
 library(ComplexHeatmap)
 sce.norm <- readRDS("rds/sce.norm.rds")
+sce.bulk <- readRDS("rds/sce.bulk.rds")
 library(org.Hs.eg.db)
 library(EnsDb.Hsapiens.v79)
 library(goseq)
 library(DT)
 library(reshape2)
 library(dplyr)
+library(edgeR)
 ```
 
 # Plotting themes
@@ -518,6 +520,52 @@ ht_semisupervised <- Heatmap(
   cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
   show_row_names = FALSE, show_column_names = FALSE
 )
+```
+
+We may display the expression level of bulk samples for reference.
+($$log_2(CPM+1)$$ values).
+
+Order bulks identically to single cells:
+
+```{r orderBulk}
+sce.bulk <- sce.bulk[,with(pData(sce.bulk), order(Time, Status, Infection))]
+```
+
+Annotate bulks with the same colour code:
+
+```{r bulkColumn}
+bulk_column <- HeatmapAnnotation(
+  df = pData(sce.bulk)[,c("Time", "Infection")],
+  col = list(
+    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+  )
+)
+```
+
+
+```{r ht_bulks}
+ht_bulks <- Heatmap(
+  exprs(sce.bulk)[rownames(norm.endo.hvg),],
+  top_annotation = bulk_column,
+  name = "exprs", column_title = "Bulks",
+  cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE
+)
+```
+
+## Bulks
+
+Alone:
+
+```{r}
+draw(ht_bulks)
+```
+
+Alongside single cells:
+
+```{r}
+draw(ht_semisupervised + ht_bulks)
 ```
 
 ## Gene ontology
