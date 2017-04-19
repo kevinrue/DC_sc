@@ -30,9 +30,9 @@ For this analysis we use:
 
 * the matrix of expression *counts*
 * single cells that passed all quality control filters (see this earlier
-  [section](03_sampleQC.html#cellSelection))
+  [section](03_sample_QC.html#cellSelection))
 * features with an average count equal or higher than $1$ (see this earlier
-  [section](04_featureSelection#selectFeatures))
+  [section](04_featureSelectio#selectFeatures))
 
 **Note:** this contrasts with the stringent condition of ≥20 RPM on average
 across all cells, demonstrated in [@BASiCS_2016_DE]. However, feature

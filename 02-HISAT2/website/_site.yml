@@ -29,9 +29,9 @@ navbar:
       icon: fa-check-square-o
       menu:
       - text: "Sample QC"
-        href: 03_sampleQC.html
+        href: 03_sample_QC.html
       - text: "Feature QC"
-        href: 04_featureSelection.html
+        href: 04_feature_QC.html
     - text: Normalisation
       icon: fa-bar-chart
       href: 05_normalisation.html
@@ -39,7 +39,7 @@ navbar:
       icon: fa-pie-chart
       menu:
       - text: "Clustering"
-        href: 06_examineNormalised.html
+        href: 06_cluster_normalised.html
       - text: "HVGs"
         href: 07_highlyVariableGenes.html
       - text: "SCDE"

@@ -263,7 +263,7 @@ In contrast, let us define informative spike-in features
 as those with an average count across all single cells greater or equal
 to a threhsold of **1** count.
 Note that the count of cells per group was reported
-[here](03_sampleQC#cellSelection)
+[here](03_sample_QC.html#cellSelection)
 
 Let us first calculate the average CPM for each gene within each experimental
 group:

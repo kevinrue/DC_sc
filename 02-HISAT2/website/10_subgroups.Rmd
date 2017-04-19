@@ -1,221 +1,234 @@
 ---
-title: "Sub-group analysis"
+title: "Sub-group analyses"
 ---
-
+  
 <!-- As HTML pages are built independently, large objects need to be
 reimported from disk, and smaller ones quickly recomputed. -->
-
+  
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(cache = TRUE)
 library(scater)
 library(scran)
 library(ggplot2)
-library(SummarizedExperiment)
-library(ComplexHeatmap)
-sce.norm <- readRDS("rds/sce.norm.rds")
-HVGs.group <- readRDS("rds/HVGsByGroups.rds")
+library(scde)
+EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
+sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 ```
 
-# Objective
+# Stimulated cells at 6h post challenge
 
-In previous sections, we have observed that the detection of
-[significant differences in gene expression](08_SCDE.html)
-between groups of stimulated cells is limited by variability and bi-/multi-modal
-distribution of gene expression within each group.
-
-As a result, let us explore cell-level similarities within each experimental
-group, using the group-level highly-variables genes (HVGs) identified
-[earlier](07_highlyVariableGenes.html).
-
-For each group, let us:
-
-* apply the [scran](http://bioconductor.org/packages/scran) `quickCluster`
-  method---using Spearman correlation-based distance---to
-  identify potentially distinct behaviours within each experimental condition
-* overlay the above cluster membership onto a principal components analysis
-  (PCA) based on the HVGs identified for each group
-* Overlay the above cluster membership onto a heat map representation of
-  normalised gene expression following hierarchical clustering of cells
-  within each experimental group
-
-# Preprocessing
-
-In this section, let us search for potential sub-structure within each
-experimental group of cells, as follows:
-
-* fetch the group-level HVGs identified in an earlier
-  [section](07_highlyVariableGenes.html)
-* fetch normalised expression data for the corresponding genes and cells
-* apply the [scran](http://bioconductor.org/packages/scran) `quickCluster`
-  method
-* calculate pairwise distance between cells using Spearman correlation
-* perform hierarchical clustering on the above pairwise distances
-* perform a PCA
-* present in a heat map the normalised gene expression data, with cells
-  organised according to the above hierarchical clustering, while leaving
-  genes to cluster according to the default Euclidian distance between their
-  expression profile across cells
-
-First, let us pick a set of colours, to set a manual colour scale for the
-PCA figures, and also later used in the heat map figures:
-
-```{r}
-col8 <- RColorBrewer::brewer.pal(8, "Set1")
-colGrey <- RColorBrewer::brewer.pal(9, "Set1")[9]
-pcaCol <- c(colGrey, col8)
-names(pcaCol) <- seq_along(pcaCol) - 1
-pcaScaleManual <- scale_color_manual(values = pcaCol)
+Subset to only cells at **6h** and challenged with bacteria 
+(*i.e.*, exclude `Mock`):
+  
+```{r sce.6hStim_cells}
+sce.6hStim <- sce.norm[,sce.norm$Time == '6h' & sce.norm$Infection != 'Mock']
+dim(sce.6hStim)
 ```
 
-We may then performs the analytical steps listed above on each experimental
-group of cells, using the selected colours to indicate cluster membership
-in the heat map:
+Subset to only **endogenous** features detected with at least **10** counts
+in at least **5** of the cells above:
 
-**Note:**
-For the `quickCluster` method, `min.size` is here set to **5**, suitable to
-detect up to `r trunc(min(table(sce.norm$Group)) / 5)` sub-groups in the
-smallest experimental group of `r min(table(sce.norm$Group))` cells.
-
-```{r}
-subgroupPlots <- list()
-for (groupName in levels(sce.norm$Group)){
-  HVGs.sub <- HVGs.group[[groupName]]
-  sce.sub <- sce.norm[rownames(HVGs.sub), sce.norm$Group == groupName]
-  sce.sub$quickCluster <- quickCluster(sce.sub, min.size = 5)
-  dist.sub <- MKmisc::corDist(t(norm_exprs(sce.sub)), method="spearman")
-  clust.sub <- hclust(dist.sub)
-  pca.sub <- as.data.frame(prcomp(t(norm_exprs(sce.sub)))$x[,1:10]) # top 10 PCs
-  pca.sub[,"quickCluster"] <- pData(sce.sub)[rownames(pca.sub),"quickCluster"]
-  ht_col <- col9[1:sum(levels(sce.sub$quickCluster) != 0)]
-  if (0 %in% levels(sce.sub$quickCluster)) {ht_col <- c(colGrey, ht_col)}
-  names(ht_col) <- levels(sce.sub$quickCluster)
-  h_column <- HeatmapAnnotation(
-    df = pData(sce.sub)[,c("quickCluster"), drop = FALSE],
-    col = list(quickCluster = ht_col)
-  )
-  ht_subset <- Heatmap(
-    norm_exprs(sce.sub),
-    name = "norm_exprs", column_title = "Normalised expression",
-    top_annotation = h_column, cluster_columns = clust.sub,
-    show_row_names = FALSE, show_column_names = TRUE
-  )
-  subgroupPlots[[groupName]] <- list(PCA = pca.sub, Heatmap = ht_subset)
-}
+```{r sce.6hStim_features}
+sce.6hStim <- sce.6hStim[
+  rowSums(counts(sce.6hStim) >= 10) >= 5 & !isSpike(sce.6hStim),]
+dim(sce.6hStim)
 ```
 
-# PCAs {.tabset}
+## Highly variable genes (HVGs) {.tabset}
 
-## 2h_Mock_uninfected
+### Code
 
-```{r}
-ggplot(subgroupPlots[["2h_Mock_uninfected"]][["PCA"]]) +
-  geom_point(aes(PC1, PC2, colour = quickCluster)) + pcaScaleManual
+Use centred size factors to re-compute normalised expression values:
+
+```{r sce.6hStim_geomMean}
+exp(mean(log(sce.6hStim$size_factor)))
+sce.6hStim <- normalise(sce.6hStim)
+exp(mean(log(sce.6hStim$size_factor)))
 ```
 
-## 4h_Mock_uninfected
+Identify HVGs,
+taking into account technical covariates `Plate` and `Lane`
 
-```{r}
-ggplot(subgroupPlots[["4h_Mock_uninfected"]][["PCA"]]) +
-  geom_point(aes(PC1, PC2, colour = quickCluster))
+```{r HVGs.6hStim}
+dm <- model.matrix(~Plate+Lane, data = pData(sce.6hStim))
+var.fit <- trendVar(
+  sce.6hStim, assay = "norm_exprs", trend = "loess", design = dm,
+  use.spikes = FALSE, span = 0.1
+)
+var.out <- decomposeVar(sce.6hStim, var.fit)
+var.out <- var.out[order(var.out$p.value),]
+HVGs.6hStim <- rownames(var.out)[which(var.out$FDR < 0.05)]
+var.out <- cbind(
+  GENENAME = mapIds(EnsDb.Hsapiens.v79,rownames(var.out),'GENENAME','GENEID'),
+  var.out
+)
+length(HVGs.6hStim)
 ```
 
-## 6h_Mock_uninfected
+### Table
 
-```{r}
-ggplot(subgroupPlots[["6h_Mock_uninfected"]][["PCA"]]) +
-  geom_point(aes(PC1, PC2, colour = quickCluster))
+Table of `r length(HVGs.6hStim)` significant HVGs (*i.e.*, **FDR < 0.05**):
+  
+```{r datatable_HVGs.6hStim}
+DT::datatable(var.out[HVGs.6hStim,])
 ```
 
-## 2h_D23580_exposed
+## Clusters {.tabset}
 
-```{r}
-ggplot(subgroupPlots[["2h_D23580_exposed"]][["PCA"]]) +
-  geom_point(aes(PC1, PC2, colour = quickCluster))
+### Code
+
+Identify clusters using only HVGs identified above,
+given a minimal cluster size of `r min(table(sce.6hStim$Group))`:
+  
+```{r quickCluster.6hStim}
+group.6hStim <- droplevels(sce.6hStim$Group)
+clusters <- quickCluster(
+  sce.6hStim[HVGs.6hStim,],
+  min.size = min(table(group.6hStim)))
+names(clusters) <- sampleNames(sce.6hStim)
+sce.6hStim$quickCluster <- clusters
+sce.norm$quickCluster.6hStim <- 0
+pData(sce.norm)[names(clusters),'quickCluster.6hStim'] <- clusters
+table(clusters)
 ```
 
-## 4h_D23580_exposed
+### Table
 
-```{r}
-ggplot(subgroupPlots[["4h_D23580_exposed"]][["PCA"]]) +
-  geom_point(aes(PC1, PC2, colour = quickCluster))
+```{r quickCluster.6hStim_table, results='asis'}
+pander::pandoc.table(
+  as.data.frame(with(pData(sce.6hStim), table(Treatment, quickCluster)))
+)
 ```
 
-## 6h_D23580_exposed
+### tSNE
 
-```{r}
-ggplot(subgroupPlots[["6h_D23580_exposed"]][["PCA"]]) +
-  geom_point(aes(PC1, PC2, colour = quickCluster))
+Overlay cluster membership and `Treatment` phenotype onto the tSNE coordinate
+originally calculated from the complete data set:
+  
+```{r plotReducedDim_quickCluster.6hStim}
+plotReducedDim(sce.norm,colour_by='quickCluster.6hStim',shape_by='Treatment')
 ```
 
-## 2h_D23580_infected
+## Differential expression {.tabset}
+
+### Code
+
+Reorder and group samples by `Treatment` (*i.e.*, `Infection:Status`)
 
 ```{r}
-ggplot(subgroupPlots[["2h_D23580_infected"]][["PCA"]]) +
-  geom_point(aes(PC1, PC2, colour = quickCluster))
+sce.6hStim <- sce.6hStim[,order(sce.6hStim$Treatment)]
 ```
 
-## 4h_D23580_infected
+Further subset count matrix to endogenous features
+detected at sufficient expression levels:
 
-```{r}
-ggplot(subgroupPlots[["4h_D23580_infected"]][["PCA"]]) +
-  geom_point(aes(PC1, PC2, colour = quickCluster))
+```{r cd.6hStim}
+cd.6hStim <- clean.counts(counts(sce.6hStim))
+storage.mode(cd.6hStim) <- 'integer'
+dim(cd.6hStim)
 ```
 
-## 6h_D23580_infected
-
-```{r}
-ggplot(subgroupPlots[["6h_D23580_infected"]][["PCA"]]) +
-  geom_point(aes(PC1, PC2, colour = quickCluster))
+Fit error models using [scde](http://bioconductor.org/packages/scde):
+  
+```{r o.ifm.6hStim, eval=FALSE}
+sg.6hStim <- droplevels(sce.6hStim$Treatment)
+o.ifm.6hStim <- scde.error.models(cd.6hStim, sg.6hStim, verbose = 1)
 ```
 
-## 2h_LT2_exposed
-
-```{r}
-ggplot(subgroupPlots[["2h_LT2_exposed"]][["PCA"]]) +
-  geom_point(aes(PC1, PC2, colour = quickCluster))
+```{r saveRDS_o.ifm.6hStim, include=FALSE, eval=FALSE}
+saveRDS(o.ifm.6hStim, "rds/o.ifm.6hStim.rds")
 ```
 
-## 4h_LT2_exposed
-
-```{r}
-ggplot(subgroupPlots[["4h_LT2_exposed"]][["PCA"]]) +
-  geom_point(aes(PC1, PC2, colour = quickCluster))
+```{r read_o.ifm.6hStim, include=FALSE}
+o.ifm.6hStim <- readRDS("rds/o.ifm.6hStim.rds")
 ```
 
-## 6h_LT2_exposed
-
-```{r}
-ggplot(subgroupPlots[["6h_LT2_exposed"]][["PCA"]]) +
-  geom_point(aes(PC1, PC2, colour = quickCluster))
+Remove particularly poor cells (*i.e.*, abnormal fits),
+most commonly showing negative `corr.a`:
+  
+```{r validCells_6hStim}
+valid.cells <- o.ifm.6hStim$corr.a > 0
+table(valid.cells)
+o.ifm.6hStim <- o.ifm.6hStim[valid.cells, ]
 ```
 
-## 2h_LT2_infected
-
-```{r}
-ggplot(subgroupPlots[["2h_LT2_infected"]][["PCA"]]) +
-  geom_point(aes(PC1, PC2, colour = quickCluster))
+Estimate prior distribution for gene expression magnitudes:
+  
+```{r oPrior_6hStim}
+o.prior.6hStim <- scde.expression.prior(
+  models = o.ifm.6hStim, counts = cd.6hStim, show.plot = TRUE
+)
 ```
 
-## 4h_LT2_infected
+### Call
 
-```{r}
-ggplot(subgroupPlots[["4h_LT2_infected"]][["PCA"]]) +
-  geom_point(aes(PC1, PC2, colour = quickCluster))
+Call differentially expressed features
+in cluster **2** relative to cluster **1**
+(*i.e.*, a positive fold-change is a higher expression in cluster **2**):
+  
+```{r scde.res_6hStim}
+order.6hStim <- match(rownames(o.ifm.6hStim), colnames(sce.6hStim))
+sg.newOrder <- as.factor(sce.6hStim$quickCluster[order.6hStim])
+levels(sg.newOrder) <- c(2,1)
+batch <- sce.6hStim$Plate[order.6hStim]
+scde.res_6hStim <- scde.expression.difference(
+  o.ifm.6hStim, cd.6hStim, o.prior.6hStim, groups = sg.newOrder, batch = batch,
+  n.cores  =  4, verbose = 1
+)
 ```
 
-## 6h_LT2_infected
-
 ```{r}
-ggplot(subgroupPlots[["6h_LT2_infected"]][["PCA"]]) +
-  geom_point(aes(PC1, PC2, colour = quickCluster))
+saveRDS(scde.res_6hStim, "rds/scde.res_6hStim.rds")
 ```
 
-# tSNE
 
-```{r}
-# sce.subset <- plotTSNE(
-#   sce.subset, ncomponents = 2, exprs_values = "norm_exprs",
-#   return_SCESet = TRUE, colour_by = "quickCluster",
-#   perplexity = 5, rand_seed = 1794, draw_plot = TRUE
-# )
+### Table
+
+Batch-adjusted DE calls:
+  
+```{r DEtables.6hStim, include=FALSE}
+de.raw.6hStim <- scde.res_6hStim$results
+de.adjusted.6hStim <- scde.res_6hStim$batch.adjusted
+de.batch.6hStim <- scde.res_6hStim$batch.effect
+de.raw.6hStim <- de.raw.6hStim[order(abs(de.raw.6hStim$Z), decreasing = TRUE),]
+de.adjusted.6hStim <- de.adjusted.6hStim[order(abs(de.adjusted.6hStim$Z), decreasing = TRUE),]
+de.batch.6hStim <- de.batch.6hStim[order(abs(de.batch.6hStim$Z), decreasing = TRUE),]
+de.raw.6hStim <- cbind(
+  GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.raw.6hStim),"GENENAME","GENEID"),
+  de.raw.6hStim
+)
+de.adjusted.6hStim <- cbind(
+  GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.adjusted.6hStim),"GENENAME","GENEID"),
+  de.adjusted.6hStim
+)
+de.batch.6hStim <- cbind(
+  GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.batch.6hStim),"GENENAME","GENEID"),
+  de.batch.6hStim
+)
+```
+
+```{r DEtables.6hStim_csv}
+DT::datatable(head(de.adjusted.6hStim[rev(order(de.adjusted.6hStim$Z)),], 500))
+```
+
+```{r, include=FALSE}
+write.csv(de.raw.6hStim, 'SCDE/raw_6h_cluster2-clusters1.csv')
+write.csv(de.adjusted.6hStim, 'SCDE/adjusted_6h_cluster2-cluster1.csv')
+write.csv(de.batch.6hStim, 'SCDE/batch_6h_cluster1-clusters2.csv')
+```
+
+Visualise normalised expression data for the top differentially expressed
+feature:
+  
+```{r topDE4hVSuninfected}
+geneId <- rownames(de.adjusted.6hStim)[1]
+geneName <- de.adjusted.6hStim[1,'GENENAME']
+geneExpr <- norm_exprs(sce.6hStim)[geneId,]
+sampleAes <- pData(sce.6hStim)[,c("Infection","Status","quickCluster")]
+sampleAes[,3] <- as.factor(sampleAes[,3])
+ggData <- cbind(norm_exprs = geneExpr, sampleAes)
+ggplot(ggData, aes(quickCluster, norm_exprs)) +
+  geom_violin(draw_quantiles = c(0.25,0.5,0.75)) + geom_jitter(width = 0.1) +
+  facet_grid(Infection ~ Status) +
+  ggtitle(sprintf("%s (symbol: %s)", geneId, geneName))
 ```

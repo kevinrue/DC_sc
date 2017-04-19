@@ -1,0 +1,1165 @@
+---
+title: "Differential expression using scde"
+bibliography:
+  bibtex.bib
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+library(scater)
+library(scran)
+library(scde)
+library(ensembldb)
+library(RColorBrewer)
+library(goseq)
+library(dplyr)
+library(ComplexHeatmap)
+sce.norm <- readRDS("rds/sce.norm.rds")
+EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
+```
+
+# Plotting themes
+
+First of all, let us define theme elements used throughout various figures
+in the following sections:
+
+```{r exprsViolinTheme}
+exprsViolinTheme <- theme(
+    panel.grid.major.x = element_blank(),
+    legend.position = "bottom", legend.box = "vertical")
+```
+
+# Prepare data
+
+Let us first reorder and group samples by their experimental group;
+this mimics the behavour of the
+[scde](https://github.com/Bioconductor-mirror/scde) `scde.error.models`
+function, and avoid later confusion and superfluous work to ensure
+the compatibility of sample order between individual analysis objects:
+
+```{r order_group_sce.norm}
+sce.norm <- sce.norm[,order(sce.norm$Group)]
+```
+
+o.ifm <- scde.error.models(counts = cd, groups = sg, n.cores = 4)
+
+The analysis starts with a matrix of read counts,
+filtered based on gene and cell requirements.
+In this case, let us use the raw numbers of reads mapped to each endogenous
+feature, recast as `integer` type:
+
+```{r cleanCounts}
+cd <- clean.counts(counts(sce.norm)[!isSpike(sce.norm),])
+storage.mode(cd) <- 'integer'
+dim(cd)
+```
+
+\bioccomment{
+The documentation of the `clean.counts` function should be improved.
+Two genes are discarded above because they are detected in a single cell each.
+The thresholds supplied are taken must be strictly met
+(i.e., stricly more than N reads, strictly more than N cells).
+}
+
+In this case, only ERCC spike-in feature were removed:
+
+```{r table_isSpike}
+table(isSpike(sce.norm))
+dim(cd) - dim(sce.norm)
+```
+
+Let us also define a factor that separate cells from each experimental group:
+
+```{r sg}
+sg <- as.factor(
+  with(pData(sce.norm), paste(Time, Infection, Status, sep = "_"))
+)
+names(sg) <- colnames(sce.norm)  
+```
+
+# Fitting error models
+
+Here, we fit the error models on which all subsequent calculations
+will rely. The fitting process relies on a subset of robust genes that are
+detected in multiple cross-cell comparisons. Here we supply the groups
+defined above to the `groups` argument, so that the error models for each
+experimental group of cells are fit independently
+(using `r length(levels(sg))` different sets of "robust" genes in this case).
+If the groups argument is omitted, the models would be fit using a common set.
+
+**Note:** this step takes a considerable amount of time, even when multiple
+cores are used (~ 1 h using 4 cores to fit error models to each of the
+`r length(levels(sg))` experimental groups).
+
+<!--
+Switch eval to TRUE below and other chunks in this file
+when results should be updated.
+-->
+
+```{r oifm, eval=FALSE}
+o.ifm <- scde.error.models(counts = cd, groups = sg, n.cores = 4)
+```
+
+```{r saveRdsOifm, eval=FALSE, include=FALSE}
+saveRDS(o.ifm, "rds/o.ifm.rds")
+```
+
+```{r readOIfm, include=FALSE}
+o.ifm <- readRDS("rds/o.ifm.rds")
+```
+
+The `o.ifm` is a `data.frame` with error model coefficients for each cell.
+
+```{r oIfmTrim}
+o.ifm.trim <- apply(o.ifm, 2, round, digits = 2)
+DT::datatable(
+  o.ifm.trim,
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+In the table above:
+
+* `corr.a` and `corr.b` are slope and intercept of the correlated component fit
+* `conc.*` refer to the concomitant fit, `corr.theta` is the NB over-dispersion
+* `fail.r` is the background Poisson rate (fixed)
+
+Particularly poor cells may result in abnormal fits, most commonly showing
+negative `corr.a`, and should be removed.
+
+```{r validCells}
+valid.cells <- o.ifm$corr.a > 0
+table(valid.cells)
+o.ifm <- o.ifm[valid.cells, ]
+```
+
+Here, all the fits were valid (most likely owing to the removal of outliers
+during earlier [sample QC](03_sample_QC.html)); as a consequence,
+the above chunk of code does not actually do anything to the data.
+
+Finally, we need to define an expression magnitude prior for the genes.
+Its main function, however, is to define a grid of expression magnitude values
+on which the numerical calculations will be carried out.
+
+```{r oPrior}
+o.prior <- scde.expression.prior(
+  models = o.ifm, counts = cd, length.out = 400, show.plot = TRUE
+)
+```
+
+Here we used a grid of **400** points, and let the maximum expression magnitude
+be determined by the default **0.999** quantile
+(default `max.quantile` setting;
+use `max.value` parameter to specify the maximum expression magnitude
+explicitly --- on log~10~ scale).
+
+# DE relative to uninfected cells {#DEcontrol}
+## Testing for DE genes {.tabset}
+
+To test for differential expression:
+
+* we first match the order of single cells in the fitted error models to the
+  order of the single cells in the original count matrix;
+* we use the above mapping to identify the experimental group and batch of each
+  single cell in the order of the fitted error models,
+* we define for each comparison a factor in the form of a vector that specifies
+  which two groups of single cells are to be compared; the factor elements
+  correspond to the rows of the fitted error models, and contain `NA` values
+  for single cells that are not included in either group,
+* we let [scde](http://bioconductor.org/packages/scde) estimate differential
+  expression between the two groups of single cells, after batch correction;
+  *Note that results without batch corrections are also available in this way*,
+* we sort genes by decreasing absolute (uncorrected) Z-score of expression
+  difference; this order highlights the most significantly DE genes at the top
+  of the table, regardless of their direction of differential expression,
+* we annotate genes with their gene name (at this stage, genes were only
+  identified by their Ensembl gene identifier).
+* we store in three separate lists the *full* tables of differential expression
+  results (*i.e.*, even if not significantly DE):
+    + without batch correction
+    + with batch correction applied by plate processed
+    + estimation of the batch effect
+
+**Note:** this step takes a considerable amount of time, even when multiple
+cores are used (~ 1 h using a single core to estimate batch effect and
+differential expression between each group of stimulated single cells and
+their matched control).
+
+<!--
+Switch eval to TRUE below and other chunks in this file
+when results should be updated.
+-->
+
+```{r orderSCDEphenotypes}
+newOrder <- match(rownames(o.ifm), colnames(sce.norm))
+sg.all <- sg[newOrder]
+batch <- sce.norm$Plate[newOrder]
+```
+
+```{r scdeExprDiff, eval=FALSE, warning=FALSE, message=FALSE}
+DE.res.raw <- list()
+DE.res.adjusted <- list()
+DE.res.batch <- list()
+for (time in levels(sce.norm$Time)){
+  for (infection in levels(sce.norm$Infection)[-1]){
+    for (status in levels(sce.norm$Status)[-1]){
+      sg.ref <- paste(
+        time,
+        levels(sce.norm$Infection)[1],
+        levels(sce.norm$Status)[1],
+        sep = "_"
+      )
+      sg.tar <- paste(time, infection, status, sep = "_")
+      contrast <- sprintf("%s-%s", sg.tar, sg.ref);# message(contrast)
+      groups <- rep(NA, length(sg.all))
+      names(groups) <- names(sg.all)
+      groups[which(sg.all == sg.ref)] <- sg.ref
+      groups[which(sg.all == sg.tar)] <- sg.tar
+      groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
+      scde.res <- scde.expression.difference(
+        o.ifm, cd, o.prior,
+        groups = groups, batch = batch,
+        n.cores  =  4
+      )
+      
+      de.raw <- scde.res$results
+      de.adjusted <- scde.res$batch.adjusted
+      de.batch <- scde.res$batch.effect
+      
+      de.raw <- de.raw[order(abs(de.raw$Z), decreasing = TRUE),]
+      de.adjusted <- de.adjusted[order(abs(de.adjusted$Z), decreasing = TRUE),]
+      de.batch <- de.batch[order(abs(de.batch$Z), decreasing = TRUE),]
+      
+      de.raw <- cbind(
+        GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.raw),"GENENAME","GENEID"),
+        de.raw
+      )
+      de.adjusted <- cbind(
+        GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.adjusted),"GENENAME","GENEID"),
+        de.adjusted
+      )
+      de.batch <- cbind(
+        GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.batch),"GENENAME","GENEID"),
+        de.batch
+      )
+      
+      DE.res.raw[[contrast]] <- de.raw
+      DE.res.adjusted[[contrast]] <- de.adjusted
+      DE.res.batch[[contrast]] <- de.batch
+    }
+  }
+}
+```
+
+```{r saveRdsDEvsUninf, eval=FALSE, include=FALSE}
+saveRDS(DE.res.raw, "rds/DE.res.raw.rds")
+saveRDS(DE.res.adjusted, "rds/DE.res.adjusted.rds")
+saveRDS(DE.res.batch, "rds/DE.res.batch.rds")
+```
+
+```{r readRdsDEvsUninf, include=FALSE}
+DE.res.raw <- readRDS("rds/DE.res.raw.rds")
+DE.res.adjusted <- readRDS("rds/DE.res.adjusted.rds")
+DE.res.batch <- readRDS("rds/DE.res.batch.rds")
+```
+
+## Count of DE genes
+
+Let us display the count of differentially expressed genes:
+
+* Without batch correction (`Raw`)
+* With batch correction applied by plate processed (`Adjusted`).
+  *Note:
+  all samples of any of the `4` plates were processed on the same of the `2`
+  sequencing lanes; as a result, accounting for a plate batch implicitely
+  accounts for a lane batch.*
+
+```{r countDEvsUninf}
+contrastsMock <- grep("Mock", names(DE.res.raw), value = TRUE)
+DT::datatable(data.frame(
+  "Raw" =
+    sapply(contrastsMock, function(n){sum(DE.res.raw[[n]]$cZ != 0)}),
+  "Adjusted" =
+    sapply(contrastsMock, function(n){sum(DE.res.adjusted[[n]]$cZ != 0)}),
+  "Batch" =
+    sapply(contrastsMock, function(n){sum(DE.res.batch[[n]]$cZ != 0)})
+  ),
+  options = list(pageLength = 12)
+)
+```
+
+## Tables of DE genes {.tabset}
+
+Let us display the tables of DE genes for the various contrasts calculated
+above.
+For convience, let us display only the `1000` most significant DE genes
+(*i.e.*, largest Z-score) in cases where larger counts of DE genes were
+detected (*i.e.*, corrected Z-score ≠ 0).
+
+```{r topDElimit}
+topDElimit <- 1000
+DE.adjusted.limit <- list()
+for (res.name in names(DE.res.adjusted)){
+  de.adjusted <- DE.res.adjusted[[res.name]]
+  DE.adjusted.limit[[res.name]] <-
+    head(de.adjusted, min(topDElimit,sum(de.adjusted$cZ != 0)))
+}
+```
+
+### 2h_D23580_exposed
+
+```{r 2h_D23580_exposed}
+DT::datatable(
+  DE.adjusted.limit[["2h_D23580_exposed-2h_Mock_uninfected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 2h_D23580_infected
+
+```{r 2h_D23580_infected}
+DT::datatable(
+  DE.adjusted.limit[["2h_D23580_infected-2h_Mock_uninfected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 2h_LT2_exposed
+
+```{r 2h_LT2_exposed}
+DT::datatable(
+  DE.adjusted.limit[["2h_LT2_exposed-2h_Mock_uninfected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 2h_LT2_infected
+
+```{r 2h_LT2_infected}
+DT::datatable(
+  DE.adjusted.limit[["2h_LT2_infected-2h_Mock_uninfected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 4h_D23580_exposed
+
+```{r 4h_D23580_exposed}
+DT::datatable(
+  DE.adjusted.limit[["4h_D23580_exposed-4h_Mock_uninfected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 4h_D23580_infected
+
+```{r 4h_D23580_infected}
+DT::datatable(
+  DE.adjusted.limit[["4h_D23580_infected-4h_Mock_uninfected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 4h_LT2_exposed
+
+```{r 4h_LT2_exposed}
+DT::datatable(
+  DE.adjusted.limit[["4h_LT2_exposed-4h_Mock_uninfected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 4h_LT2_infected
+
+```{r 4h_LT2_infected}
+DT::datatable(
+  DE.adjusted.limit[["4h_LT2_infected-4h_Mock_uninfected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 6h_D23580_exposed
+
+```{r 6h_D23580_exposed}
+DT::datatable(
+  DE.adjusted.limit[["6h_D23580_exposed-6h_Mock_uninfected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 6h_D23580_infected
+
+```{r 6h_D23580_infected}
+DT::datatable(
+  DE.adjusted.limit[["6h_D23580_infected-6h_Mock_uninfected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 6h_LT2_exposed
+
+```{r 6h_LT2_exposed}
+DT::datatable(
+  DE.adjusted.limit[["6h_LT2_exposed-6h_Mock_uninfected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 6h_LT2_infected
+
+```{r 6h_LT2_infected}
+DT::datatable(
+  DE.adjusted.limit[["6h_LT2_infected-6h_Mock_uninfected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+## Expression profile of DE genes {.tabset}
+
+### Top 1
+
+Let us display the expression level of *ISG15*,
+the most significantly DE gene at the `4h` time-point in
+the `4h_LT2_infected-4h_Mock_uninfected` contrast (incidentally, also the
+most significantly DE gene in all groups of stimulated cells relative to their
+matched group of `uninfected` single cells at that time-point):
+
+```{r topDE4hVSuninfected}
+geneId <- rownames(DE.res.adjusted[["4h_LT2_infected-4h_Mock_uninfected"]])[1]
+geneName <- mapIds(EnsDb.Hsapiens.v79, geneId, "GENENAME", "GENEID")
+geneExpr <- norm_exprs(sce.norm)[geneId,]
+sampleAes <- pData(sce.norm)[,c("Time","Infection","Status")]
+ggData <- cbind(norm_exprs = geneExpr, sampleAes)
+ggplot(ggData, aes(Time, norm_exprs)) +
+  geom_violin(draw_quantiles = c(0.25,0.5,0.75)) + geom_jitter(width = 0.1) +
+  facet_grid(Infection ~ Status) +
+  ggtitle(sprintf("%s (symbol: %s)", geneId, geneName))
+```
+
+### Top 10
+
+As an alternative, we may also visualise, for the same contrast,
+the 10 most significant DE genes, placing all 15 groups of cells side by side,
+ordering groups by `Status>Infection>Time`:
+
+```{r top10_LT2vsUninfected, fig.height=10}
+geneIds <-
+  head(rownames(DE.res.adjusted[["4h_LT2_infected-4h_Mock_uninfected"]]), 10)
+genesExpr <- norm_exprs(sce.norm)[geneIds,]
+samplesAes <- pData(sce.norm)[,c("Time","Infection","Status","Group","Sample")]
+ggData <- cbind(t(genesExpr), samplesAes)
+ggLong <- reshape2::melt(
+  ggData,
+  measure.vars = grep("^ENSG", colnames(ggData)),
+  variable.name = "Feature", value.name = "norm_exprs")
+label_gene <- function(labels, multi_line = TRUE){
+  labels <- lapply(labels, function(x){
+      mapIds(EnsDb.Hsapiens.v79, as.character(x), "GENENAME", "GENEID")
+  })
+}
+ggplot(ggLong, aes(Group, norm_exprs)) +
+  geom_violin(draw_quantiles = c(0.25,0.5,0.75)) +
+  geom_jitter(aes(colour = Time), size = 0.2, width = 0.1) +
+  facet_grid(Feature ~ ., labeller = "label_gene") +
+  theme(
+    axis.text.x = element_text(angle=90),
+    strip.text.y = element_text(size = 10)) + exprsViolinTheme
+```
+
+## Correlation of DE genes {.tabset}
+
+In this section, let us compared the fold-change of expression between
+groups of stimulated cells relative to time-matched uninfected cells
+(*e.g.*, fold-change of expression in the contrast
+`2h_D23580_infected-2h_Mock_uninfected`
+compared against the fold-change of expression in the contrast
+`2h_LT2_infected-2h_Mock_uninfected`).
+
+### Preprocessing
+
+The code below assembles differential expression results in a format
+compatible with the grammar of graphics implemented in `ggplot2`.
+A list of three tables is created; one for each time-point.
+Each table is subsequently used to produce a figure with four panels;
+one for each comparison between two groups of stimulated cells.
+Each table is stores the following information:
+
+* `Contrast`: the two groups of stimulated cells being compared
+  (relative to `uninfected` cells; *e.g.*,
+  `2h_D23580_infected-2h_LT2_infected`)
+* `Gene`: the Ensembl gene identifier
+* `mle.Y`, `mle.Y`: the maximum likelihood estimate (MLE) ofexpression-fold
+  change for each group of stimulated cells relative to time-matched
+  uninfected cells
+* `DE`: whether the gene is significantly differentially expressed (DE) in
+  `Group Y` (the group of stimulated cells on the left-hand side of the
+  comparison, represented on the Y axis), `Group X` (the group of stimulated
+  cells on the right-hand side of the comparison), `Both` groups, or `None`.
+* `Alpha`, `Size`: highlights genes significantly DE in any of the two
+  groups of stimulated cells being compared
+
+```{r corTables}
+Contrasts <- c(
+  "D23580_infected-D23580_exposed", "LT2_infected-LT2_exposed",
+  "D23580_infected-LT2_infected","D23580_exposed-LT2_exposed")
+corTables <- list("2h"=data.frame(), "4h"=data.frame(), "6h"=data.frame())
+for (time in levels(sce.norm$Time)){
+  ctrlGroup <- sprintf("%s_Mock_uninfected", time)
+  for (Contrast in Contrasts){
+    groupNames <- strsplit(Contrast, "-")[[1]]
+    GroupY <- sprintf("%s_%s", time, groupNames[1])
+    GroupX <- sprintf("%s_%s", time, groupNames[2])
+    DE.res.Y <- DE.res.adjusted[[sprintf("%s-%s", GroupY, ctrlGroup)]]
+    DE.res.X <- DE.res.adjusted[[sprintf("%s-%s", GroupX, ctrlGroup)]]
+    ensGenes <- rownames(DE.res.Y)
+    plotData <- data.frame(
+      Contrast = gsub("(.*)-(.*)", "\\1 (Y)\n\\2 (X)", Contrast),
+      Gene = ensGenes,
+      mle.Y = DE.res.Y[ensGenes,"mle"],
+      mle.X = DE.res.X[ensGenes,"mle"],
+      DE = c("None" ,"Group Y", "Group X", "Both")[
+        1+(DE.res.Y[ensGenes,"cZ"]!=0) + 2*(DE.res.X[ensGenes,"cZ"]!=0)],
+      Alpha = c(0.5, 1)[
+        1+((DE.res.Y[ensGenes,"cZ"]!=0)|(DE.res.X[ensGenes,"cZ"]!=0))],
+      Size = c(0.4, 0.6)[
+        1+((DE.res.Y[ensGenes,"cZ"]!=0)|(DE.res.X[ensGenes,"cZ"]!=0))]
+    )
+    corTables[[time]] <- rbind(corTables[[time]], plotData)
+  }
+}
+```
+
+Let us manually pick colours to indicate genes differentially expressed
+in either, both, or none of the two groups of stimulated cells being
+compared:
+
+```{r corDEcolors}
+corDEcolors <- brewer.pal(9, "Pastel1")[c(1:3, 9)]
+names(corDEcolors) <- c("Both", "Group Y", "Group X", "None")
+```
+
+Let us identify the extremum values of MLE, to set identical axis ranges
+for all panels of all figures:
+
+```{r mleRange}
+mleRange <- range(c(
+  corTables[["2h"]][,c("mle.Y","mle.X")],
+  corTables[["4h"]][,c("mle.Y","mle.X")],
+  corTables[["6h"]][,c("mle.Y","mle.X")]
+))
+```
+
+Here, let us store shared elements of the figures used across the following
+panels:
+
+```{r corMleTheme}
+Wrap <- facet_wrap(~Contrast, nrow = 2)
+Labs <- labs(
+    x="maximum likelihood estimate of expression-fold change",
+    y="mle of fold-change")
+Scale_color <- scale_color_manual(values = corDEcolors)
+Scale_size <- scale_size(range = c(0,0.5))
+Scale_x <- scale_x_continuous(limits=mleRange)
+Scale_y <- scale_y_continuous(limits=mleRange)
+Guides <- guides(alpha = "none", size = "none")
+```
+
+### 2h
+
+```{r ggplotCor_2h, fig.height=6}
+ggplot(corTables[["2h"]]) +
+  geom_point(aes(mle.X, mle.Y, colour = DE, alpha = Alpha, size = Size)) +
+  theme_minimal()+Wrap+Labs+Scale_color+Scale_size+Scale_x+Scale_y+Guides
+```
+
+### 4h
+
+```{r ggplotCor_4h, fig.height=6}
+ggplot(corTables[["4h"]]) +
+  geom_point(aes(mle.X, mle.Y, colour = DE, alpha = Alpha, size = Size)) +
+  theme_minimal()+Wrap+Labs+Scale_color+Scale_size+Scale_x+Scale_y+Guides
+```
+
+### 6h
+
+```{r ggplotCor_6h, fig.height=6}
+ggplot(corTables[["6h"]]) +
+  geom_point(aes(mle.X, mle.Y, colour = DE, alpha = Alpha, size = Size)) +
+  theme_minimal()+Wrap+Labs+Scale_color+Scale_size+Scale_x+Scale_y+Guides
+```
+
+### Differences
+
+In the `6h` panel, a number of genes appears to be differentially expressed
+in opposite direction between `D23580` and `LT2` infections (relative
+to `uninfected` time-mached controls).
+In this section, let us identify those genes.
+
+```{r corTables_Direction}
+corTables[["6h"]][,"Direction"] <- "None"
+corTables[["6h"]][
+  with(corTables[["6h"]], which(DE != "Both")),"Size"] <- 0.3
+corTables[["6h"]][
+  with(corTables[["6h"]], which(DE == "Both" & mle.X > 0 & mle.Y > 0)),
+  "Direction"] <- "X: up - Y: up"
+corTables[["6h"]][
+  with(corTables[["6h"]], which(DE == "Both" & mle.X > 0 & mle.Y < 0)),
+  "Direction"] <- "X: up - Y: down"
+corTables[["6h"]][
+  with(corTables[["6h"]], which(DE == "Both" & mle.X < 0 & mle.Y > 0)),
+  "Direction"] <- "X: down - Y: up"
+corTables[["6h"]][
+  with(corTables[["6h"]], which(DE == "Both" & mle.X < 0 & mle.Y < 0)),
+  "Direction"] <- "X: down - Y: down"
+```
+
+```{r oppositeDEcolors}
+oppositeDEcolors <- brewer.pal(8, "Set2")[c(1:4, 8)]
+names(oppositeDEcolors) <- c(
+  "X: up - Y: up", "X: up - Y: down",
+  "X: down - Y: up", "X: down - Y: down", "None")
+Scale_colorOpp <- scale_color_manual(values = oppositeDEcolors)
+```
+
+### 6h - Opposite
+
+```{r ggplot_Direction, fig.height=6}
+ggplot(corTables[["6h"]]) +
+  geom_point(aes(mle.X, mle.Y, colour = Direction, alpha = Alpha, size = Size)) +
+  theme_minimal()+Wrap+Labs+Scale_colorOpp+Scale_size+Scale_x+Scale_y+Guides
+```
+
+```{r posterOpposite, include=FALSE}
+library(ggrepel)
+posterData <- cbind(
+  corTables[["6h"]],
+  GeneName = mapIds(
+    EnsDb.Hsapiens.v79, as.character(corTables[["6h"]][,"Gene"]),
+    "GENENAME", "GENEID"
+  )
+)
+infectedGeneList <-  c(
+  "HPS6","RAB13","TLR8","BLOC1S3","TBC1D15","RAB29","MVB12A",
+  "RAD50","AIMP2","TNFSF18","NLRP1","GSDMA","DCSTAMP","CCR1")
+exposedGeneList <-  c(
+  "MAFF","ZNF83","ZBTB46","E4F1",
+  "HLA-DOA","RIPK3","CD209","LIMD1")
+posterOpposite <- ggplot(posterData, aes(mle.X, mle.Y)) +
+  geom_point(aes(colour=Direction,alpha=Alpha,size=Size)) +
+  geom_text_repel(
+    aes(label = GeneName),
+    subset(
+      posterData,
+      Contrast == "D23580_infected (Y)\nLT2_infected (X)" &
+         GeneName %in% infectedGeneList
+    ), size = 2,
+    min.segment.length = unit(0, "lines"), segment.size = 0.2,
+    box.padding = unit(1, "lines")
+  ) +
+  geom_text_repel(
+    aes(label = GeneName),
+    subset(
+      posterData,
+      Contrast == "D23580_exposed (Y)\nLT2_exposed (X)" &
+         GeneName %in% exposedGeneList
+    ), size = 2,
+    min.segment.length = unit(0, "lines"), segment.size = 0.2,
+    box.padding = unit(1, "lines")
+  ) +
+  theme_minimal()+Wrap+Labs+Scale_colorOpp+Scale_size+Scale_x+Scale_y+Guides
+posterOpposite
+ggsave("poster/opposite_DE.pdf", posterOpposite, width = 7, height = 6)
+```
+
+```{r opposite_6h_CSVs, include=FALSE}
+for (tmpContrast in unique(corTables[["6h"]]$Contrast)){
+  csvName <- gsub("^(.*) \\(Y\\)\n(.*) \\(X\\)$", "\\1-\\2", tmpContrast)
+  tableOut <- subset(
+      corTables[["6h"]],
+      Contrast == tmpContrast & ((mle.Y * mle.X) < 0) & DE == "Both"
+    )
+  tableOut[,"Contrast"] <- gsub("\n", "-", tableOut[,"Contrast"])
+  tableOut[,"GENENAME"] <- mapIds(
+    EnsDb.Hsapiens.v79, as.character(tableOut[,"Gene"]), "GENENAME", "GENEID")
+  write.csv(tableOut, sprintf("SCDE/6h_opposite_%s.csv", csvName)
+  )
+}
+```
+
+```{r GOopposite, include=FALSE}
+D23_LT2 <-
+  subset(corTables[["6h"]], Contrast == 'D23580_infected (Y)\nLT2_infected (X)')
+upD23580 <- D23_LT2$Direction == 'X: down - Y: up'
+names(upD23580) <- D23_LT2$Gene
+upLT2 <- D23_LT2$Direction == 'X: up - Y: down'
+names(upLT2) <- D23_LT2$Gene
+oppositeD23_LT2 <- D23_LT2$Direction %in% c('X: up - Y: down','X: down - Y: up')
+names(oppositeD23_LT2) <- D23_LT2$Gene
+table(upD23580)
+table(upLT2)
+table(oppositeD23_LT2)
+#
+geneLengths <- read.delim(
+  "counts/WTCHG_305264_201201", row.names = 1)[,1, drop = FALSE]
+par(mfrow=c(1,3))
+#
+pwf.D23580<-nullp(upD23580,bias.data=geneLengths[names(upD23580),],plot.fit=TRUE)
+pwf.LT2<-nullp(upLT2,bias.data=geneLengths[names(upLT2),],plot.fit=TRUE)
+pwf.opp <-
+  nullp(oppositeD23_LT2,bias.data=geneLengths[names(oppositeD23_LT2),],plot.fit=TRUE)
+par(mfrow=c(1,1))
+GO.D23580 <- goseq::goseq(pwf.D23580, "hg38", "ensGene")
+GO.LT2 <- goseq::goseq(pwf.LT2, "hg38", "ensGene")
+GO.opp <- goseq::goseq(pwf.opp, "hg38", "ensGene")
+#
+GO.D23580$ontology <- as.factor(GO.D23580$ontology)
+GO.LT2$ontology <- as.factor(GO.LT2$ontology)
+GO.opp$ontology <- as.factor(GO.opp$ontology)
+GO.D23580.trim <- arrange(
+  subset(
+    GO.D23580, p.adjust(over_represented_pvalue, "BH") < 0.05 & numInCat >= 10),
+    over_represented_pvalue)
+GO.LT2.trim <- arrange(
+  subset(
+    GO.LT2, p.adjust(over_represented_pvalue, "BH") < 0.05 & numInCat >= 10),
+    over_represented_pvalue)
+GO.opp.trim <- arrange(
+  subset(
+    GO.opp, p.adjust(over_represented_pvalue, "BH") < 0.05 & numInCat >= 10),
+    over_represented_pvalue)
+DT::datatable(
+  head(GO.D23580.trim, 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+DT::datatable(
+  head(GO.LT2.trim, 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+DT::datatable(
+  head(GO.opp.trim, 500), # restrict to top 500
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+```{r}
+head(corTables[["6h"]])
+oppInfectedGenes <- as.character(subset(
+  corTables[["6h"]],
+  Contrast == 'D23580_infected (Y)\nLT2_infected (X)' &
+    Direction %in% c('X: up - Y: down','X: down - Y: up'),
+  select = 'Gene', drop = TRUE))
+normExprsOpp <- norm_exprs(sce.norm)[
+  oppInfectedGenes,
+  sce.norm$Time == '6h' &
+    sce.norm$Status != 'exposed']
+col9 <- RColorBrewer::brewer.pal(10, "Set3")[c(1:8, 10)]
+h_column <- HeatmapAnnotation(
+  df = pData(sce.norm)[colnames(normExprsOpp),c("Treatment"),drop=FALSE],
+  col = list(
+    Treatment = c(
+      "Mock_uninfected" = col9[3],
+      "D23580_infected" = col9[1], 
+      "LT2_infected" = col9[2]
+    )
+  )
+)
+ht_supervised <- Heatmap(
+  normExprsOpp,
+  name = "norm_exprs", column_title = "Normalised expression",
+  top_annotation = h_column,
+  cluster_columns = TRUE,
+  show_row_names = FALSE, show_column_names = FALSE
+)
+ht_supervised
+```
+
+
+# DE between groups of stimulated cells
+## Testing for DE genes {.tabset}
+
+Similarly to the above code chunk to estimate differential expression
+relative to [uninfected cells](#DEcontrol),
+let us compare groups of stimulated cells between themselves:
+
+**Note:** this step takes a considerable amount of time, even when multiple
+cores are used (~ 5 min per comparison using a single core to estimate
+batch effect and differential expression).
+For this purpose, the chunk of code below is not executed during
+automated compilation; instead it is manually recomputed as necessary.
+
+<!--
+During automated compilation, only load manually pre-computed DE statistics
+saved to file.
+-->
+
+```{r scdeStimulated, eval=FALSE, warning=FALSE, message=FALSE}
+contrasts <- list(
+  c("%s_D23580_infected","%s_LT2_infected"),
+  c("%s_D23580_infected","%s_D23580_exposed"),
+  c("%s_LT2_infected","%s_LT2_exposed"),
+  c("%s_D23580_exposed","%s_LT2_exposed")
+)
+for (time in levels(sce.norm$Time)){
+  for (cindex in 1:4){
+      sg.ref <- sprintf(contrasts[[cindex]][2], time)
+      sg.tar <- sprintf(contrasts[[cindex]][1], time)
+      contrast <- sprintf("%s-%s", sg.tar, sg.ref); #message(contrast)
+      groups <- rep(NA, length(sg.all))
+      names(groups) <- names(sg.all)
+      groups[which(sg.all == sg.ref)] <- sg.ref
+      groups[which(sg.all == sg.tar)] <- sg.tar
+      groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
+      scde.res <- scde.expression.difference(
+        o.ifm, cd, o.prior,
+        groups = groups,
+        batch = batch,
+        n.randomizations = 100,
+        n.cores  =  1, verbose  =  1
+      )
+      
+      de.raw <- scde.res$results
+      de.adjusted <- scde.res$batch.adjusted
+      de.batch <- scde.res$batch.effect
+      
+      de.raw <- de.raw[order(abs(de.raw$Z), decreasing = TRUE),]
+      de.adjusted <- de.adjusted[order(abs(de.adjusted$Z), decreasing = TRUE),]
+      de.batch <- de.batch[order(abs(de.batch$Z), decreasing = TRUE),]
+      
+      de.raw <- cbind(
+        GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.raw),"GENENAME","GENEID"),
+        de.raw
+      )
+      de.adjusted <- cbind(
+        GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.adjusted),"GENENAME","GENEID"),
+        de.adjusted
+      )
+      de.batch <- cbind(
+        GENENAME=mapIds(EnsDb.Hsapiens.v79,rownames(de.batch),"GENENAME","GENEID"),
+        de.batch
+      )
+      
+      DE.res.raw[[contrast]] <- de.raw
+      DE.res.adjusted[[contrast]] <- de.adjusted
+      DE.res.batch[[contrast]] <- de.batch
+  }
+}
+```
+
+```{r saveRdsDEbtwStimulated, eval=FALSE, include=FALSE}
+saveRDS(DE.res.raw, "rds/DE.res.raw.rds")
+saveRDS(DE.res.adjusted, "rds/DE.res.adjusted.rds")
+saveRDS(DE.res.batch, "rds/DE.res.batch.rds")
+for (groupName in names(DE.res.raw)){
+  write.csv(
+    DE.res.raw[[groupName]], sprintf("SCDE/raw_%s.csv",groupName))
+  write.csv(
+    DE.res.adjusted[[groupName]], sprintf("SCDE/adjusted_%s.csv",groupName))
+  write.csv(DE.res.batch[[groupName]], sprintf("SCDE/batch_%s.csv",groupName))
+}
+```
+
+```{r readRdsDEbtwStimulated, include=FALSE}
+DE.res.raw <- readRDS("rds/DE.res.raw.rds")
+DE.res.adjusted <- readRDS("rds/DE.res.adjusted.rds")
+DE.res.batch <- readRDS("rds/DE.res.batch.rds")
+```
+
+```{r, include=FALSE}
+# Overlaid distribution of mle inf-exp in D23 vs LT2
+plot(density(DE.res.raw[["4h_D23580_infected-4h_D23580_exposed"]]$mle),col="red")
+lines(density(DE.res.raw[["4h_LT2_infected-4h_LT2_exposed"]]$mle))
+```
+
+```{r, include=FALSE}
+# Correlation plot of inf-exp in D23580 vs LT2
+tmpFields <- c("mle","cZ","GENENAME")
+geneNames <- rownames(DE.res.raw[["4h_D23580_infected-4h_D23580_exposed"]])
+tmpDf <- data.frame(
+  D23580 = DE.res.raw[["4h_D23580_infected-4h_D23580_exposed"]][geneNames,tmpFields],
+  LT2 = DE.res.raw[["4h_LT2_infected-4h_LT2_exposed"]][geneNames,tmpFields],
+  row.names = geneNames
+)
+tmpSig <- c(NA,"LT2","D23580","Both")
+tmpAlpha <- c(0.5, 1)
+tmpSize <- c(0.5, 1)
+tmpDf[,"sig"] <-
+  tmpSig[1 + (tmpDf[,"LT2.cZ"] != 0) + (2*(tmpDf[,"D23580.cZ"] != 0))]
+tmpDf[,"Alpha"] <-
+  tmpAlpha[1 + (tmpDf[,"LT2.cZ"] != 0) | (tmpDf[,"D23580.cZ"] != 0)]
+tmpDf[,"Size"] <-
+  tmpSize[1 + (tmpDf[,"LT2.cZ"] != 0) | (tmpDf[,"D23580.cZ"] != 0)]
+table(tmpDf$sig)
+ggplot(tmpDf) +
+  geom_point(aes(LT2.mle, D23580.mle, colour = sig, alpha = Alpha, size = Size))
+# View(subset(tmpDf, D23580.cZ != 0 & LT2.cZ == 0))
+# View(subset(tmpDf, D23580.cZ == 0 & LT2.cZ != 0))
+```
+
+```{r, include=FALSE}
+# Violin plots of expression
+col2 <- RColorBrewer::brewer.pal(3, "Set1")[2:3]
+names(col2) <- c("infected","exposed")
+colScale <- scale_fill_manual(values = col2)
+idx.4hStim <- which(sce.norm$Time == "4h" & sce.norm$Infection != "Mock")
+geneNamesD23 <- c("CD83","CD40","TLR8")
+geneNamesLT2 <- c("IL36B","CTSL","RIPK3")
+geneNames <- c(geneNamesLT2, geneNamesD23)
+geneIds <- mapIds(EnsDb.Hsapiens.v79, geneNames, "GENEID", "GENENAME")
+posterData <- t(norm_exprs(sce.norm)[geneIds,idx.4hStim])
+colnames(posterData) <- geneNames
+posterData <- cbind(posterData, pData(sce.norm)[idx.4hStim,c("Infection","Status")])
+posterData <- reshape2::melt(posterData, variable.name = "GeneName", value.name = "norm_exprs")
+valueScale <- range(posterData$norm_exprs)
+posterPlot <- ggplot(
+  subset(posterData, GeneName %in% geneNamesD23),
+  aes(Status, norm_exprs)) + colScale +
+  scale_y_continuous(limits = valueScale) +
+  geom_violin(aes(fill=Status), draw_quantiles = c(0.25, 0.5, 0.75), alpha=0.5) +
+  facet_grid(GeneName~Infection) + ggtitle("D23580") + theme_minimal()
+ggsave("poster/violin_D23580.pdf", posterPlot, height = 8, width = 6)
+posterPlot <- ggplot(
+  subset(posterData, GeneName %in% geneNamesLT2),
+  aes(Status, norm_exprs)) + colScale +
+  scale_y_continuous(limits = valueScale) +
+  geom_violin(aes(fill=Status), draw_quantiles = c(0.25, 0.5, 0.75), alpha=0.5) +
+  facet_grid(GeneName~Infection) + ggtitle("LT2") + theme_minimal()
+ggsave("poster/violin_LT2.pdf", posterPlot, height = 8, width = 6)
+```
+
+
+## Count of DE genes
+
+Let us display the count of differentially expressed genes:
+
+* Without batch correction (`Raw`)
+* With batch correction applied by plate processed (`Adjusted`). *Note that
+  all samples of any of the `4` plates were processed on the same of the `2`
+  sequencing lanes; as a result, accounting for a plate batch implicitely
+  accounts for a lane batch.*
+
+```{r countDEbtwStimulated}
+contrastsStimulated <- grep("Mock", names(DE.res.raw), invert = TRUE, value = TRUE)
+DT::datatable(data.frame(
+  "Raw" = sapply(contrastsStimulated, function(n){sum(DE.res.raw[[n]]$cZ != 0)}),
+  "Adjusted" =
+    sapply(contrastsStimulated, function(n){sum(DE.res.adjusted[[n]]$cZ != 0)}),
+  "Batch" =
+    sapply(contrastsStimulated, function(n){sum(DE.res.batch[[n]]$cZ != 0)})
+  ),
+  options = list(pageLength = 12)
+)
+```
+
+## Tables of DE genes {.tabset}
+
+Let us display the tables of DE genes for the various contrasts calculated
+above.
+
+Again, for convience, let us display only the `1000` most significant DE genes
+(*i.e.*, largest Z-score) in cases where larger counts of DE genes were
+detected (*i.e.*, corrected Z-score ≠ 0).
+
+```{r topDElimitStimulated}
+for (res.name in names(DE.res.batch)){
+  de.adjusted <- DE.res.adjusted[[res.name]]
+  DE.adjusted.limit[[res.name]] <-
+    head(de.adjusted, min(topDElimit,sum(de.adjusted$cZ != 0)))
+}
+```
+
+### 2h_D23_inf-2h_LT2_inf
+
+```{r 2h_D23580_inf-2h_LT2_inf}
+DT::datatable(
+  DE.adjusted.limit[["2h_D23580_infected-2h_LT2_infected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 2h_D23_inf-2h_D23_exp
+
+```{r 2h_D23580_inf-2h_D23580_exp}
+DT::datatable(
+  DE.adjusted.limit[["2h_D23580_infected-2h_D23580_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 2h_LT2_inf-2h_LT2_exp
+
+```{r 2h_LT2_inf-2h_LT2_exp}
+DT::datatable(
+  DE.adjusted.limit[["2h_LT2_infected-2h_LT2_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 2h_D23_exp-2h_LT2_exp
+
+```{r 2h_D23580_exp-2h_LT2_exp}
+DT::datatable(
+  DE.adjusted.limit[["2h_D23580_exposed-2h_LT2_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 4h_D23_inf-4h_LT2_inf
+
+```{r 4h_D23580_inf-4h_LT2_inf}
+DT::datatable(
+  DE.adjusted.limit[["4h_D23580_infected-4h_LT2_infected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 4h_D23_inf-4h_D23_exp
+
+```{r 4h_D23580_inf-4h_D23580_exp}
+DT::datatable(
+  DE.adjusted.limit[["4h_D23580_infected-4h_D23580_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 4h_LT2_inf-4h_LT2_exp
+
+```{r 4h_LT2_inf-4h_LT2_exp}
+DT::datatable(
+  DE.adjusted.limit[["4h_LT2_infected-4h_LT2_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 4h_D23_exp-4h_LT2_exp
+
+```{r 4h_D23580_exp-4h_LT2_exp}
+DT::datatable(
+  DE.adjusted.limit[["4h_D23580_exposed-4h_LT2_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 6h_D23_inf-6h_LT2_inf
+
+```{r 6h_D23580_inf-6h_LT2_inf}
+DT::datatable(
+  DE.adjusted.limit[["6h_D23580_infected-6h_LT2_infected"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 6h_D23_inf-6h_D23_exp
+
+```{r 6h_D23580_inf}
+DT::datatable(
+  DE.adjusted.limit[["6h_D23580_infected-6h_D23580_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 6h_LT2_inf-6h_LT2_exp
+
+```{r 6h_LT2_exp}
+DT::datatable(
+  DE.adjusted.limit[["6h_LT2_infected-6h_LT2_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+### 6h_D23_exp-6h_LT2_exp
+
+```{r 6h_D23580_exp-6h_LT2_exp}
+DT::datatable(
+  DE.adjusted.limit[["6h_D23580_exposed-6h_LT2_exposed"]],
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
+)
+```
+
+## Expression profile of DE genes {.tabset}
+
+Let us display the expression level of *CCL7*,
+a DE gene significantly more expressed in
+`4h_D23580_infected` than `4h_D23580_exposed`:
+
+```{r CCL7violin}
+geneName <- "CCL7"
+geneId <- mapIds(EnsDb.Hsapiens.v79, geneName, "GENEID", "GENENAME")
+geneExpr <- norm_exprs(sce.norm)[geneId,]
+sampleAes <- pData(sce.norm)[,c("Time","Infection","Status","Plate")]
+ggData <- cbind(norm_exprs = geneExpr, sampleAes)
+ggplot(ggData, aes(Status, norm_exprs, colour = Plate)) +
+  geom_violin(draw_quantiles = c(0.25,0.5,0.75)) +
+  geom_jitter(position = position_dodge(width = 0.9)) +
+  facet_grid(Infection ~ Time) + exprsViolinTheme +
+  ggtitle(sprintf("%s (symbol: %s)", geneId, geneName))
+```
+
+Let us compare the posterior of *CCL7* for the four comparisons of interest:
+
+### 6h_D23_inf - 6h_D23_exp
+
+```{r 6h_D23_inf_6h_D23_exp}
+groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all);
+sg.ref <- "6h_D23580_exposed"; sg.tar <- "6h_D23580_infected";
+groups[which(sg.all==sg.ref)]<-sg.ref; groups[which(sg.all==sg.tar)]<-sg.tar;
+groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
+scde.test.gene.expression.difference(
+  geneId, models = o.ifm, counts = cd, prior = o.prior,
+  groups = groups, batch = batch)
+```
+
+### 6h_LT2_inf - 6h_LT2_exp
+
+```{r 6h_LT2_inf_6h_LT2_exp}
+groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all)
+sg.ref <- "6h_LT2_exposed"; sg.tar <- "6h_LT2_infected"
+groups[which(sg.all == sg.ref)] <- sg.ref; groups[which(sg.all == sg.tar)] <- sg.tar
+groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
+scde.test.gene.expression.difference(
+  geneId, models = o.ifm, counts = cd, prior = o.prior,
+  groups = groups, batch = batch)
+```
+
+### 6h_D23_inf - 6h_LT2_inf
+
+```{r 6h_D23_inf_6h_LT2_inf}
+groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all)
+sg.ref <- "6h_LT2_infected"; sg.tar <- "6h_D23580_infected"
+groups[which(sg.all == sg.ref)] <- sg.ref; groups[which(sg.all == sg.tar)] <- sg.tar
+groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
+scde.test.gene.expression.difference(
+  geneId, models = o.ifm, counts = cd, prior = o.prior,
+  groups = groups, batch = batch)
+```
+
+### 6h_D23_exp - 6h_LT2_exp
+
+```{r 6h_D23_exp_6h_LT2_exp}
+groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all)
+sg.ref <- "6h_LT2_exposed"; sg.tar <- "6h_D23580_exposed"
+groups[which(sg.all == sg.ref)] <- sg.ref; groups[which(sg.all == sg.tar)] <- sg.tar
+groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
+scde.test.gene.expression.difference(
+  geneId, models = o.ifm, counts = cd, prior = o.prior,
+  groups = groups, batch = batch)
+```
+
+```{r 6h_LT2_inf_6h_LT2_exp_CTSL, include=FALSE}
+geneName <- "CTSL"
+geneId <- mapIds(EnsDb.Hsapiens.v79, geneName, "GENEID", "GENENAME")
+groups <- rep(NA, length(sg.all)); names(groups) <- names(sg.all)
+sg.ref <- "6h_LT2_exposed"; sg.tar <- "6h_LT2_infected"
+groups[which(sg.all == sg.ref)] <- sg.ref; groups[which(sg.all == sg.tar)] <- sg.tar
+groups <- factor(groups, c(sg.tar, sg.ref)) # target - reference
+pdf("NGS-SIG/SCDE_CTSL_LT2_inf-exp.pdf", height = 6, width = 6)
+scde.test.gene.expression.difference(
+  geneId, models = o.ifm, counts = cd, prior = o.prior,
+  groups = groups, batch = batch)
+dev.off()
+```
+
+<!-- As HTML pages are built independently, objects need to be saved to disk
+and imported as needed by the other R mardown files -->

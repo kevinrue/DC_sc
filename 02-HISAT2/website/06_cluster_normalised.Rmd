@@ -282,6 +282,10 @@ sce.norm <- plotTSNE(
 )
 ```
 
+```{r saveRDS, include=FALSE}
+saveRDS(sce.norm, 'rds/sce.norm.tSNE.rds')
+```
+
 ```{r postertSNE, include=FALSE}
 posterPCA <- reducedDimension(sce.norm)
 colnames(posterPCA) <- paste("Dimension", 1:2)

@@ -1,0 +1,82 @@
+---
+  title: "Sub-group analysis"
+---
+
+  <!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+library(scater)
+library(scran)
+library(ggplot2)
+library(scde)
+sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
+HVGs.group <- readRDS("rds/HVGsByGroups.rds")
+```
+
+Subset to only cells at **6h** and challenged with bacteria
+(*i.e.*, exclude `Mock`):
+
+```{r sce.6h}
+sce.6hStim <- sce.norm[,sce.norm$Time == '6h' & sce.norm$Infection != 'Mock']
+dim(sce.6hStim)
+```
+
+Identify HVGs in those cells:
+
+```{r HVGs.6hStim}
+dm <- model.matrix(~Plate+Lane, data = pData(sce.6hStim))
+var.fit <- trendVar(
+  sce.6hStim, assay = "norm_exprs", trend = "loess", design = dm,
+  use.spikes = FALSE, span = 0.1
+)
+# sce.6hStim <- normalise(sce.6hStim)
+var.out <- decomposeVar(sce.6hStim, var.fit)
+var.out <- var.out[with(var.out, order(p.value)),]
+var.out <- cbind(
+  GENENAME = mapIds(EnsDb.Hsapiens.v79,rownames(var.out),'GENENAME','GENEID'),
+  var.out
+)
+HVGs.6hStim <- (var.out$FDR < 0.05)
+table(HVGs.6hStim)
+```
+
+Display the `r sum(HVGs.6hStim)` significant endogenous features
+(*i.e.*, **FDR < 0.05**):
+
+```{r datatable_HVGs.6hStim}
+DT::datatable(var.out[which(HVGs.6hStim),])
+```
+
+Identify clusters, given a minimal size of `r min(table(sce.6hStim$Group))`:
+
+```{r quickCluster.6hStim}
+sce.6hStim <- sce.6hStim[which(HVGs.6hStim),]
+sce.6hStim$Group <- droplevels(sce.6hStim$Group)
+clusters <- quickCluster(sce.6hStim, min.size = min(table(sce.6hStim$Group)))
+names(clusters) <- sampleNames(sce.6hStim)
+sce.6hStim$quickCluster <- clusters
+sce.norm$quickCluster.6hStim <- 0
+pData(sce.norm)[names(clusters),'quickCluster.6hStim'] <- clusters
+table(clusters)
+```
+
+Overlay cluster membership and `Treatment` phenotype onto the tSNE coordinate
+originally calculated from the complete data set:
+
+```{r plotReducedDim_quickCluster.6hStim}
+plotReducedDim(
+  sce.norm, colour_by = 'quickCluster.6hStim', shape_by = 'Treatment'
+)
+```
+
+```{r}
+cd.6hStim <- clean.counts(
+  counts(sce.6hStim)
+)
+cd <- apply(cd, 2, function(x){storage.mode(x) <- 'integer'; x})
+dim(cd)
+```
+
+

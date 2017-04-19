@@ -50,25 +50,43 @@ factors such as sampling noise during RNA capture and library preparation.
 
 ## Define technical component by mean-variance trend {#trendMeanVarHVGs .tabset}
 
-### Using ERCC spike-in features
-
 Ideally, the technical component would be estimated by fitting a mean-variance
-trend to the ERCC spike-in feature using the
-[scran](http://bioconductor.org/packages/scran) `trendVar` function.
-Recall that the same set of spike-ins was added in the same quantity to each
-cell.
-This means that the spike-in transcripts should exhibit no biological
-variability, *i.e.*, any variance in their counts should be technical
-in origin.
-Given the mean abundance of a gene, the fitted value of the trend can be used
+trend to the ERCC spike-in features.
+
+Alternatively, the expression level of endogenous features may be used
+for this purpose,
+**under the assumption** that most endogenous features exhibit mostly
+technical variation, in contrast to little biological variation.
+
+In both cases, given the mean abundance of a gene,
+the fitted value of the trend can be used
 as an estimate of the technical component for that gene.
 The biological component of the variance may then be calculated by subtracting
 the technical component from the total variance of each gene with the
 [scran](http://bioconductor.org/packages/scran) `decomposeVar` function.
 
-Let us fit a trend to the variance of spike-in features while accounting
+Both methods are shown below. However, for this data set,
+the use of endogenous features was preferred for the following reasons:
+
+* the limited count of detected ERCC spike-in features adversely affected the
+  quality of the fitted trend at intermediate expression levels
+  (*i.e.*, mean log-expression in the range \approx 5-10)
+* ERCC spike-in features show variability levels similar to endogenous
+  features.
+
+### Using ERCC spike-in features
+
+Recall that the same set of ERCC spike-in features was added
+in identical quantity to each sample.
+Consequently, ERCC spike-in features should exhibit no biological
+variability, *i.e.*, any variance in their counts should be technical
+in origin.
+
+Let us fit a trend to the variance of spike-in features
+using the [scran](http://bioconductor.org/packages/scran) `trendVar` function;
+while accounting
 for the minor effect of technical factors described
-[earlier](06_examineNormalised.html#explanatoryVariables).
+[earlier](06_cluster_normalised#explanatoryVariables).
 We do not block on the key experimental factors `Time`, `Infection`, and
 `Status`, as doing so may regress out biological effects of interest.
 
@@ -118,12 +136,6 @@ endogenous features at moderately high levels of detection
 
 ### Using endogenous features
 
-Considering the technical variance in ERCC spike-in detection levels observed
-in the previous tab, an alternate method of estimating technical variation
-across the dynamic range of expression uses endogenous features expression
-levels under the assumption that most endogenous features exhibit mostly
-technical variation, in contrast to little biological variation.
-
 Similarly to the use of ERCC spike-in features, let us use the
 [scran](http://bioconductor.org/packages/scran) `trendVar` method
 to estimate technical variation under the assumption stated above,
@@ -148,15 +160,20 @@ names(var.out.endo)
 We assess the suitability of the trend fitted to the endogenous variances by
 examining whether it is consistent with the spike-in variances.
 Notably, the trend passes through or close to most of the spike-in variances,
-indicating that our assumption
-(that most genes have low levels of biological variability) is valid.
-This strategy exploits the large number of endogenous genes to obtain a stable
-trend, with the ERCC spike-in feature used as diagnostic features rather than
-in the trend fitting itself.
+suggesting that the assumption
+(that most genes have low levels of biological variability) is suitable for
+this data set.
+Notably,
+this strategy exploits the large number of endogenous genes to obtain a stable
+trend, with the ERCC spike-in features primarily used as diagnostic features
+rather than in the trend fitting itself.
 
-Importantly, if our assumption did not hold, we would instead use the trend
-fitted to the ERCC spike-in variances with the default `use.spikes=TRUE`.
-This would sacrifice stability to reduce systematic errors in the estimate of
+Importantly, if the assumption
+(that most genes have low levels of biological variability)
+did not hold, one would rather use the trend fitted to the ERCC spike-in
+features using the default `use.spikes=TRUE` settings.
+Notably,
+this would sacrifice stability to reduce systematic errors in the estimate of
 the biological component for each gene [@67].
 
 ```{r plot_var.out.endo}
@@ -192,8 +209,8 @@ may explain to some extent the substantial scatter around the trend at moderate
 levels of expression
 (*i.e.*, mean log-expression in the range $\approx [2.5 - 7.5]$).
 Nevertheless, this trend matches closely observations at low detection levels
-dense in ERCC spike-in features, and high detection levels that show limited
-variability.
+dense in ERCC spike-in features, and high detection levels that show
+generally limited variability.
 
 In contrast, the use of endogenous features---under the assumption that most
 genes exhibit technical variation and little biological variation---yields a
@@ -209,25 +226,25 @@ Let us adopt a conservative approach and use the latter trend (*i.e.*,
 estimated from the endogenous features) as it appears to be more consistent
 with the spike-in variances,
 and as such supports the assumption that most genes have low
-levels of biological variability is valid in this data set.
+levels of biological variability does hold in this data set.
 
 ## Identify variable genes {#identifyHVGs .tabset}
 
 HVGs are defined as genes with biological components that are significantly
-greater than **0** at a false discovery rate (FDR) of **5%**.
+*greater than 0* at a false discovery rate (FDR) of **5%**.
 These genes are interesting as they are most likely to drive differences in the
 expression profiles between cells that belong to different experimental groups,
 while more generally explaining a substantial proportion of the
 transcriptional variance across all cells in the data set.
 
-In addition to the definition above, let us define as HVGs endogenous features
+In addition to the definition above, let us refine HVGs as endogenous features
 with an estimated biological component of variance greater than or equal to
 **0.5**.
 For transformed expression values on the log~2~ scale, this means that the
 average difference in true expression between any two cells will be at least
 **2**-fold.
 This reasoning assumes that the true log-expression
-values are *Normally distributed* with variance of **0.5** [@67].
+values are *normally distributed* with variance of **0.5** [@67].
 
 ### Identification
 
@@ -297,7 +314,7 @@ top.hvg <- rownames(hvg.out)[1:10]
 plotExpressionSCESet(
   sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Time"
   ) + scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
-   theme(legend.position = "bottom", legend.box = "vertical")
+   exprsViolinTheme
 ```
 
 The figure above generally indicates a progressive *up*-regulation of gene
@@ -1056,32 +1073,60 @@ sets of highly expressed
 and highly variable gene features are listed below and their distribution
 of expression levels displayed in the last tab:
 
-### 6h_D23580_exposed
+### 6h D23580 exposed
 
-```{r HVGsHE_6h_D23580_exposed}
-HVG_D23_exp <- subset(HVGs.group[["6h_D23580_exposed"]], mean > 10 & bio > 5)
-DT::datatable(HVG_D23_exp)
+```{r 6h_D23580_exposed_HeHv}
+HeHv_D23_exp <- subset(HVGs.group[["6h_D23580_exposed"]], mean > 10 & bio > 5)
 ```
 
-### 6h_LT2_exposed
-
-```{r HVGsHE_6h_LT2_exposed}
-HVG_LT2_exp <- subset(HVGs.group[["6h_LT2_exposed"]], mean > 10 & bio > 5)
-DT::datatable(HVG_LT2_exp)
+```{r 6h_D23580_exposed_HeHv_datatable, echo=FALSE}
+DT::datatable(HeHv_D23_exp)
 ```
 
-### 6h_D23580_infected
-
-```{r HVGsHE_6h_D23580_infected}
-HVG_D23_inf <- subset(HVGs.group[["6h_D23580_infected"]], mean > 10 & bio > 5)
-DT::datatable(HVG_D23_inf)
+```{r 6h_D23580_exposed_HeHv.csv, include=FALSE}
+write.csv(HeHv_D23_exp, "HVGs/6h_D23580_exposed_HeHv.csv")
 ```
 
-### 6h_LT2_infected
+### 6h LT2 exposed
 
-```{r HVGsHE_6h_LT2_infected}
+```{r 6h_LT2_exposed_HeHv}
+HeHv_LT2_exp <- subset(HVGs.group[["6h_LT2_exposed"]], mean > 10 & bio > 5)
+```
+
+```{r 6h_LT2_exposed_HeHv_datatable, echo=FALSE}
+DT::datatable(HeHv_LT2_exp)
+```
+
+```{r 6h_LT2_exposed_HeHv.csv, include=FALSE}
+write.csv(HeHv_LT2_exp, "HVGs/6h_LT2_exposed_HeHv.csv")
+```
+
+### 6h D23580 infected
+
+```{r 6h_D23580_infected_HeHv}
+HeHv_D23_inf <- subset(HVGs.group[["6h_D23580_infected"]], mean > 10 & bio > 5)
+```
+
+```{r 6h_D23580_infected_HeHv_datatable, echo=FALSE}
+DT::datatable(HeHv_D23_inf)
+```
+
+```{r 6h_D23580_infected_HeHv.csv, include=FALSE}
+write.csv(HeHv_LT2_exp, "HVGs/6h_D23580_infected_HeHv.csv")
+```
+
+### 6h LT2 infected
+
+```{r 6h_LT2_infected_HeHv}
 HVG_LT2_inf <- subset(HVGs.group[["6h_LT2_infected"]], mean > 10 & bio > 5)
+```
+
+```{r 6h_LT2_infected_HeHv_datatable, echo=FALSE}
 DT::datatable(HVG_LT2_inf)
+```
+
+```{r 6h_LT2_infected_HeHv.csv, include=FALSE}
+write.csv(HVG_LT2_inf, "HVGs/6h_LT2_infected_HeHv.csv")
 ```
 
 ### Melt
@@ -1380,7 +1425,7 @@ for (time in levels(sce.norm$Time)){
 ```
 
 ```{r HVGs4hStim, warning=FALSE, include=FALSE}
-# [earlier tSNE results](06_examineNormalised.hmtl#tSNEstatus)
+# [earlier tSNE results](06_cluster_normalised#tSNEstatus)
 # larger differences between D23 exp/inf relative to LT2
 idx.4hStim <- which(sce.norm$Time == "4h" & sce.norm$Infection != "Mock")
 dm <- model.matrix(~Plate+Lane, data = pData(sce.norm)[idx.4hStim,])

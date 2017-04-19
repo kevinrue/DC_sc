@@ -1,0 +1,221 @@
+---
+title: "Sub-group analysis"
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+library(scater)
+library(scran)
+library(ggplot2)
+library(SummarizedExperiment)
+library(ComplexHeatmap)
+sce.norm <- readRDS("rds/sce.norm.rds")
+HVGs.group <- readRDS("rds/HVGsByGroups.rds")
+```
+
+# Objective
+
+In previous sections, we have observed that the detection of
+[significant differences in gene expression](08_SCDE.html)
+between groups of stimulated cells is limited by variability and bi-/multi-modal
+distribution of gene expression within each group.
+
+As a result, let us explore cell-level similarities within each experimental
+group, using the group-level highly-variables genes (HVGs) identified
+[earlier](07_highlyVariableGenes.html).
+
+For each group, let us:
+
+* apply the [scran](http://bioconductor.org/packages/scran) `quickCluster`
+  method---using Spearman correlation-based distance---to
+  identify potentially distinct behaviours within each experimental condition
+* overlay the above cluster membership onto a principal components analysis
+  (PCA) based on the HVGs identified for each group
+* Overlay the above cluster membership onto a heat map representation of
+  normalised gene expression following hierarchical clustering of cells
+  within each experimental group
+
+# Preprocessing
+
+In this section, let us search for potential sub-structure within each
+experimental group of cells, as follows:
+
+* fetch the group-level HVGs identified in an earlier
+  [section](07_highlyVariableGenes.html)
+* fetch normalised expression data for the corresponding genes and cells
+* apply the [scran](http://bioconductor.org/packages/scran) `quickCluster`
+  method
+* calculate pairwise distance between cells using Spearman correlation
+* perform hierarchical clustering on the above pairwise distances
+* perform a PCA
+* present in a heat map the normalised gene expression data, with cells
+  organised according to the above hierarchical clustering, while leaving
+  genes to cluster according to the default Euclidian distance between their
+  expression profile across cells
+
+First, let us pick a set of colours, to set a manual colour scale for the
+PCA figures, and also later used in the heat map figures:
+
+```{r}
+col8 <- RColorBrewer::brewer.pal(8, "Set1")
+colGrey <- RColorBrewer::brewer.pal(9, "Set1")[9]
+pcaCol <- c(colGrey, col8)
+names(pcaCol) <- seq_along(pcaCol) - 1
+pcaScaleManual <- scale_color_manual(values = pcaCol)
+```
+
+We may then performs the analytical steps listed above on each experimental
+group of cells, using the selected colours to indicate cluster membership
+in the heat map:
+
+**Note:**
+For the `quickCluster` method, `min.size` is here set to **5**, suitable to
+detect up to `r trunc(min(table(sce.norm$Group)) / 5)` sub-groups in the
+smallest experimental group of `r min(table(sce.norm$Group))` cells.
+
+```{r}
+subgroupPlots <- list()
+for (groupName in levels(sce.norm$Group)){
+  HVGs.sub <- HVGs.group[[groupName]]
+  sce.sub <- sce.norm[rownames(HVGs.sub), sce.norm$Group == groupName]
+  sce.sub$quickCluster <- quickCluster(sce.sub, min.size = 5)
+  dist.sub <- MKmisc::corDist(t(norm_exprs(sce.sub)), method="spearman")
+  clust.sub <- hclust(dist.sub)
+  pca.sub <- as.data.frame(prcomp(t(norm_exprs(sce.sub)))$x[,1:10]) # top 10 PCs
+  pca.sub[,"quickCluster"] <- pData(sce.sub)[rownames(pca.sub),"quickCluster"]
+  ht_col <- col9[1:sum(levels(sce.sub$quickCluster) != 0)]
+  if (0 %in% levels(sce.sub$quickCluster)) {ht_col <- c(colGrey, ht_col)}
+  names(ht_col) <- levels(sce.sub$quickCluster)
+  h_column <- HeatmapAnnotation(
+    df = pData(sce.sub)[,c("quickCluster"), drop = FALSE],
+    col = list(quickCluster = ht_col)
+  )
+  ht_subset <- Heatmap(
+    norm_exprs(sce.sub),
+    name = "norm_exprs", column_title = "Normalised expression",
+    top_annotation = h_column, cluster_columns = clust.sub,
+    show_row_names = FALSE, show_column_names = TRUE
+  )
+  subgroupPlots[[groupName]] <- list(PCA = pca.sub, Heatmap = ht_subset)
+}
+```
+
+# PCAs {.tabset}
+
+## 2h_Mock_uninfected
+
+```{r}
+ggplot(subgroupPlots[["2h_Mock_uninfected"]][["PCA"]]) +
+  geom_point(aes(PC1, PC2, colour = quickCluster)) + pcaScaleManual
+```
+
+## 4h_Mock_uninfected
+
+```{r}
+ggplot(subgroupPlots[["4h_Mock_uninfected"]][["PCA"]]) +
+  geom_point(aes(PC1, PC2, colour = quickCluster))
+```
+
+## 6h_Mock_uninfected
+
+```{r}
+ggplot(subgroupPlots[["6h_Mock_uninfected"]][["PCA"]]) +
+  geom_point(aes(PC1, PC2, colour = quickCluster))
+```
+
+## 2h_D23580_exposed
+
+```{r}
+ggplot(subgroupPlots[["2h_D23580_exposed"]][["PCA"]]) +
+  geom_point(aes(PC1, PC2, colour = quickCluster))
+```
+
+## 4h_D23580_exposed
+
+```{r}
+ggplot(subgroupPlots[["4h_D23580_exposed"]][["PCA"]]) +
+  geom_point(aes(PC1, PC2, colour = quickCluster))
+```
+
+## 6h_D23580_exposed
+
+```{r}
+ggplot(subgroupPlots[["6h_D23580_exposed"]][["PCA"]]) +
+  geom_point(aes(PC1, PC2, colour = quickCluster))
+```
+
+## 2h_D23580_infected
+
+```{r}
+ggplot(subgroupPlots[["2h_D23580_infected"]][["PCA"]]) +
+  geom_point(aes(PC1, PC2, colour = quickCluster))
+```
+
+## 4h_D23580_infected
+
+```{r}
+ggplot(subgroupPlots[["4h_D23580_infected"]][["PCA"]]) +
+  geom_point(aes(PC1, PC2, colour = quickCluster))
+```
+
+## 6h_D23580_infected
+
+```{r}
+ggplot(subgroupPlots[["6h_D23580_infected"]][["PCA"]]) +
+  geom_point(aes(PC1, PC2, colour = quickCluster))
+```
+
+## 2h_LT2_exposed
+
+```{r}
+ggplot(subgroupPlots[["2h_LT2_exposed"]][["PCA"]]) +
+  geom_point(aes(PC1, PC2, colour = quickCluster))
+```
+
+## 4h_LT2_exposed
+
+```{r}
+ggplot(subgroupPlots[["4h_LT2_exposed"]][["PCA"]]) +
+  geom_point(aes(PC1, PC2, colour = quickCluster))
+```
+
+## 6h_LT2_exposed
+
+```{r}
+ggplot(subgroupPlots[["6h_LT2_exposed"]][["PCA"]]) +
+  geom_point(aes(PC1, PC2, colour = quickCluster))
+```
+
+## 2h_LT2_infected
+
+```{r}
+ggplot(subgroupPlots[["2h_LT2_infected"]][["PCA"]]) +
+  geom_point(aes(PC1, PC2, colour = quickCluster))
+```
+
+## 4h_LT2_infected
+
+```{r}
+ggplot(subgroupPlots[["4h_LT2_infected"]][["PCA"]]) +
+  geom_point(aes(PC1, PC2, colour = quickCluster))
+```
+
+## 6h_LT2_infected
+
+```{r}
+ggplot(subgroupPlots[["6h_LT2_infected"]][["PCA"]]) +
+  geom_point(aes(PC1, PC2, colour = quickCluster))
+```
+
+# tSNE
+
+```{r}
+# sce.subset <- plotTSNE(
+#   sce.subset, ncomponents = 2, exprs_values = "norm_exprs",
+#   return_SCESet = TRUE, colour_by = "quickCluster",
+#   perplexity = 5, rand_seed = 1794, draw_plot = TRUE
+# )
+```
