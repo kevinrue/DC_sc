@@ -1,0 +1,40 @@
+---
+title: "Normalised gene expression"
+author: "Kevin Rue-Albrecht"
+date: "20/04/2017"
+output: html_document
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+library(scater)
+library(ggplot2)
+sce.norm <- readRDS("rds/sce.norm.rds")
+```
+
+# normExprsByName
+
+```{r normExprsByName}
+normExprsByName <- function(geneName = 'RAB29'){
+  geneId <- subset(fData(sce.norm), gene_name == geneName, "gene_id", drop = TRUE)
+  stopifnot(length(geneId) == 1)
+  gdata <- data.frame(
+    norm_exprs = norm_exprs(sce.norm)[geneId,],
+    pData(sce.norm)[,c("Infection","Status","Time")],
+    row.names = sampleNames(sce.norm)
+  )
+  ggplot(gdata, aes(Infection, norm_exprs)) + 
+    geom_violin() + geom_jitter(width = 0.1) +
+    facet_grid(Time ~ Status) +
+    ggtitle(sprintf("%s - %s", "RAB29", geneId))
+}
+```
+
+# RAB29
+
+```{r RAB29}
+normExprsByName()
+```
+
