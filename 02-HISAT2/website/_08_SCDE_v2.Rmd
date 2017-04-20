@@ -350,6 +350,23 @@ write.csv(
 )
 ```
 
+Display the *scde* maximum likelihood estimate values for expression
+and differential expression:
+
+```{r}
+scde.test.gene.expression.difference(
+  rownames(orderResults(ediff$batch.adjusted))[1],
+  models = o.ifm.6h, counts = cd.6h, prior = o.prior.6h,
+  groups = sg.d23.exp.6h.un, batch = sce.6h$Plate
+)
+```
+
+Display the *scran*-normalised expression data:
+
+```{r}
+normExprsById(rownames(orderResults(ediff$batch.adjusted))[1])
+```
+
 ## Direct comparisons
 
 For each time point, compute differential expression
@@ -411,6 +428,23 @@ write.csv(
 )
 ```
 
+Display the *scde* maximum likelihood estimate values for expression
+and differential expression:
+
+```{r}
+scde.test.gene.expression.difference(
+  rownames(orderResults(ediff$batch.adjusted))[1],
+  models = o.ifm.6h, counts = cd.6h, prior = o.prior.6h,
+  groups = sg.d23.exp.6h.un, batch = sce.6h$Plate
+)
+```
+
+Display the *scran*-normalised expression data:
+
+```{r}
+normExprsById(rownames(orderResults(ediff$batch.adjusted))[1])
+```
+
 ### D23580 infected - LT2 infected
 
 ```{r scde_6h_D23580_infected_vs_6h_LT2_infected}
@@ -462,4 +496,21 @@ write.csv(
   addGENENAME(orderResults(ediff$batch.effect)),
   sprintf('SCDE_v2/batch_%s-vs-%s.csv', sg.target, sg.reference)
 )
+```
+
+Display the *scde* maximum likelihood estimate values for expression
+and differential expression:
+
+```{r}
+scde.test.gene.expression.difference(
+  rownames(orderResults(ediff$batch.adjusted))[1],
+  models = o.ifm.6h, counts = cd.6h, prior = o.prior.6h,
+  groups = sg.d23.exp.6h.un, batch = sce.6h$Plate
+)
+```
+
+Display the *scran*-normalised expression data:
+
+```{r}
+normExprsById(rownames(orderResults(ediff$batch.adjusted))[1])
 ```
