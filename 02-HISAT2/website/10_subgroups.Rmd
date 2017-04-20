@@ -29,6 +29,8 @@ Subset to only **endogenous** features detected with at least **10** counts
 in at least **5** of the cells above:
 
 ```{r sce.6hStim_features}
+table(isSpike(sce.6hStim))
+table(rowSums(counts(sce.6hStim) >= 10) >= 5)
 sce.6hStim <- sce.6hStim[
   rowSums(counts(sce.6hStim) >= 10) >= 5 & !isSpike(sce.6hStim),]
 dim(sce.6hStim)
