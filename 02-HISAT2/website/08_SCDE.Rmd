@@ -58,9 +58,7 @@ The thresholds supplied are taken must be strictly met
 Let us also define a factor that separate cells from each experimental group:
 
 ```{r sg}
-sg <- as.factor(
-  with(pData(sce.norm), paste(Time, Infection, Status, sep = "_"))
-)
+sg <- sce.norm$Group
 names(sg) <- colnames(sce.norm)  
 ```
 
@@ -76,18 +74,21 @@ If the groups argument is omitted, the models would be fit using a common set.
 
 **Note:** this step takes a considerable amount of time, even when multiple
 cores are used (~ 1 h using 4 cores to fit error models to each of the
-`r length(levels(sg))` experimental groups).
+`r ncol(sce.norm)` cells).
 
 <!--
-Switch eval to TRUE below and other chunks in this file
-when results should be updated.
+Run blocks labelled eval=FALSE below manually,
+to compute and save object to file;
+The computed objects will be imported from file
+to knit the HTML page,
+if and only if the cache of the corresponding page is cleared.
 -->
 
 ```{r oifm, eval=FALSE}
 o.ifm <- scde.error.models(counts = cd, groups = sg, n.cores = 4)
 ```
 
-```{r saveRdsOifm, eval=FALSE, include=FALSE}
+```{r saveRdsOifm, eval=FALSE, echo=FALSE}
 saveRDS(o.ifm, "rds/o.ifm.rds")
 ```
 
@@ -95,7 +96,12 @@ saveRDS(o.ifm, "rds/o.ifm.rds")
 o.ifm <- readRDS("rds/o.ifm.rds")
 ```
 
-The `o.ifm` is a `data.frame` with error model coefficients for each cell.
+```{r o.ifm_csv, include=FALSE}
+write.csv(o.ifm, "SCDE/o.ifm.csv")
+```
+
+The object `o.ifm` is a `data.frame`
+with error model coefficients for each cell.
 
 ```{r oIfmTrim}
 o.ifm.trim <- apply(o.ifm, 2, round, digits = 2)
@@ -937,20 +943,26 @@ DT::datatable(data.frame(
 )
 ```
 
-## Tables of DE genes {.tabset}
+## Tables of top absolute Z-scores {.tabset}
 
 Let us display the tables of DE genes for the various contrasts calculated
 above.
 
+Considering the absence of signifiant DE genes after adjustment for batch
+effects (*i.e.*, corrected Z-score ≠ 0),
+let us display the top **100** largest absolute Z-scores for each contrast:
+
 Again, for convience, let us display only the `1000` most significant DE genes
 (*i.e.*, largest Z-score) in cases where larger counts of DE genes were
-detected (*i.e.*, corrected Z-score ≠ 0).
+detected .
 
-```{r topDElimitStimulated}
-for (res.name in names(DE.res.batch)){
-  de.adjusted <- DE.res.adjusted[[res.name]]
-  DE.adjusted.limit[[res.name]] <-
-    head(de.adjusted, min(topDElimit,sum(de.adjusted$cZ != 0)))
+```{r topRawLimitStimulated}
+topRawLimit <- 200
+DE.raw.limit <- list()
+for (res.name in names(DE.res.raw)){
+  de.raw <- DE.res.raw[[res.name]]
+  DE.raw.limit[[res.name]] <-
+    head(de.raw[order(abs(de.raw$Z), decreasing = TRUE),], topRawLimit)
 }
 ```
 
@@ -958,7 +970,7 @@ for (res.name in names(DE.res.batch)){
 
 ```{r 2h_D23580_inf-2h_LT2_inf}
 DT::datatable(
-  DE.adjusted.limit[["2h_D23580_infected-2h_LT2_infected"]],
+  DE.raw.limit[["2h_D23580_infected-2h_LT2_infected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -967,7 +979,7 @@ DT::datatable(
 
 ```{r 2h_D23580_inf-2h_D23580_exp}
 DT::datatable(
-  DE.adjusted.limit[["2h_D23580_infected-2h_D23580_exposed"]],
+  DE.raw.limit[["2h_D23580_infected-2h_D23580_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -976,7 +988,7 @@ DT::datatable(
 
 ```{r 2h_LT2_inf-2h_LT2_exp}
 DT::datatable(
-  DE.adjusted.limit[["2h_LT2_infected-2h_LT2_exposed"]],
+  DE.raw.limit[["2h_LT2_infected-2h_LT2_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -985,7 +997,7 @@ DT::datatable(
 
 ```{r 2h_D23580_exp-2h_LT2_exp}
 DT::datatable(
-  DE.adjusted.limit[["2h_D23580_exposed-2h_LT2_exposed"]],
+  DE.raw.limit[["2h_D23580_exposed-2h_LT2_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -994,7 +1006,7 @@ DT::datatable(
 
 ```{r 4h_D23580_inf-4h_LT2_inf}
 DT::datatable(
-  DE.adjusted.limit[["4h_D23580_infected-4h_LT2_infected"]],
+  DE.raw.limit[["4h_D23580_infected-4h_LT2_infected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -1003,7 +1015,7 @@ DT::datatable(
 
 ```{r 4h_D23580_inf-4h_D23580_exp}
 DT::datatable(
-  DE.adjusted.limit[["4h_D23580_infected-4h_D23580_exposed"]],
+  DE.raw.limit[["4h_D23580_infected-4h_D23580_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -1012,7 +1024,7 @@ DT::datatable(
 
 ```{r 4h_LT2_inf-4h_LT2_exp}
 DT::datatable(
-  DE.adjusted.limit[["4h_LT2_infected-4h_LT2_exposed"]],
+  DE.raw.limit[["4h_LT2_infected-4h_LT2_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -1021,7 +1033,7 @@ DT::datatable(
 
 ```{r 4h_D23580_exp-4h_LT2_exp}
 DT::datatable(
-  DE.adjusted.limit[["4h_D23580_exposed-4h_LT2_exposed"]],
+  DE.raw.limit[["4h_D23580_exposed-4h_LT2_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -1030,7 +1042,7 @@ DT::datatable(
 
 ```{r 6h_D23580_inf-6h_LT2_inf}
 DT::datatable(
-  DE.adjusted.limit[["6h_D23580_infected-6h_LT2_infected"]],
+  DE.raw.limit[["6h_D23580_infected-6h_LT2_infected"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -1039,7 +1051,7 @@ DT::datatable(
 
 ```{r 6h_D23580_inf}
 DT::datatable(
-  DE.adjusted.limit[["6h_D23580_infected-6h_D23580_exposed"]],
+  DE.raw.limit[["6h_D23580_infected-6h_D23580_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -1048,7 +1060,7 @@ DT::datatable(
 
 ```{r 6h_LT2_exp}
 DT::datatable(
-  DE.adjusted.limit[["6h_LT2_infected-6h_LT2_exposed"]],
+  DE.raw.limit[["6h_LT2_infected-6h_LT2_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -1057,7 +1069,7 @@ DT::datatable(
 
 ```{r 6h_D23580_exp-6h_LT2_exp}
 DT::datatable(
-  DE.adjusted.limit[["6h_D23580_exposed-6h_LT2_exposed"]],
+  DE.raw.limit[["6h_D23580_exposed-6h_LT2_exposed"]],
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```

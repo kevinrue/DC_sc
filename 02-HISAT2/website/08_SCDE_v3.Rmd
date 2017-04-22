@@ -1,0 +1,281 @@
+---
+title: "Differential expression using scde"
+bibliography:
+  bibtex.bib
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+library(scater)
+library(scde)
+library(ensembldb)
+sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
+EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
+```
+
+# Prepare data
+
+## Remove spike-in features
+
+```{r table_iSpike, include=FALSE}
+table(isSpike(sce.norm))
+```
+
+```{r remove_isSpike}
+sce.norm <- sce.norm[!isSpike(sce.norm),]
+dim(sce.norm)
+```
+
+## Extract the integer count matrix
+
+```{r}
+cd <- counts(sce.norm)
+storage.mode(cd) <- "integer"
+dim(cd)
+```
+
+# Fitting error models
+
+Here, we fit the error models on which all subsequent calculations
+will rely. The fitting process relies on a subset of robust genes that are
+detected in multiple cross-cell comparisons.
+
+Here we supply the experimental group phenotype, so that
+the error models for each of the `r length(levels(sce.norm$Group))`
+experimental groups are fit independently
+(using `r length(levels(sce.norm$Group))` different sets of "robust" genes);
+if the groups argument is omitted, the models would be fit using a common set.
+
+## Fit
+
+**Note:** this step takes a considerable amount of time, even when multiple
+cores are used (~ 1 h using 4 cores to fit error models to each of the
+`r length(levels(sg))` experimental groups).
+
+```{r oifm, eval=FALSE}
+o.ifm <- scde.error.models(
+  counts = cd, groups = sce.norm$Group,
+  n.cores = 4, verbose = 1)
+```
+
+```{r saveRdsOifm, eval=FALSE, echo=FALSE}
+saveRDS(o.ifm, "rds/o.ifm.v3.rds")
+```
+
+```{r readOIfm, include=FALSE}
+o.ifm <- readRDS("rds/o.ifm.v3.rds")
+```
+
+```{r oIfmTrim, include=FALSE}
+write.csv(o.ifm, "SCDE_v3/o.ifm.csv")
+```
+
+## Filter
+
+Particularly poor cells may result in abnormal fits, most commonly showing
+negative `corr.a`, and should be removed.
+
+```{r validCells}
+valid.cells <- o.ifm$corr.a > 0
+table(valid.cells)
+o.ifm <- o.ifm[valid.cells, ]
+```
+
+## Match sample order
+
+The `scde.error.models` function produces a `data.frame` with samples
+grouped by the experimental grouping factor supplied during the fitting.
+
+Let us reorder the `SCESet` and the extracted count matrix to match the
+same order for simplicity:
+
+```{r}
+o.ifm.order <- match(rownames(o.ifm), sampleNames(sce.norm))
+sce.ifm <- sce.norm[,o.ifm.order]
+cd.ifm <- counts(sce.ifm); storage.mode(cd.ifm) <- "integer"
+```
+
+```{r, include=FALSE}
+stopifnot(rownames(o.ifm) == sampleNames(sce.ifm))
+stopifnot(rownames(o.ifm) == colnames(cd.ifm))
+```
+
+# Prior distribution for gene expression magnitudes {.tabset}
+
+Finally, we need to define an expression magnitude prior for the genes.
+Its main function, however, is to define a grid of expression magnitude values
+on which the numerical calculations will be carried out.
+
+```{r oPrior}
+o.prior <- scde.expression.prior(
+  models = o.ifm, counts = cd, length.out = 400, show.plot = TRUE
+)
+```
+
+Here we used a grid of **400** points,
+and let the maximum expression magnitude
+be determined by the default **0.999** quantile
+(default `max.quantile` setting;
+use `max.value` parameter to specify the maximum expression magnitude
+explicitly --- on log~10~ scale).
+
+# Differential expression
+
+Let us define a function that will be used to annotate the results returned
+by *scde*:
+
+```{r addGENENAME}
+addGENENAME <- function(x){
+  x <- cbind(
+    GENENAME=mapIds(EnsDb.Hsapiens.v79, rownames(x), 'GENENAME', 'GENEID'),
+    x
+  )
+  return(x)
+}
+```
+
+A separate function to order results by decreasing absolute
+corrected Z-score and subsequently absolute Z-score:
+
+```{r orderResults}
+orderResults <- function(x){
+  x <- x[with(x, order(abs(cZ), abs(Z), decreasing = TRUE)),]
+  return(x)
+}
+```
+
+## 6h
+
+```{r}
+sce.6h <- sce.ifm[,sce.ifm$Time == '6h']
+dim(sce.6h)
+```
+
+```{r}
+o.ifm.6h <- o.ifm[sampleNames(sce.6h),]
+dim(o.ifm.6h)
+```
+
+```{r}
+sg.6h <- droplevels(sce.6h$Treatment)
+DT::datatable(data.frame(cells = summary(sg.6h)))
+```
+
+```{r}
+cd.6h <- counts(sce.6h); storage.mode(cd.6h) <- "integer"
+dim(cd.6h)
+```
+
+### Relative to uninfected cells
+
+#### D23580 infected
+
+```{r}
+sg <- factor(sg.6h, levels = c("D23580_infected", "Mock_uninfected"))
+summary(sg)
+```
+
+```{r}
+scde.res <- scde.expression.difference(
+  o.ifm.6h, cd.6h, o.prior, groups = sg, batch = sce.6h$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+```{r}
+scde.adj <- addGENENAME(orderResults(scde.res$batch.adjusted))
+DT::datatable(head(scde.adj, 1E3))
+```
+
+```{r}
+subset(scde.adj, GENENAME == "RAB29")
+which(scde.adj$GENENAME == 'RAB29')
+```
+
+```{r}
+write.csv(scde.adj, "SCDE_v3/adjusted_6H_D23580_infected-Mock_uninfected.csv")
+```
+
+#### LT2 infected 
+
+```{r}
+sg <- factor(sg.6h, levels = c("LT2_infected", "Mock_uninfected"))
+summary(sg)
+```
+
+```{r}
+scde.res <- scde.expression.difference(
+  o.ifm.6h, cd.6h, o.prior, groups = sg, batch = sce.6h$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+```{r}
+scde.adj <- addGENENAME(orderResults(scde.res$batch.adjusted))
+DT::datatable(head(scde.adj, 1E3))
+```
+
+```{r}
+subset(scde.adj, GENENAME == "RAB29")
+which(scde.adj$GENENAME == 'RAB29')
+```
+
+```{r}
+write.csv(scde.adj, "SCDE_v3/adjusted_6H_LT2_infected-Mock_uninfected.csv")
+```
+
+#### D23580 exposed
+
+```{r}
+sg <- factor(sg.6h, levels = c("D23580_exposed", "Mock_uninfected"))
+summary(sg)
+```
+
+```{r}
+scde.res <- scde.expression.difference(
+  o.ifm.6h, cd.6h, o.prior, groups = sg, batch = sce.6h$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+```{r}
+scde.adj <- addGENENAME(orderResults(scde.res$batch.adjusted))
+DT::datatable(head(scde.adj, 1E3))
+```
+
+```{r}
+write.csv(scde.adj, "SCDE_v3/adjusted_D23580_exposed-Mock_uninfected")
+```
+
+### Direct comparisons
+
+#### Infected: D23580 - LT2
+
+```{r}
+sg <- factor(sg.6h, levels = c("D23580_infected", "LT2_infected"))
+summary(sg)
+```
+
+```{r}
+scde.res <- scde.expression.difference(
+  o.ifm.6h, cd.6h, o.prior, groups = sg, batch = sce.6h$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+```{r}
+scde.adj <- addGENENAME(orderResults(scde.res$batch.adjusted))
+DT::datatable(head(scde.adj, 1E3))
+```
+
+```{r}
+subset(scde.adj, GENENAME == "RAB29")
+which(scde.adj$GENENAME == 'RAB29')
+```
+
+```{r}
+write.csv(scde.adj, "SCDE_v3/adjusted_LT2_infected-Mock_uninfected")
+```

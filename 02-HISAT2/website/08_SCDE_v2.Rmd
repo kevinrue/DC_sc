@@ -137,7 +137,7 @@ o.ifm.6h <- scde.error.models(
 )
 ```
 
-```{r save_o.ifm.6h, eval=FALSE, include=FALSE}
+```{r save_o.ifm.6h, echo=FALSE, eval=FALSE}
 saveRDS(o.ifm.6h, "rds/o.ifm.6h.rds")
 ```
 
@@ -313,7 +313,7 @@ ediff <- scde.expression.difference(
 )
 ```
 
-```{r, eval=FALSE}
+```{r, echo=FALSE, eval=FALSE}
 saveRDS(ediff, sprintf("rds/scde.%s.rds", contrastName))
 ```
 
@@ -391,7 +391,7 @@ ediff <- scde.expression.difference(
 )
 ```
 
-```{r, eval=FALSE}
+```{r, echo=FALSE, eval=FALSE}
 saveRDS(ediff, sprintf("rds/scde.%s.rds", contrastName))
 ```
 
@@ -461,7 +461,7 @@ ediff <- scde.expression.difference(
 )
 ```
 
-```{r, eval=FALSE}
+```{r, echo=FALSE, eval=FALSE}
 saveRDS(ediff, sprintf("rds/scde.%s.rds", contrastName))
 ```
 
