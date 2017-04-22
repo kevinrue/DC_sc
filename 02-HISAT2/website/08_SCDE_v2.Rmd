@@ -83,6 +83,20 @@ profiles, and the fact that differential expression will *not* be assessed
 between time points, individual time points will be processed separately for
 the remainder of this *scde* analysis.
 
+### 2h
+
+```{r sce.2h}
+sce.2h <- sce.norm[,sce.norm$Time == '2h']
+dim(sce.2h)
+```
+
+### 4h
+
+```{r sce.4h}
+sce.4h <- sce.norm[,sce.norm$Time == '4h']
+dim(sce.4h)
+```
+
 ### 6h
 
 ```{r sce.6h}
@@ -110,9 +124,29 @@ filterCounts <- function(m, g, counts = 10, cells = 5, groups = 1){
 }
 ```
 
+### 2h
+
+```{r cleanCounts_2h}
+sg.2h <- droplevels(sce.2h$Group)
+keep.2h <- filterCounts(counts(sce.2h), sg.2h)
+cd.2h <- counts(sce.2h)[keep.2h,]
+storage.mode(cd.2h) <- 'integer'
+dim(cd.2h)
+```
+
+### 4h
+
+```{r cleanCounts_4h}
+sg.4h <- droplevels(sce.4h$Group)
+keep.4h <- filterCounts(counts(sce.4h), sg.4h)
+cd.4h <- counts(sce.4h)[keep.4h,]
+storage.mode(cd.4h) <- 'integer'
+dim(cd.4h)
+```
+
 ### 6h
 
-```{r cleanCounts}
+```{r cleanCounts_6h}
 sg.6h <- droplevels(sce.6h$Group)
 keep.6h <- filterCounts(counts(sce.6h), sg.6h)
 cd.6h <- counts(sce.6h)[keep.6h,]
@@ -128,6 +162,64 @@ detected in multiple cross-cell comparisons. Here we supply the
 `groups` argument, so that the error models for each
 experimental group of cells are fit independently.
 If the groups argument is omitted, the models would be fit using a common set.
+
+## 2h
+
+```{r o.ifm.2h, eval=FALSE}
+o.ifm.2h <- scde.error.models(
+  counts = cd.2h, groups = sg.2h, n.cores = 4, verbose = 1
+)
+```
+
+```{r save_o.ifm.2h, echo=FALSE, eval=FALSE}
+saveRDS(o.ifm.2h, "rds/o.ifm.2h.rds")
+```
+
+```{r read_o.ifm.2h, include=FALSE}
+o.ifm.2h <- readRDS("rds/o.ifm.2h.rds")
+```
+
+```{r oIfmTrim.2h, include=FALSE}
+write.csv(o.ifm.2h, "SCDE_v2/o.ifm.2h.csv")
+```
+
+Particularly poor cells may result in abnormal fits, most commonly showing
+negative `corr.a`, and should be removed.
+
+```{r validCells.2h}
+valid.cells <- o.ifm.2h$corr.a > 0; table(valid.cells)
+o.ifm.2h <- o.ifm.2h[valid.cells, ]
+dim(o.ifm.2h)
+```
+
+## 4h
+
+```{r o.ifm.4h, eval=FALSE}
+o.ifm.4h <- scde.error.models(
+  counts = cd.4h, groups = sg.4h, n.cores = 4, verbose = 1
+)
+```
+
+```{r save_o.ifm.4h, echo=FALSE, eval=FALSE}
+saveRDS(o.ifm.4h, "rds/o.ifm.4h.rds")
+```
+
+```{r read_o.ifm.4h, include=FALSE}
+o.ifm.4h <- readRDS("rds/o.ifm.4h.rds")
+```
+
+```{r oIfmTrim.4h, include=FALSE}
+write.csv(o.ifm.4h, "SCDE_v2/o.ifm.4h.csv")
+```
+
+Particularly poor cells may result in abnormal fits, most commonly showing
+negative `corr.a`, and should be removed.
+
+```{r validCells.4h}
+valid.cells <- o.ifm.4h$corr.a > 0; table(valid.cells)
+o.ifm.4h <- o.ifm.4h[valid.cells, ]
+dim(o.ifm.4h)
+```
 
 ## 6h
 
@@ -145,14 +237,14 @@ saveRDS(o.ifm.6h, "rds/o.ifm.6h.rds")
 o.ifm.6h <- readRDS("rds/o.ifm.6h.rds")
 ```
 
-```{r oIfmTrim, include=FALSE}
+```{r oIfmTrim.6h, include=FALSE}
 write.csv(o.ifm.6h, "SCDE_v2/o.ifm.6h.csv")
 ```
 
 Particularly poor cells may result in abnormal fits, most commonly showing
 negative `corr.a`, and should be removed.
 
-```{r validCells}
+```{r validCells.6h}
 valid.cells <- o.ifm.6h$corr.a > 0; table(valid.cells)
 o.ifm.6h <- o.ifm.6h[valid.cells, ]
 dim(o.ifm.6h)
@@ -164,9 +256,45 @@ Finally, we need to define an expression magnitude prior for the genes.
 Its main function, however, is to define a grid of expression magnitude values
 on which the numerical calculations will be carried out:
 
+## 2h
+
+```{r oPrior_2h}
+o.prior.2h <- scde.expression.prior(
+  models = o.ifm.2h, counts = cd.2h, show.plot = TRUE
+)
+```
+
+Here we used a grid of **400** points, and let the maximum expression magnitude
+be determined by the default **0.999** quantile
+(default `max.quantile` setting;
+use `max.value` parameter to specify the maximum expression magnitude
+explicitly --- on log~10~ scale).
+
+```{r stopifnot_order_2h}
+stopifnot(all(rownames(o.ifm.2h) == colnames(cd.2h)))
+```
+
+## 4h
+
+```{r oPrior_4h}
+o.prior.4h <- scde.expression.prior(
+  models = o.ifm.4h, counts = cd.4h, show.plot = TRUE
+)
+```
+
+Here we used a grid of **400** points, and let the maximum expression magnitude
+be determined by the default **0.999** quantile
+(default `max.quantile` setting;
+use `max.value` parameter to specify the maximum expression magnitude
+explicitly --- on log~10~ scale).
+
+```{r stopifnot_order_4h}
+stopifnot(all(rownames(o.ifm.4h) == colnames(cd.4h)))
+```
+
 ## 6h
 
-```{r oPrior}
+```{r oPrior_6h}
 o.prior.6h <- scde.expression.prior(
   models = o.ifm.6h, counts = cd.6h, show.plot = TRUE
 )
@@ -178,7 +306,7 @@ be determined by the default **0.999** quantile
 use `max.value` parameter to specify the maximum expression magnitude
 explicitly --- on log~10~ scale).
 
-```{r stopifnot_order}
+```{r stopifnot_order_6h}
 stopifnot(all(rownames(o.ifm.6h) == colnames(cd.6h)))
 ```
 
@@ -223,6 +351,152 @@ scde.batch <- list()
 
 For each group of stimulated cells, compute differential expression
 statistics relative to the time-matched group of `uninfected` cell.
+
+## 2h {.tabset}
+
+### D23580 infected
+
+```{r scde_2h_D23580_infected_control}
+sg.target <- "2h_D23580_infected"; sg.reference <- "2h_Mock_uninfected"
+contrastName <- sprintf("%s-vs-%s", sg.target, sg.reference)
+sg.d23.inf.2h.un <- factor(sg.2h, levels = c(sg.target, sg.reference))
+summary(sg.d23.inf.2h.un)
+```
+
+```{r, eval=FALSE}
+ediff <- scde.expression.difference(
+  o.ifm.2h, cd.2h, o.prior.2h, groups = sg.d23.inf.2h.un,
+  batch = sce.2h$Plate, n.cores  =  4, verbose = 1
+)
+```
+
+```{r, echo=FALSE, eval=FALSE}
+saveRDS(ediff, sprintf("rds/scde.%s.rds", contrastName))
+```
+
+```{r, include=FALSE}
+ediff <- readRDS(sprintf("rds/scde.%s.rds", contrastName))
+```
+
+Extract and store results in separate lists:
+
+```{r}
+scde.results[[contrastName]] <- ediff$results
+scde.adjusted[[contrastName]] <- ediff$batch.adjusted
+scde.batch[[contrastName]] <- ediff$batch.effect
+```
+
+Count of significantly DE genes (*i.e.*, corrected Z-score different from 0):
+
+```{r}
+table(ediff$batch.adjusted$cZ != 0)
+```
+
+```{r, include=FALSE}
+write.csv(
+  addGENENAME(orderResults(ediff$results)),
+  sprintf('SCDE_v2/results_%s-vs-%s.csv', sg.target, sg.reference)
+)
+write.csv(
+  addGENENAME(orderResults(ediff$batch.adjusted)),
+  sprintf('SCDE_v2/adjusted_%s-vs-%s.csv', sg.target, sg.reference)
+)
+write.csv(
+  addGENENAME(orderResults(ediff$batch.effect)),
+  sprintf('SCDE_v2/batch_%s-vs-%s.csv', sg.target, sg.reference)
+)
+```
+
+Display the *scde* maximum likelihood estimate values for expression
+and differential expression:
+
+```{r}
+scde.test.gene.expression.difference(
+  "ENSG00000158050",
+  models = o.ifm.2h, counts = cd.2h, prior = o.prior.2h,
+  groups = sg.d23.inf.2h.un, batch = sce.2h$Plate
+)
+```
+
+Display the *scran*-normalised expression data:
+
+```{r}
+normExprsById("ENSG00000158050")
+```
+
+
+## 4h {.tabset}
+
+### D23580 infected
+
+```{r scde_4h_D23580_infected_control}
+sg.target <- "4h_D23580_infected"; sg.reference <- "4h_Mock_uninfected"
+contrastName <- sprintf("%s-vs-%s", sg.target, sg.reference)
+sg.d23.inf.4h.un <- factor(sg.4h, levels = c(sg.target, sg.reference))
+summary(sg.d23.inf.4h.un)
+```
+
+```{r, eval=FALSE}
+ediff <- scde.expression.difference(
+  o.ifm.4h, cd.4h, o.prior.4h, groups = sg.d23.inf.4h.un,
+  batch = sce.4h$Plate, n.cores  =  4, verbose = 1
+)
+```
+
+```{r, echo=FALSE, eval=FALSE}
+saveRDS(ediff, sprintf("rds/scde.%s.rds", contrastName))
+```
+
+```{r, include=FALSE}
+ediff <- readRDS(sprintf("rds/scde.%s.rds", contrastName))
+```
+
+Extract and store results in separate lists:
+
+```{r}
+scde.results[[contrastName]] <- ediff$results
+scde.adjusted[[contrastName]] <- ediff$batch.adjusted
+scde.batch[[contrastName]] <- ediff$batch.effect
+```
+
+Count of significantly DE genes (*i.e.*, corrected Z-score different from 0):
+
+```{r}
+table(ediff$batch.adjusted$cZ != 0)
+```
+
+```{r, include=FALSE}
+write.csv(
+  addGENENAME(orderResults(ediff$results)),
+  sprintf('SCDE_v2/results_%s-vs-%s.csv', sg.target, sg.reference)
+)
+write.csv(
+  addGENENAME(orderResults(ediff$batch.adjusted)),
+  sprintf('SCDE_v2/adjusted_%s-vs-%s.csv', sg.target, sg.reference)
+)
+write.csv(
+  addGENENAME(orderResults(ediff$batch.effect)),
+  sprintf('SCDE_v2/batch_%s-vs-%s.csv', sg.target, sg.reference)
+)
+```
+
+Display the *scde* maximum likelihood estimate values for expression
+and differential expression:
+
+```{r}
+scde.test.gene.expression.difference(
+  "ENSG00000110218",
+  models = o.ifm.4h, counts = cd.4h, prior = o.prior.4h,
+  groups = sg.d23.inf.4h.un, batch = sce.4h$Plate
+)
+```
+
+Display the *scran*-normalised expression data:
+
+```{r}
+normExprsById("ENSG00000110218")
+```
+
 
 ## 6h {.tabset}
 
