@@ -1,0 +1,252 @@
+---
+title: "Differential expression using scde"
+bibliography:
+  bibtex.bib
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+library(scater)
+library(scran)
+library(scde)
+library(ensembldb)
+sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
+EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
+```
+
+# Prepare data
+
+The analysis starts with a matrix of read counts,
+filtered based on gene and cell requirements.
+In this case, let us use the raw numbers of reads mapped to each endogenous
+feature, recast as `integer` type:
+
+```{r}
+table(isSpike(sce.norm))
+```
+
+```{r cleanCounts}
+cd <- clean.counts(
+  counts(sce.norm)[!isSpike(sce.norm),],
+  min.lib.size = 1000, min.reads = 1, min.detected = 1
+)
+cd <- apply(cd, 2, function(x){storage.mode(x) <- 'integer'; x})
+dim(cd)
+```
+
+In this case, only the `r sum(isSpike(sce.norm))` ERCC spike in molecules
+were discarded:
+
+```{r}
+nrow(sce.norm) - nrow(cd)
+```
+
+Let us also define a factor that separate cells from each experimental group:
+
+```{r sg}
+sg <- sce.norm$Group
+names(sg) <- colnames(sce.norm)  
+```
+
+# Fitting error models
+
+Here, we fit the error models on which all subsequent calculations
+will rely. The fitting process relies on a subset of robust genes that are
+detected in multiple cross-cell comparisons. Here we supply the groups
+defined above to the `groups` argument, so that the error models for each
+experimental group of cells are fit independently
+(using `r length(levels(sg))` different sets of "robust" genes in this case).
+If the groups argument is omitted, the models would be fit using a common set.
+
+**Note:** this step takes a considerable amount of time, even when multiple
+cores are used (~ 1 h using 4 cores to fit error models to each of the
+`r ncol(sce.norm)` cells).
+
+<!--
+Run blocks labelled eval=FALSE below manually,
+to compute and save object to file;
+The computed objects will be imported from file
+to knit the HTML page,
+if and only if the cache of the corresponding page is cleared.
+-->
+
+```{r oifm, eval=FALSE}
+o.ifm <- scde.error.models(
+  counts = cd, groups = sg,
+  n.cores = 4, verbose = 1
+)
+```
+
+```{r saveRdsOifm, eval=FALSE, echo=FALSE}
+saveRDS(o.ifm, "rds/o.ifm_v4.rds")
+```
+
+```{r readOIfm, include=FALSE}
+o.ifm <- readRDS("rds/o.ifm_v4.rds")
+```
+
+```{r o.ifm_csv, include=FALSE}
+write.csv(o.ifm, "SCDE_v4/o.ifm.csv")
+```
+
+Particularly poor cells may result in abnormal fits, most commonly showing
+negative `corr.a`, and should be removed.
+
+```{r validCells}
+valid.cells <- o.ifm$corr.a > 0
+table(valid.cells)
+o.ifm <- o.ifm[valid.cells, ]
+```
+
+Here, all the fits were valid (most likely owing to the removal of outliers
+during earlier [sample QC](03_sampleQC.html)); as a consequence,
+the above chunk of code does not actually do anything to the data.
+
+## Match sample order
+
+The `scde.error.models` function produces a `data.frame` with samples
+grouped by the experimental grouping factor supplied during the fitting.
+
+Let us reorder the `SCESet` and the extracted count matrix to match the
+same order for simplicity:
+
+```{r}
+o.ifm.order <- match(rownames(o.ifm), sampleNames(sce.norm))
+sce.ifm <- sce.norm[,o.ifm.order]
+cd.ifm <- counts(sce.ifm); storage.mode(cd.ifm) <- "integer"
+```
+
+```{r, include=FALSE}
+stopifnot(rownames(o.ifm) == sampleNames(sce.ifm))
+stopifnot(rownames(o.ifm) == colnames(cd.ifm))
+```
+
+Finally, we need to define an expression magnitude prior for the genes.
+Its main function, however, is to define a grid of expression magnitude values
+on which the numerical calculations will be carried out.
+
+```{r oPrior}
+o.prior <- scde.expression.prior(
+  models = o.ifm, counts = cd.ifm, length.out = 400, show.plot = TRUE
+)
+```
+
+Here we used a grid of **400** points, and let the maximum expression magnitude
+be determined by the default **0.999** quantile
+(default `max.quantile` setting;
+use `max.value` parameter to specify the maximum expression magnitude
+explicitly --- on log~10~ scale).
+
+# Differential expression
+
+Let us define a function that will be used to annotate the results returned
+by *scde*:
+
+```{r addGENENAME}
+addGENENAME <- function(x){
+  x <- cbind(
+    GENENAME=mapIds(EnsDb.Hsapiens.v79, rownames(x), 'GENENAME', 'GENEID'),
+    x
+  )
+  return(x)
+}
+```
+
+A separate function to order results by decreasing absolute
+corrected Z-score and subsequently absolute Z-score:
+
+```{r orderResults}
+orderResults <- function(x){
+  x <- x[with(x, order(abs(cZ), abs(Z), decreasing = TRUE)),]
+  return(x)
+}
+```
+
+#### D23580 infected
+
+```{r}
+sg.test<-factor(sce.ifm$Group, levels=c("6h_D23580_infected","6h_Mock_uninfected"))
+summary(sg.test)
+```
+
+```{r}
+scde.res <- scde.expression.difference(
+  o.ifm, cd.ifm, o.prior, groups = sg.test, batch = sce.ifm$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+```{r}
+scde.adj <- addGENENAME(orderResults(scde.res$batch.adjusted))
+table(scde.adj$cZ == 0)
+```
+
+```{r}
+DT::datatable(head(scde.adj, 1E3))
+```
+
+```{r}
+subset(scde.adj, GENENAME == "RAB29") # RAB29 is back! in (cZ != 0)
+which(scde.adj$GENENAME == 'RAB29')
+```
+
+```{r}
+scde.test.gene.expression.difference(
+  gene = "ENSG00000117280", 
+  o.ifm, cd.ifm, o.prior, groups = sg.test, batch = sce.ifm$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+```{r}
+ggplot(scde.adj, aes(seq_len(nrow(scde.adj)), sort(Z))) +
+  geom_point() + geom_abline(slope = 0, intercept = 0) +
+  theme(axis.title.x = element_blank())
+```
+
+```{r}
+plot(density(scde.adj$Z))
+```
+
+```{r}
+convert.z.score<-function(z, one.sided=NULL) {
+  if(is.null(one.sided)) {
+    pval = pnorm(-abs(z));
+    pval = 2 * pval
+  } else if(one.sided=="-") {
+    pval = pnorm(z);
+  } else {
+      pval = pnorm(-z);                                                                                 
+  }
+  return(pval);
+}
+scde.adj$emp.p.value <- ifelse(
+  scde.adj$Z >= 0,
+  convert.z.score(scde.adj$Z, "+"),
+  convert.z.score(scde.adj$Z, "-"))
+scde.adj$emp.p.value <- convert.z.score(scde.adj$Z)
+```
+
+```{r}
+library(dplyr)
+ggplot(arrange(scde.adj, Z), aes(seq_len(nrow(scde.adj)), log10(emp.p.value))) +
+  geom_point() + geom_abline(slope = 0, intercept = -2) +
+  theme(axis.title.x = element_blank())
+```
+
+```{r}
+write.csv(scde.adj, "SCDE_v4/adjusted_6H_D23580_infected-Mock_uninfected.csv")
+```
+
+```{r}
+scde.raw <- addGENENAME(orderResults(scde.res$results))
+table(scde.raw$cZ == 0)
+```
+
+```{r}
+subset(scde.raw, GENENAME == "RAB29")
+```
+
