@@ -40,20 +40,10 @@ In this case, let us use the raw numbers of reads mapped to each endogenous
 feature, recast as `integer` type:
 
 ```{r cleanCounts}
-cd <- clean.counts(
-  counts(sce.norm)[!isSpike(sce.norm),],
-  min.lib.size = 1000, min.reads = 1, min.detected = 1
-)
-cd <- apply(cd, 2, function(x){storage.mode(x) <- 'integer'; x})
+cd <- counts(sce.norm)[!isSpike(sce.norm),]
+storage.mode(cd) <- 'integer'
 dim(cd)
 ```
-
-\bioccomment{
-The documentation of the `clean.counts` function should be improved.
-Two genes are discarded above because they are detected in a single cell each.
-The thresholds supplied are taken must be strictly met
-(i.e., stricly more than N reads, strictly more than N cells).
-}
 
 Let us also define a factor that separate cells from each experimental group:
 
@@ -63,6 +53,8 @@ names(sg) <- colnames(sce.norm)
 ```
 
 # Fitting error models
+
+## Compute fits
 
 Here, we fit the error models on which all subsequent calculations
 will rely. The fitting process relies on a subset of robust genes that are
@@ -100,10 +92,12 @@ o.ifm <- readRDS("rds/o.ifm.rds")
 write.csv(o.ifm, "SCDE/o.ifm.csv")
 ```
 
-The object `o.ifm` is a `data.frame`
-with error model coefficients for each cell.
+## Filter poor fits
 
-```{r oIfmTrim}
+The object `o.ifm` is a `data.frame` with error model coefficients
+for each cell:
+
+```{r oIfmTrim, echo=FALSE}
 o.ifm.trim <- apply(o.ifm, 2, round, digits = 2)
 DT::datatable(
   o.ifm.trim,
@@ -130,6 +124,8 @@ Here, all the fits were valid (most likely owing to the removal of outliers
 during earlier [sample QC](03_sampleQC.html)); as a consequence,
 the above chunk of code does not actually do anything to the data.
 
+## Estimate prior distribution for gene expression magnitudes
+
 Finally, we need to define an expression magnitude prior for the genes.
 Its main function, however, is to define a grid of expression magnitude values
 on which the numerical calculations will be carried out.
@@ -146,7 +142,11 @@ be determined by the default **0.999** quantile
 use `max.value` parameter to specify the maximum expression magnitude
 explicitly --- on log~10~ scale).
 
+The `o.prior` object is a `data.frame` that describes
+expression magnitude grid (`x`, on log~10~ scale) and prior (`y`).
+
 # DE relative to uninfected cells {#DEcontrol}
+
 ## Testing for DE genes {.tabset}
 
 To test for differential expression:
