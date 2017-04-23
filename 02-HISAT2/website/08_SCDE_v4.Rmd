@@ -13,6 +13,7 @@ library(scater)
 library(scran)
 library(scde)
 library(ensembldb)
+library(dplyr)
 sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
 ```
@@ -24,23 +25,20 @@ filtered based on gene and cell requirements.
 In this case, let us use the raw numbers of reads mapped to each endogenous
 feature, recast as `integer` type:
 
-```{r}
+```{r table_isSpike}
 table(isSpike(sce.norm))
 ```
 
 ```{r cleanCounts}
-cd <- clean.counts(
-  counts(sce.norm)[!isSpike(sce.norm),],
-  min.lib.size = 1000, min.reads = 1, min.detected = 1
-)
-cd <- apply(cd, 2, function(x){storage.mode(x) <- 'integer'; x})
+cd <- counts(sce.norm)[!isSpike(sce.norm),]
+storage.mode(cd) <- 'integer'
 dim(cd)
 ```
 
 In this case, only the `r sum(isSpike(sce.norm))` ERCC spike in molecules
 were discarded:
 
-```{r}
+```{r differenceFeatures}
 nrow(sce.norm) - nrow(cd)
 ```
 
@@ -61,8 +59,8 @@ experimental group of cells are fit independently
 (using `r length(levels(sg))` different sets of "robust" genes in this case).
 If the groups argument is omitted, the models would be fit using a common set.
 
-**Note:** this step takes a considerable amount of time, even when multiple
-cores are used (~ 1 h using 4 cores to fit error models to each of the
+**Note:** this step takes a considerable amount of time
+(~ 1 h using 4 cores to fit error models to each of the
 `r ncol(sce.norm)` cells).
 
 <!--
@@ -80,16 +78,16 @@ o.ifm <- scde.error.models(
 )
 ```
 
+```{r o.ifm_csv, eval=FALSE}
+write.csv(o.ifm, "SCDE_v4/o.ifm.csv")
+```
+
 ```{r saveRdsOifm, eval=FALSE, echo=FALSE}
 saveRDS(o.ifm, "rds/o.ifm_v4.rds")
 ```
 
 ```{r readOIfm, include=FALSE}
 o.ifm <- readRDS("rds/o.ifm_v4.rds")
-```
-
-```{r o.ifm_csv, include=FALSE}
-write.csv(o.ifm, "SCDE_v4/o.ifm.csv")
 ```
 
 Particularly poor cells may result in abnormal fits, most commonly showing
@@ -111,18 +109,20 @@ The `scde.error.models` function produces a `data.frame` with samples
 grouped by the experimental grouping factor supplied during the fitting.
 
 Let us reorder the `SCESet` and the extracted count matrix to match the
-same order for simplicity:
+same order and avoid confusion:
 
-```{r}
+```{r o.ifm.order}
 o.ifm.order <- match(rownames(o.ifm), sampleNames(sce.norm))
 sce.ifm <- sce.norm[,o.ifm.order]
-cd.ifm <- counts(sce.ifm); storage.mode(cd.ifm) <- "integer"
+cd.ifm <- counts(sce.ifm)[!isSpike(sce.ifm),]; storage.mode(cd.ifm) <- "integer"
 ```
 
-```{r, include=FALSE}
+```{r o.ifm.order_stopifnot, include=FALSE}
 stopifnot(rownames(o.ifm) == sampleNames(sce.ifm))
 stopifnot(rownames(o.ifm) == colnames(cd.ifm))
 ```
+
+# Estimate prior distribution for gene expression magnitudes
 
 Finally, we need to define an expression magnitude prior for the genes.
 Its main function, however, is to define a grid of expression magnitude values
@@ -134,16 +134,41 @@ o.prior <- scde.expression.prior(
 )
 ```
 
-Here we used a grid of **400** points, and let the maximum expression magnitude
-be determined by the default **0.999** quantile
-(default `max.quantile` setting;
-use `max.value` parameter to specify the maximum expression magnitude
-explicitly --- on log~10~ scale).
-
 # Differential expression
 
-Let us define a function that will be used to annotate the results returned
-by *scde*:
+## Setup
+
+Let us first define:
+
+* a list to store the result tables returned by *scde*
+
+```{r scde.res_init}
+scde.res <- list()
+```
+
+* a function used to convert the Z-score computed by *scde* to a empirical
+P-value ([reference](https://www.biostars.org/p/17227/)):
+
+```{r convert.z.score}
+convert.z.score <- function(x, one.sided = NULL) {
+  z <- x$Z
+  if(is.null(one.sided)) {
+    pval = pnorm(-abs(z));
+    pval = 2 * pval
+  } else if(one.sided=="-") {
+    pval = pnorm(z);
+  } else {
+    pval = pnorm(-z);
+  }
+    x <- cbind(
+      x,
+      p.value = pval
+  )
+  return(x);
+}   
+```
+
+* a function used to annotate the tables of results returned by *scde*:
 
 ```{r addGENENAME}
 addGENENAME <- function(x){
@@ -155,7 +180,7 @@ addGENENAME <- function(x){
 }
 ```
 
-A separate function to order results by decreasing absolute
+* a function to order results by decreasing absolute
 corrected Z-score and subsequently absolute Z-score:
 
 ```{r orderResults}
@@ -165,88 +190,308 @@ orderResults <- function(x){
 }
 ```
 
-#### D23580 infected
+* a function to visualise *scran*-normalised gene expression for a given
+gene:
 
-```{r}
-sg.test<-factor(sce.ifm$Group, levels=c("6h_D23580_infected","6h_Mock_uninfected"))
-summary(sg.test)
+Let us also define a function that displays normalised (*scran*) expression
+data in each group:
+
+```{r normExprsByName}
+normExprsById <- function(geneId){
+  geneName <- subset(fData(sce.norm), gene_id == geneId, "gene_name", drop = TRUE)
+  gdata <- data.frame(
+    norm_exprs = norm_exprs(sce.norm)[geneId,],
+    pData(sce.norm)[,c("Infection","Status","Time")],
+    row.names = sampleNames(sce.norm)
+  )
+  ggplot(gdata, aes(Infection, norm_exprs)) + 
+    geom_violin() + geom_jitter(width = 0.1) +
+    facet_grid(Time ~ Status) +
+    ggtitle(sprintf("%s - %s", geneId, geneName))
+}
 ```
 
-```{r}
-scde.res <- scde.expression.difference(
+## Contrasts {.tabset}
+
+### 2h D23580 infected - 2h LT2 infected
+
+```{r sg_2h_D23580_infected-2h_LT2_infected}
+groupTarget <- "2h_D23580_infected"; groupRef <- "2h_LT2_infected"
+sg.test <- factor(sce.ifm$Group,levels = c(groupTarget, groupRef))
+names(sg.test) <- sampleNames(sce.ifm); summary(sg.test)
+contrastName <- sprintf("%s-%s", groupTarget, groupRef)
+```
+
+```{r scde_2h_D23580_infected-2h_LT2_infected, eval=FALSE}
+scde.res[[contrastName]] <- scde.expression.difference(
   o.ifm, cd.ifm, o.prior, groups = sg.test, batch = sce.ifm$Plate,
   n.cores = 4, verbose = 1
 )
 ```
 
+```{r, eval=FALSE, echo=FALSE}
+topAdjusted <-
+  head(addGENENAME(orderResults(scde.res[[contrastName]]$batch.adjusted)), 1)
+scde.test.gene.expression.difference(
+  gene = rownames(topAdjusted), 
+  o.ifm, cd.ifm, o.prior, groups = sg.test, batch = sce.ifm$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+```{r, eval=FALSE, echo=FALSE}
+topAdjusted
+normExprsById(rownames(topAdjusted))
+```
+
+### 4h D23580 infected - 4h LT2 infected
+
+```{r sg_4h_D23580_infected-4h_LT2_infected}
+groupTarget <- "4h_D23580_infected"; groupRef <- "4h_LT2_infected"
+sg.test <- factor(sce.ifm$Group,levels = c(groupTarget, groupRef))
+names(sg.test) <- sampleNames(sce.ifm); summary(sg.test)
+contrastName <- sprintf("%s-%s", groupTarget, groupRef)
+```
+
+```{r scde_4h_D23580_infected-4h_LT2_infected, eval=FALSE}
+scde.res[[contrastName]] <- scde.expression.difference(
+  o.ifm, cd.ifm, o.prior, groups = sg.test, batch = sce.ifm$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+```{r, eval=FALSE, echo=FALSE}
+topAdjusted <-
+  head(addGENENAME(orderResults(scde.res[[contrastName]]$batch.adjusted)), 1)
+scde.test.gene.expression.difference(
+  gene = rownames(topAdjusted), 
+  o.ifm, cd.ifm, o.prior, groups = sg.test, batch = sce.ifm$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+```{r, eval=FALSE, echo=FALSE}
+topAdjusted
+normExprsById(rownames(topAdjusted))
+```
+
+```{r, eval=FALSE, echo=FALSE}
+scde.test.gene.expression.difference(
+  gene = "ENSG00000117280", # RAB29
+  o.ifm, cd.ifm, o.prior, groups = sg.test, batch = sce.ifm$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+```{r, eval=FALSE, echo=FALSE}
+normExprsById("ENSG00000117280") # RAB29
+```
+
+### 6h D23580 infected - 6h Mock uninfected
+
+```{r sg_6h_D23580_infected-6h_Mock_uninfected}
+groupTarget <- "6h_D23580_infected"; groupRef <- "6h_Mock_uninfected"
+sg.test <- factor(sce.ifm$Group,levels = c(groupTarget, groupRef))
+names(sg.test) <- sampleNames(sce.ifm); summary(sg.test)
+contrastName <- sprintf("%s-%s", groupTarget, groupRef)
+```
+
+```{r scde_6h_D23580_infected-6h_Mock_uninfected, eval=FALSE}
+scde.res[[contrastName]] <- scde.expression.difference(
+  o.ifm, cd.ifm, o.prior, groups = sg.test, batch = sce.ifm$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+### 6h LT2 infected - 6h Mock uninfected
+
+```{r sg_6h_LT2_infected-6h_Mock_uninfected}
+groupTarget <- "6h_LT2_infected"; groupRef <- "6h_Mock_uninfected"
+sg.test <- factor(sce.ifm$Group,levels = c(groupTarget, groupRef))
+names(sg.test) <- sampleNames(sce.ifm); summary(sg.test)
+contrastName <- sprintf("%s-%s", groupTarget, groupRef)
+```
+
+```{r scde_6h_LT2_infected-6h_Mock_uninfected, eval=FALSE}
+scde.res[[contrastName]] <- scde.expression.difference(
+  o.ifm, cd.ifm, o.prior, groups = sg.test, batch = sce.ifm$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+### 6h D23580 infected - 6h LT2 infected
+
+```{r sg_6h_D23580_infected-6h_LT2_infected}
+groupTarget <- "6h_D23580_infected"; groupRef <- "6h_LT2_infected"
+sg.test <- factor(sce.ifm$Group,levels = c(groupTarget, groupRef))
+names(sg.test) <- sampleNames(sce.ifm); summary(sg.test)
+contrastName <- sprintf("%s-%s", groupTarget, groupRef)
+```
+
+```{r scde_6h_D23580_infected-6h_LT2_infected, eval=FALSE}
+scde.res[[contrastName]] <- scde.expression.difference(
+  o.ifm, cd.ifm, o.prior, groups = sg.test, batch = sce.ifm$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+```{r, eval=FALSE, echo=FALSE}
+topAdjusted <-
+  head(addGENENAME(orderResults(scde.res[[contrastName]]$batch.adjusted)), 1)
+topAdjusted
+scde.test.gene.expression.difference(
+  gene = rownames(topAdjusted), 
+  o.ifm, cd.ifm, o.prior, groups = sg.test, batch = sce.ifm$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+```{r, eval=FALSE, echo=FALSE}
+topAdjusted
+normExprsById(rownames(topAdjusted))
+```
+
+```{r, eval=FALSE, echo=FALSE}
+scde.test.gene.expression.difference(
+  gene = "ENSG00000117280", # RAB29
+  o.ifm, cd.ifm, o.prior, groups = sg.test, batch = sce.ifm$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+```{r, eval=FALSE, echo=FALSE}
+normExprsById("ENSG00000117280") # RAB29
+```
+
+### 6h D23580 exposed - 6h LT2 exposed
+
+```{r sg_6h_D23580_exposed-6h_LT2_exposed}
+groupTarget <- "6h_D23580_exposed"; groupRef <- "6h_LT2_exposed"
+sg.test <- factor(sce.ifm$Group,levels = c(groupTarget, groupRef))
+names(sg.test) <- sampleNames(sce.ifm); summary(sg.test)
+contrastName <- sprintf("%s-%s", groupTarget, groupRef)
+```
+
+```{r scde_6h_D23580_exposed-6h_LT2_exposed, eval=FALSE}
+scde.res[[contrastName]] <- scde.expression.difference(
+  o.ifm, cd.ifm, o.prior, groups = sg.test, batch = sce.ifm$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+```{r, eval=FALSE, echo=FALSE}
+topAdjusted <-
+  head(addGENENAME(orderResults(scde.res[[contrastName]]$batch.adjusted)), 1)
+topAdjusted
+scde.test.gene.expression.difference(
+  gene = rownames(topAdjusted),
+  o.ifm, cd.ifm, o.prior, groups = sg.test, batch = sce.ifm$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+```{r, eval=FALSE, echo=FALSE}
+topAdjusted
+normExprsById(rownames(topAdjusted))
+```
+
+```{r, eval=FALSE, echo=FALSE}
+normExprsById("ENSG00000137462") # TLR2
+```
+
+```{r, eval=FALSE, echo=FALSE}
+normExprsById("ENSG00000185215") # TNFAIP2
+```
+
+### Post-processing
+
+<!-- Post processing -->
+
+```{r, eval=FALSE, echo=FALSE}
+saveRDS(scde.res, "rds/scde.res_v4.rds")
+```
+
+```{r, eval=FALSE, echo=FALSE}
+for (contrastName in names(scde.res)){
+  scde.raw <- scde.res[[contrastName]]$results
+  scde.raw <- convert.z.score(addGENENAME(orderResults(scde.raw)))
+  csv.raw <- sprintf("SCDE_v4/raw.%s.csv", contrastName)
+  write.csv(scde.raw, csv.raw)
+}
+for (contrastName in names(scde.res)){
+  scde.adjusted <- scde.res[[contrastName]]$batch.adjusted
+  scde.adjusted <- convert.z.score(addGENENAME(orderResults(scde.adjusted)))
+  csv.raw <- sprintf("SCDE_v4/adjusted.%s.csv", contrastName)
+  write.csv(scde.adjusted, csv.raw)
+}
+for (contrastName in names(scde.res)){
+  scde.batch <- scde.res[[contrastName]]$batch.effect
+  scde.batch <- convert.z.score(addGENENAME(orderResults(scde.batch)))
+  csv.raw <- sprintf("SCDE_v4/batch.%s.csv", contrastName)
+  write.csv(scde.batch, csv.raw)
+}
+```
+
+```{r, include=FALSE}
+scde.res <- readRDS("rds/scde.res_v4.rds")
+```
+
+# Volcano plots
+
 ```{r}
+volcano.mle <- function(contrastName){
+  scde.adj <- scde.res[[contrastName]]$batch.adjusted
+  scde.adj <- convert.z.score(addGENENAME(orderResults(scde.adj)))
+  gg <- ggplot(scde.adj, aes(mle, -log10(p.value))) +
+    geom_point() + geom_abline(slope = 0, intercept = -log10(0.05))
+  print(gg)
+  return(subset(scde.adj, p.value < 0.05))
+}
+```
+
+```{r}
+volcano.mle("6h_D23580_infected-6h_LT2_infected")
+```
+
+# Count significant corrected Z-scores
+
+```{r count.cZ}
+count.cZ <- function(contrastName){
+  count.adjusted <- sum(scde.res[[contrastName]]$batch.adjusted$cZ != 0)
+  count.raw <- sum(scde.res[[contrastName]]$results$cZ != 0)
+  count.batch <- sum(scde.res[[contrastName]]$batch.effect$cZ != 0)
+  return(data.frame(
+    adjusted = count.adjusted,
+    raw = count.raw,
+    batch = count.batch,
+    row.names = contrastName
+  ))
+}
+```
+
+```{r count.cZ_do.call}
+count.cZ <- do.call("rbind", lapply(names(scde.res), "count.cZ"))
+```
+
+```{r count.cZ_pandoc.table, results='asis', echo=FALSE}
+pander::pandoc.table(count.cZ)
+```
+
+
+# To do
+
+Each of the following could be turned into a new section
+
+```{r, eval=FALSE, echo=FALSE}
 scde.adj <- addGENENAME(orderResults(scde.res$batch.adjusted))
 table(scde.adj$cZ == 0)
 ```
 
-```{r}
+```{r, eval=FALSE, echo=FALSE}
 DT::datatable(head(scde.adj, 1E3))
 ```
 
-```{r}
+```{r, eval=FALSE, echo=FALSE}
 subset(scde.adj, GENENAME == "RAB29") # RAB29 is back! in (cZ != 0)
 which(scde.adj$GENENAME == 'RAB29')
 ```
-
-```{r}
-scde.test.gene.expression.difference(
-  gene = "ENSG00000117280", 
-  o.ifm, cd.ifm, o.prior, groups = sg.test, batch = sce.ifm$Plate,
-  n.cores = 4, verbose = 1
-)
-```
-
-```{r}
-ggplot(scde.adj, aes(seq_len(nrow(scde.adj)), sort(Z))) +
-  geom_point() + geom_abline(slope = 0, intercept = 0) +
-  theme(axis.title.x = element_blank())
-```
-
-```{r}
-plot(density(scde.adj$Z))
-```
-
-```{r}
-convert.z.score<-function(z, one.sided=NULL) {
-  if(is.null(one.sided)) {
-    pval = pnorm(-abs(z));
-    pval = 2 * pval
-  } else if(one.sided=="-") {
-    pval = pnorm(z);
-  } else {
-      pval = pnorm(-z);                                                                                 
-  }
-  return(pval);
-}
-scde.adj$emp.p.value <- ifelse(
-  scde.adj$Z >= 0,
-  convert.z.score(scde.adj$Z, "+"),
-  convert.z.score(scde.adj$Z, "-"))
-scde.adj$emp.p.value <- convert.z.score(scde.adj$Z)
-```
-
-```{r}
-library(dplyr)
-ggplot(arrange(scde.adj, Z), aes(seq_len(nrow(scde.adj)), log10(emp.p.value))) +
-  geom_point() + geom_abline(slope = 0, intercept = -2) +
-  theme(axis.title.x = element_blank())
-```
-
-```{r}
-write.csv(scde.adj, "SCDE_v4/adjusted_6H_D23580_infected-Mock_uninfected.csv")
-```
-
-```{r}
-scde.raw <- addGENENAME(orderResults(scde.res$results))
-table(scde.raw$cZ == 0)
-```
-
-```{r}
-subset(scde.raw, GENENAME == "RAB29")
-```
-
