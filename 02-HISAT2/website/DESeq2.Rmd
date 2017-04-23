@@ -1,0 +1,39 @@
+---
+title: "Differential expression using DESeq2"
+bibliography:
+  bibtex.bib
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+library(DESeq2)
+sce.norm <- readRDS("rds/sce.norm.rds")
+EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
+```
+
+```{r}
+varLabels(sce.norm)[1:10]
+coldata <- pData(sce.norm)[
+  ,c("Infection","Status","Time","Lane","Plate","Treatment","Group")]
+
+```
+
+
+```{r}
+dds <- DESeqDataSetFromMatrix(
+  countData = counts(sce.norm),
+  colData = coldata,
+  design= ~ Plate + Group)
+```
+
+```{r}
+dds <- DESeq(dds)
+```
+
+```{r}
+res <- results(dds, contrast=c("Group","6h_D23580_infected","6h_Mock_uninfected"))
+```
+
