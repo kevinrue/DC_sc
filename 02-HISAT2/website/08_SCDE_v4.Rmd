@@ -16,6 +16,7 @@ library(ensembldb)
 library(dplyr)
 sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
+scde.res <- readRDS("rds/scde.res_v4.rds")
 ```
 
 # Prepare data
@@ -403,6 +404,38 @@ normExprsById("ENSG00000137462") # TLR2
 normExprsById("ENSG00000185215") # TNFAIP2
 ```
 
+### 6h D23580 infected - 6h D23580 exposed
+
+```{r sg_6h_D23580_infected-6h_D23580_exposed}
+groupTarget <- "6h_D23580_infected"; groupRef <- "6h_D23580_exposed"
+sg.test <- factor(sce.ifm$Group,levels = c(groupTarget, groupRef))
+names(sg.test) <- sampleNames(sce.ifm); summary(sg.test)
+contrastName <- sprintf("%s-%s", groupTarget, groupRef)
+```
+
+```{r scde_6h_D23580_infected-6h_D23580_exposed, eval=FALSE}
+scde.res[[contrastName]] <- scde.expression.difference(
+  o.ifm, cd.ifm, o.prior, groups = sg.test, batch = sce.ifm$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
+### 6h LT2 infected - 6h LT2 exposed
+
+```{r sg_6h_LT2_infected-6h_LT2_exposed}
+groupTarget <- "6h_LT2_infected"; groupRef <- "6h_LT2_exposed"
+sg.test <- factor(sce.ifm$Group,levels = c(groupTarget, groupRef))
+names(sg.test) <- sampleNames(sce.ifm); summary(sg.test)
+contrastName <- sprintf("%s-%s", groupTarget, groupRef)
+```
+
+```{r scde_6h_LT2_infected-6h_LT2_exposed, eval=FALSE}
+scde.res[[contrastName]] <- scde.expression.difference(
+  o.ifm, cd.ifm, o.prior, groups = sg.test, batch = sce.ifm$Plate,
+  n.cores = 4, verbose = 1
+)
+```
+
 ### Post-processing
 
 <!-- Post processing -->
@@ -430,10 +463,6 @@ for (contrastName in names(scde.res)){
   csv.raw <- sprintf("SCDE_v4/batch.%s.csv", contrastName)
   write.csv(scde.batch, csv.raw)
 }
-```
-
-```{r, include=FALSE}
-scde.res <- readRDS("rds/scde.res_v4.rds")
 ```
 
 # Volcano plots
