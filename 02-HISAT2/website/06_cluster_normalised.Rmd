@@ -488,6 +488,15 @@ plotReducedDim.SCESet(
   scale_colour_gradientn(name="CD209",limits=exprScale,colours=colourScale)
 ```
 
+#### CTSB
+
+```{r plotTSNE_CTSB, message=FALSE}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm),gene_name=="CTSB"))) + PCAtheme +
+  scale_colour_gradientn(name="CTSB",limits=exprScale,colours=colourScale)
+```
+
 ## Diffusion map
 
 Finally, let us also produce a diffusion map plot of two components as a
