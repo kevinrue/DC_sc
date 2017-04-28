@@ -411,7 +411,7 @@ volcano.mle <- function(x, sub = NULL){
 
 ### List
 
-```{r contrastList}
+```{r contrasts.time}
 contrasts.2h <- list(
   c("2h_D23580_infected", "2h_Mock_uninfected"), # vs. Mock
   c("2h_LT2_infected", "2h_Mock_uninfected"),
@@ -509,10 +509,12 @@ v.data <- do.call(
     grep("uninfected", names(scde.res), value = TRUE),
     function(contrastName){
       timepoint <- gsub("([[:digit:]]h)_.*", "\\1", contrastName)
+      contrastTreatment <-
+        gsub("[[:digit:]]h_(.*)-[[:digit:]]h_(.*)", "\\1-\\2", contrastName)
       x <- data.frame(
         Gene = rownames(scde.res[[contrastName]]),
         scde.res[[contrastName]][,c("mle", "Z", "cZ")],
-        Contrast = gsub("-","\n",gsub("_", " ", contrastName)),
+        Contrast = gsub("-","\n",gsub("_", " ", contrastTreatment)),
         Time = timepoint
       )
       x <- convert.z.score(x)
@@ -536,10 +538,12 @@ v.data <- do.call(
     grep("uninfected", names(scde.res), value = TRUE, invert = TRUE),
     function(contrastName){
       timepoint <- gsub("([[:digit:]]h)_.*", "\\1", contrastName)
+      contrastTreatment <-
+        gsub("[[:digit:]]h_(.*)-[[:digit:]]h_(.*)", "\\1-\\2", contrastName)
       x <- data.frame(
         Gene = rownames(scde.res[[contrastName]]),
         scde.res[[contrastName]][,c("mle", "Z", "cZ")],
-        Contrast = gsub("-","\n",gsub("_", " ", contrastName)),
+        Contrast = gsub("-","\n",gsub("_", " ", contrastTreatment)),
         Time = timepoint
       )
       x <- convert.z.score(x)
@@ -620,16 +624,18 @@ goseq.res <- list()
 
 * the gene length information reported by *featureCounts*:
 
-```{r}
+```{r geneLengths}
 geneLengths <-
   read.delim("counts/WTCHG_305264_201201", row.names = 1)[,1, drop = FALSE]
 ```
 
+## Compute {.tabset}
 
-## Background {.tabset}
+Let us identify over- and under-represented GO categories in DE genes
+identified in each contrast,
+using as background the list of genes detected at each time point:
 
-Let us prepare binary vectors of to indicate DE genes identified in each
-contrast, using as background the list of genes detected at each time point:
+prepare binary vectors to indicate 
 
 ### 2h
 
@@ -688,6 +694,103 @@ for (contrastName in names(goseq.res)){
   write.csv(goseq.table, sprintf("SCDE_v8/GO_%s.csv", contrastName))
 }
 ```
+
+## Tables {.tabset}
+
+### Setup
+
+Let us define a function to display the **50** most significantly
+`"over"`- or `"under"`-represented GO categories
+annotated to at least **10** genes (in the entire genome):
+
+```{r showTopGO}
+showTopGO <- function(x, direction = "over", cutoff = 0.01){
+  goCols <- c(
+  "category","over_represented_pvalue","under_represented_pvalue",
+  "numDEInCat","numInCat","ontology","term")
+  directionCol <- sprintf("%s_represented_pvalue", direction)
+  tmp.go <- x[,goCols]
+  tmp.sig <- (tmp.go[,directionCol] < cutoff); tmp.go <- tmp.go[tmp.sig,]
+  tmp.go <- head(arrange(tmp.go, over_represented_pvalue), 50)
+  DT::datatable(
+    tmp.go, options = list(pageLength = 10, searching = TRUE), filter = "top")
+}
+```
+
+### Over-represented {.tabset}
+
+### `r names(goseq.res)[1]`
+
+```{r goseq.res_1, echo=FALSE}
+showTopGO(goseq.res[[1]])
+```
+
+### `r names(goseq.res)[2]`
+
+```{r goseq.res_2, echo=FALSE}
+showTopGO(goseq.res[[2]])
+```
+
+### `r names(goseq.res)[3]`
+
+```{r goseq.res_3, echo=FALSE}
+showTopGO(goseq.res[[3]])
+```
+
+### `r names(goseq.res)[4]`
+
+```{r goseq.res_4, echo=FALSE}
+showTopGO(goseq.res[[4]])
+```
+
+### `r names(goseq.res)[5]`
+
+```{r goseq.res_5, echo=FALSE}
+showTopGO(goseq.res[[5]])
+```
+
+### `r names(goseq.res)[6]`
+
+```{r goseq.res_6, echo=FALSE}
+showTopGO(goseq.res[[6]])
+```
+
+### `r names(goseq.res)[7]`
+
+```{r goseq.res_7, echo=FALSE}
+showTopGO(goseq.res[[7]])
+```
+
+### `r names(goseq.res)[8]`
+
+```{r goseq.res_8, echo=FALSE}
+showTopGO(goseq.res[[8]])
+```
+
+### `r names(goseq.res)[9]`
+
+```{r goseq.res_9, echo=FALSE}
+showTopGO(goseq.res[[9]])
+```
+
+### `r names(goseq.res)[10]`
+
+```{r goseq.res_10, echo=FALSE}
+showTopGO(goseq.res[[10]])
+```
+
+### `r names(goseq.res)[11]`
+
+```{r goseq.res_11, echo=FALSE}
+showTopGO(goseq.res[[11]])
+```
+
+### `r names(goseq.res)[12]`
+
+```{r goseq.res_12, echo=FALSE}
+showTopGO(goseq.res[[12]])
+```
+
 
 
 # Expression profile of selected genes {.tabset}
@@ -777,3 +880,186 @@ normExprsById("ENSG00000117280")
 single.scde.6h("ENSG00000117280", "D23580_infected", "LT2_infected")
 ```
 
+# Comparison of fold-change estimates
+
+## Setup
+
+Let us first define:
+
+N/A
+
+## Contrasts {.tabset}
+
+### Setup
+
+Let us define:
+
+* the required columns in the *scde* result tables
+
+```{r resCols}
+resCols <- c("mle","Z")
+```
+
+* a function used to annotate the tables of results returned by *scde*
+  with the significance of differential expression in the pair of contrasts
+  compared:
+
+```{r add.sig.XY}
+add.sig.XY <- function(x){
+  sig.levels <- c(NA_character_, "X", "Y", "Both")
+  alpha.levels <- c(0.3, 1, 1, 1)
+  sig.x <- (x$p.value.x < 0.01); sig.y <- (x$p.value.y < 0.01)
+  x$p.01 <- sig.levels[1 + sig.x + 2 * sig.y]
+  x$alpha <- alpha.levels[1 + sig.x + 2 * sig.y]
+  return(x)
+}
+```
+
+### List
+
+```{r contrasts.contrasts.time}
+contrasts.contrasts.2h <- list(
+c("2h_D23580_infected-2h_Mock_uninfected","2h_LT2_infected-2h_Mock_uninfected"),
+c("2h_D23580_infected-2h_Mock_uninfected","2h_D23580_exposed-2h_Mock_uninfected"),
+c("2h_LT2_infected-2h_Mock_uninfected","2h_LT2_exposed-2h_Mock_uninfected"),
+c("2h_D23580_exposed-2h_Mock_uninfected","2h_LT2_exposed-2h_Mock_uninfected")
+)
+contrasts.contrasts.4h <- list(
+c("4h_D23580_infected-4h_Mock_uninfected","4h_LT2_infected-4h_Mock_uninfected"),
+c("4h_D23580_infected-4h_Mock_uninfected","4h_D23580_exposed-4h_Mock_uninfected"),
+c("4h_LT2_infected-4h_Mock_uninfected","4h_LT2_exposed-4h_Mock_uninfected"),
+c("4h_D23580_exposed-4h_Mock_uninfected","4h_LT2_exposed-4h_Mock_uninfected")
+)
+contrasts.contrasts.6h <- list(
+c("6h_D23580_infected-6h_Mock_uninfected","6h_LT2_infected-6h_Mock_uninfected"),
+c("6h_D23580_infected-6h_Mock_uninfected","6h_D23580_exposed-6h_Mock_uninfected"),
+c("6h_LT2_infected-6h_Mock_uninfected","6h_LT2_exposed-6h_Mock_uninfected"),
+c("6h_D23580_exposed-6h_Mock_uninfected","6h_LT2_exposed-6h_Mock_uninfected")
+)
+```
+
+### 2h
+
+```{r corPlot_2h, eval=TRUE, echo=FALSE, fig.height=7}
+v.data <- do.call(
+  "rbind",
+  lapply(
+    contrasts.contrasts.2h,
+    function(contrastNames){
+      cn1 <- contrastNames[1]; cn2 <- contrastNames[2]
+      tn1<-gsub("[[:digit:]]h_(.*)-[[:digit:]]h_(.*)", "\\1-\\2", cn1)
+      tn2<-gsub("[[:digit:]]h_(.*)-[[:digit:]]h_(.*)", "\\1-\\2", cn2)
+      x1 <- scde.res[[cn1]][,resCols]; x2 <- scde.res[[cn2]][,resCols]
+      x1 <- convert.z.score(x1); x2 <- convert.z.score(x2)
+      x1$Contrast <- gsub("_", " ", tn1);x2$Contrast <- gsub("_", " ", tn2)
+      colnames(x1) <- gsub("$", ".y", colnames(x1))
+      colnames(x2) <- gsub("$", ".x", colnames(x2))
+      x <- cbind(x1, x2)
+      x <- add.sig.XY(x)
+      x$Contrast <- sprintf("Y : %s\nX : %s", tn1, tn2)
+      return(x)
+    }
+  )
+)
+ggplot(v.data) +
+  geom_point(aes(mle.x, mle.y, colour = p.01, alpha = alpha), size = 0.5) +
+  facet_wrap(~ Contrast) +
+  ggtitle("2h") + scale_alpha_continuous(guide = FALSE) + labs(x="",y="")
+```
+
+```{r compare.2h_csv, echo=FALSE, eval=FALSE}
+for (contrastName in unique(v.data$Contrast)){
+  v.subset <- subset(v.data, Contrast == contrastName)
+  print(dim(v.subset))
+  c.y <- gsub(" ", "_", unique(v.subset$Contrast.y))
+  c.x <- gsub(" ", "_", unique(v.subset$Contrast.x))
+  message(c.y); message(c.x)
+  csvFile <- sprintf("SCDE_v8/compare.2h_%s-2h_%s.csv", c.y, c.x)
+  message(csvFile)
+  write.csv(v.subset, csvFile)
+}
+```
+
+### 4h
+
+```{r corPlot_4h, eval=TRUE, echo=FALSE, fig.height=7}
+v.data <- do.call(
+  "rbind",
+  lapply(
+    contrasts.contrasts.4h,
+    function(contrastNames){
+      cn1 <- contrastNames[1]; cn2 <- contrastNames[2]
+      tn1<-gsub("[[:digit:]]h_(.*)-[[:digit:]]h_(.*)", "\\1-\\2", cn1)
+      tn2<-gsub("[[:digit:]]h_(.*)-[[:digit:]]h_(.*)", "\\1-\\2", cn2)
+      x1 <- scde.res[[cn1]][,resCols]; x2 <- scde.res[[cn2]][,resCols]
+      x1 <- convert.z.score(x1); x2 <- convert.z.score(x2)
+      x1$Contrast <- gsub("_", " ", tn1);x2$Contrast <- gsub("_", " ", tn2)
+      colnames(x1) <- gsub("$", ".y", colnames(x1))
+      colnames(x2) <- gsub("$", ".x", colnames(x2))
+      x <- cbind(x1, x2)
+      x <- add.sig.XY(x)
+      x$Contrast <- sprintf("Y : %s\nX : %s", tn1, tn2)
+      return(x)
+    }
+  )
+)
+ggplot(v.data) +
+  geom_point(aes(mle.x, mle.y, colour = p.01, alpha = alpha), size = 0.5) +
+  facet_wrap(~ Contrast) +
+  ggtitle("4h") + scale_alpha_continuous(guide = FALSE) + labs(x="",y="")
+```
+
+```{r compare.4h_csv, echo=FALSE, eval=FALSE}
+for (contrastName in unique(v.data$Contrast)){
+  v.subset <- subset(v.data, Contrast == contrastName)
+  print(dim(v.subset))
+  c.y <- gsub(" ", "_", unique(v.subset$Contrast.y))
+  c.x <- gsub(" ", "_", unique(v.subset$Contrast.x))
+  message(c.y); message(c.x)
+  csvFile <- sprintf("SCDE_v8/compare.4h_%s-2h_%s.csv", c.y, c.x)
+  message(csvFile)
+  write.csv(v.subset, csvFile)
+}
+```
+
+### 6h
+
+```{r corPlot_6h, eval=TRUE, echo=FALSE, fig.height=7}
+v.data <- do.call(
+  "rbind",
+  lapply(
+    contrasts.contrasts.6h,
+    function(contrastNames){
+      cn1 <- contrastNames[1]; cn2 <- contrastNames[2]
+      tn1<-gsub("[[:digit:]]h_(.*)-[[:digit:]]h_(.*)", "\\1-\\2", cn1)
+      tn2<-gsub("[[:digit:]]h_(.*)-[[:digit:]]h_(.*)", "\\1-\\2", cn2)
+      x1 <- scde.res[[cn1]][,resCols]; x2 <- scde.res[[cn2]][,resCols]
+      x1 <- convert.z.score(x1); x2 <- convert.z.score(x2)
+      x1$Contrast <- gsub("_", " ", tn1);x2$Contrast <- gsub("_", " ", tn2)
+      colnames(x1) <- gsub("$", ".y", colnames(x1))
+      colnames(x2) <- gsub("$", ".x", colnames(x2))
+      x <- cbind(x1, x2)
+      x <- add.sig.XY(x)
+      x$Contrast <- sprintf("Y : %s\nX : %s", tn1, tn2)
+      return(x)
+    }
+  )
+)
+ggplot(v.data) +
+  geom_point(aes(mle.x, mle.y, colour = p.01, alpha = alpha), size = 0.5) +
+  facet_wrap(~ Contrast) +
+  ggtitle("6h") + scale_alpha_continuous(guide = FALSE) + labs(x="",y="")
+```
+
+```{r compare.6h_csv, echo=FALSE, eval=FALSE}
+for (contrastName in unique(v.data$Contrast)){
+  v.subset <- subset(v.data, Contrast == contrastName)
+  print(dim(v.subset))
+  c.y <- gsub(" ", "_", unique(v.subset$Contrast.y))
+  c.x <- gsub(" ", "_", unique(v.subset$Contrast.x))
+  message(c.y); message(c.x)
+  csvFile <- sprintf("SCDE_v8/compare.6h_%s-2h_%s.csv", c.y, c.x)
+  message(csvFile)
+  write.csv(v.subset, csvFile)
+}
+```
