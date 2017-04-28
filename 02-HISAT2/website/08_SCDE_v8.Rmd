@@ -680,7 +680,7 @@ for (contrastName in grep("^6h", names(scde.res), value = TRUE)){
   scde.table <- convert.z.score(scde.table)
   scde.table <- subset(scde.table, p.value < 0.01)
   de.genes <- (bg.6h %in% rownames(scde.table))
-  names(de.genes) <- bg.6h; print(table(de.genes))
+  names(de.genes) <- bg.6h; table(de.genes)
   pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes),])
   go.res <- goseq(pwf, "hg38", "ensGene")
   goseq.res[[contrastName]] <- go.res
