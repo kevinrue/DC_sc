@@ -704,7 +704,7 @@ Let us define a function to display the **50** most significantly
 annotated to at least **10** genes (in the entire genome):
 
 ```{r showTopGO}
-showTopGO <- function(x, direction = "over", cutoff = 0.05, min = 5){
+showTopGO <- function(x, direction = "over", cutoff = 0.05, min = 10){
   goCols <- c(
   "category","over_represented_pvalue","under_represented_pvalue",
   "numDEInCat","numInCat","ontology","term")
