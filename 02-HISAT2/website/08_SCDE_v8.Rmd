@@ -791,8 +791,6 @@ showTopGO(goseq.res[[11]])
 showTopGO(goseq.res[[12]])
 ```
 
-
-
 # Expression profile of selected genes {.tabset}
 
 Least significant gene record (P ~ 0.01)
@@ -848,6 +846,30 @@ single.scde.6h("ENSG00000137462", "D23580_infected", "D23580_exposed")
 single.scde.6h("ENSG00000137462", "LT2_infected", "LT2_exposed")
 ```
 
+## IL10 {.tabset}
+
+Up-regulated in D23580 infected vs. uninfected at 4h ($P < 5 \times 10^{-4}$),
+while $NS$ in LT2 ($P \approx 0.40$):
+
+### *scran*
+
+```{r normExprsById_IL10}
+normExprsById("ENSG00000136634")
+```
+
+### *scde* D23580
+
+```{r single.scde.6h_D23580_IL10}
+single.scde.6h("ENSG00000136634", "D23580_infected", "D23580_exposed")
+```
+
+### *scde* LT2
+
+```{r single.scde.6h_LT2_IL10}
+single.scde.6h("ENSG00000136634", "LT2_infected", "LT2_exposed")
+```
+
+
 ## RAB2B {.tabset}
 
 Up-regulated in D23580 vs. LT2 (infected, 2h):
@@ -882,12 +904,6 @@ single.scde.6h("ENSG00000117280", "D23580_infected", "LT2_infected")
 
 # Comparison of fold-change estimates
 
-## Setup
-
-Let us first define:
-
-N/A
-
 ## Contrasts {.tabset}
 
 ### Setup
@@ -900,19 +916,44 @@ Let us define:
 resCols <- c("mle","Z")
 ```
 
-* a function used to annotate the tables of results returned by *scde*
+* a function used to annotate each gene in the tables of *scde* results
   with the significance of differential expression in the pair of contrasts
   compared:
 
 ```{r add.sig.XY}
-add.sig.XY <- function(x){
+add.sig.XY <- function(x, cutoff = 0.01){
   sig.levels <- c(NA_character_, "X", "Y", "Both")
   alpha.levels <- c(0.3, 1, 1, 1)
-  sig.x <- (x$p.value.x < 0.01); sig.y <- (x$p.value.y < 0.01)
+  sig.x <- (x$p.value.x < cutoff); sig.y <- (x$p.value.y < cutoff)
   x$p.01 <- sig.levels[1 + sig.x + 2 * sig.y]
   x$alpha <- alpha.levels[1 + sig.x + 2 * sig.y]
   return(x)
 }
+```
+
+* a function used to annotate each gene in the tables of *scde* results
+  whether it is significantly differentially expressed in opposite direction
+  in the pair of contrasts compared:
+
+```{r}
+addOpposite <- function(x, cutoff = 0.01){
+  x$opposite <- NA_character_
+  x.sig.idx <- (x$p.value.x < cutoff & x$p.value.y < cutoff)
+  x.opposite <- (x$mle.x * x$mle.y) < 0
+  x[x.sig.idx, "opposite"] <- x.opposite[x.sig.idx]
+  return(x)
+}
+```
+
+Let us define:
+
+* the maximal range of expression fold changes observed across contrasts;
+  used to scale figures for symmetry of axes
+  and comparabison between time points:
+
+```{r mleRange}
+mleRange <-
+  max(abs(do.call("c", lapply(scde.res, function(x){return(x$mle)}))))*c(-1,1)
 ```
 
 ### List
@@ -964,13 +1005,15 @@ v.data <- do.call(
 ggplot(v.data) +
   geom_point(aes(mle.x, mle.y, colour = p.01, alpha = alpha), size = 0.5) +
   facet_wrap(~ Contrast) +
+  scale_x_continuous(limits=mleRange)+scale_y_continuous(limits=mleRange) +
   ggtitle("2h") + scale_alpha_continuous(guide = FALSE) + labs(x="",y="")
 ```
 
 ```{r compare.2h_csv, echo=FALSE, eval=FALSE}
 for (contrastName in unique(v.data$Contrast)){
-  v.subset <- subset(v.data, Contrast == contrastName)
-  print(dim(v.subset))
+  v.subset <- subset(addGENENAME(v.data), Contrast == contrastName)
+  v.subset$Contrast <- gsub("\n", "-", v.subset$Contrast)
+  v.subset <- addOpposite(v.subset)
   c.y <- gsub(" ", "_", unique(v.subset$Contrast.y))
   c.x <- gsub(" ", "_", unique(v.subset$Contrast.x))
   message(c.y); message(c.x)
@@ -1006,13 +1049,15 @@ v.data <- do.call(
 ggplot(v.data) +
   geom_point(aes(mle.x, mle.y, colour = p.01, alpha = alpha), size = 0.5) +
   facet_wrap(~ Contrast) +
+  scale_x_continuous(limits=mleRange)+scale_y_continuous(limits=mleRange) +
   ggtitle("4h") + scale_alpha_continuous(guide = FALSE) + labs(x="",y="")
 ```
 
 ```{r compare.4h_csv, echo=FALSE, eval=FALSE}
 for (contrastName in unique(v.data$Contrast)){
-  v.subset <- subset(v.data, Contrast == contrastName)
-  print(dim(v.subset))
+  v.subset <- subset(addGENENAME(v.data), Contrast == contrastName)
+  v.subset$Contrast <- gsub("\n", "-", v.subset$Contrast)
+  v.subset <- addOpposite(v.subset)
   c.y <- gsub(" ", "_", unique(v.subset$Contrast.y))
   c.x <- gsub(" ", "_", unique(v.subset$Contrast.x))
   message(c.y); message(c.x)
@@ -1048,13 +1093,15 @@ v.data <- do.call(
 ggplot(v.data) +
   geom_point(aes(mle.x, mle.y, colour = p.01, alpha = alpha), size = 0.5) +
   facet_wrap(~ Contrast) +
+  scale_x_continuous(limits=mleRange)+scale_y_continuous(limits=mleRange) +
   ggtitle("6h") + scale_alpha_continuous(guide = FALSE) + labs(x="",y="")
 ```
 
 ```{r compare.6h_csv, echo=FALSE, eval=FALSE}
 for (contrastName in unique(v.data$Contrast)){
-  v.subset <- subset(v.data, Contrast == contrastName)
-  print(dim(v.subset))
+  v.subset <- subset(addGENENAME(v.data), Contrast == contrastName)
+  v.subset$Contrast <- gsub("\n", "-", v.subset$Contrast)
+  v.subset <- addOpposite(v.subset)
   c.y <- gsub(" ", "_", unique(v.subset$Contrast.y))
   c.x <- gsub(" ", "_", unique(v.subset$Contrast.x))
   message(c.y); message(c.x)
