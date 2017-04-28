@@ -502,7 +502,7 @@ for (contrastName in names(scde.res)){
 
 ## Uninfected
 
-```{r volcano_uninfected, echo=FALSE, fig.height=10}
+```{r volcano_uninfected, echo=FALSE, fig.height=9}
 v.data <- do.call(
   "rbind",
   lapply(
@@ -514,7 +514,7 @@ v.data <- do.call(
       x <- data.frame(
         Gene = rownames(scde.res[[contrastName]]),
         scde.res[[contrastName]][,c("mle", "Z", "cZ")],
-        Contrast = gsub("-","\n",gsub("_", " ", contrastTreatment)),
+        Contrast = gsub("_", " ", contrastTreatment),
         Time = timepoint
       )
       x <- convert.z.score(x)
@@ -526,12 +526,12 @@ ggplot(v.data) +
   facet_grid(Contrast ~ Time) +
   geom_hline(
     aes(yintercept = -log10(P), linetype = level), data = volcano.sig
-  ) + theme(strip.text.y = element_text(size = rel(0.5)))
+  )
 ```
 
 ## Direct
 
-```{r volcano_direct, echo=FALSE, fig.height=10}
+```{r volcano_direct, echo=FALSE, fig.height=9}
 v.data <- do.call(
   "rbind",
   lapply(
@@ -543,7 +543,7 @@ v.data <- do.call(
       x <- data.frame(
         Gene = rownames(scde.res[[contrastName]]),
         scde.res[[contrastName]][,c("mle", "Z", "cZ")],
-        Contrast = gsub("-","\n",gsub("_", " ", contrastTreatment)),
+        Contrast = gsub("_", " ", contrastTreatment),
         Time = timepoint
       )
       x <- convert.z.score(x)
@@ -555,7 +555,7 @@ ggplot(v.data) +
   facet_grid(Contrast ~ Time) +
   geom_hline(
     aes(yintercept = -log10(P), linetype = level), data = volcano.sig
-  ) + theme(strip.text.y = element_text(size = rel(0.5)))
+  )
 ```
 
 # Count DE genes at various cut-offs {.tabset}
