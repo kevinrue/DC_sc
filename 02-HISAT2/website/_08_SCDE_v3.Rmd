@@ -16,6 +16,14 @@ sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
 ```
 
+<!--
+Remove ERCC spike-ins
+Error model: {all cells; all genes}
+Prior
+Split cells by time !!
+DE: {group on time cells with NA; batch on time cells w/out NA}
+-->
+
 # Prepare data
 
 ## Remove spike-in features

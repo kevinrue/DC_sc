@@ -21,6 +21,13 @@ sce.norm <- readRDS("rds/sce.norm.rds")
 EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
 ```
 
+<!--
+Remove ERCC spike-ins
+Error model: {all cells; all genes}
+Prior
+DE: {group - all cells w NA; batch - all cells w/out NA}
+-->
+
 # Plotting themes
 
 First of all, let us define theme elements used throughout various figures
@@ -254,6 +261,93 @@ saveRDS(DE.res.batch, "rds/DE.res.batch.rds")
 DE.res.raw <- readRDS("rds/DE.res.raw.rds")
 DE.res.adjusted <- readRDS("rds/DE.res.adjusted.rds")
 DE.res.batch <- readRDS("rds/DE.res.batch.rds")
+```
+
+## Examine volcano
+
+Let us define:
+
+```{r convert.z.score}
+convert.z.score <- function(x, one.sided = NULL) {
+  z <- x$Z
+  if(is.null(one.sided)) {
+    pval = pnorm(-abs(z));
+    pval = 2 * pval
+  } else if(one.sided=="-") {
+    pval = pnorm(z);
+  } else {
+    pval = pnorm(-z);
+  }
+    x <- cbind(
+      x,
+      p.value = pval
+  )
+  return(x);
+}   
+```
+
+* a function used to annotate the tables of results returned by *scde*:
+
+```{r addGENENAME}
+addGENENAME <- function(x){
+  x <- cbind(
+    GENENAME=mapIds(EnsDb.Hsapiens.v79, rownames(x), 'GENENAME', 'GENEID'),
+    x
+  )
+  return(x)
+}
+```
+
+* a function to order results by decreasing absolute
+corrected Z-score and subsequently absolute Z-score:
+
+```{r orderResults}
+orderResults <- function(x){
+  x <- x[with(x, order(abs(cZ), abs(Z), decreasing = TRUE)),]
+  return(x)
+}
+```
+
+* various significance levels:
+
+```{r volcano.sig}
+sig.levels <- c(0.05, 0.01)
+volcano.sig <- data.frame(
+  P = sig.levels,
+  level = as.character(sig.levels)
+)
+```
+
+* a function to visualise *scde* differential expression statistics, and
+  return a table with those statistics augmented by a an empirical *P* value
+  computed from the *Z* score returned by *scde*:
+
+```{r volcano.mle}
+volcano.raw <- function(contrastName){
+  scde.adj <- DE.res.raw[[contrastName]]
+  scde.adj <- convert.z.score(addGENENAME(orderResults(scde.adj)))
+  gg <- ggplot(scde.adj, aes(mle, -log10(p.value))) +
+    geom_point(aes(colour = (cZ != 0))) +
+    geom_hline(aes(yintercept = -log10(P), linetype = level), volcano.sig) +
+    ggtitle(gsub("_", " ", contrastName), "results")
+  print(gg)
+  return(scde.adj)
+}
+volcano.adjusted <- function(contrastName){
+  scde.adj <- DE.res.adjusted[[contrastName]]
+  scde.adj <- convert.z.score(addGENENAME(orderResults(scde.adj)))
+  gg <- ggplot(scde.adj, aes(mle, -log10(p.value))) +
+    geom_point(aes(colour = (cZ != 0))) +
+    geom_hline(aes(yintercept = -log10(P), linetype = level), volcano.sig) +
+    ggtitle(gsub("_", " ", contrastName), "batch.adjusted")
+  print(gg)
+  return(scde.adj)
+}
+```
+
+```{r volcano.}
+tmp <- volcano.raw("6h_D23580_infected-6h_Mock_uninfected")
+tmp <- volcano.adjusted("6h_D23580_infected-6h_Mock_uninfected")
 ```
 
 ## Count of DE genes

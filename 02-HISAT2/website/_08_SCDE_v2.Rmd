@@ -21,6 +21,15 @@ sce.norm <- readRDS("rds/sce.norm.rds")
 EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
 ```
 
+<!--
+Remove ERCC spike-ins
+Split cells by time !!
+Retain genes detected at each time !!
+Error model: {time cells; time genes}
+Prior
+DE: {group on time cells with NA; batch on time cells w/out NA}
+-->
+
 # Plotting themes
 
 First of all, let us define theme elements used throughout various figures
@@ -173,10 +182,6 @@ o.ifm.2h <- scde.error.models(
 
 ```{r save_o.ifm.2h, echo=FALSE, eval=FALSE}
 saveRDS(o.ifm.2h, "rds/o.ifm.2h.rds")
-```
-
-```{r read_o.ifm.2h, include=FALSE}
-o.ifm.2h <- readRDS("rds/o.ifm.2h.rds")
 ```
 
 ```{r oIfmTrim.2h, include=FALSE}
@@ -577,7 +582,7 @@ normExprsById(rownames(orderResults(ediff$batch.adjusted))[1])
 sg.target <- "6h_D23580_infected"; sg.reference <- "6h_Mock_uninfected"
 contrastName <- sprintf("%s-vs-%s", sg.target, sg.reference)
 sg.d23.inf.6h.un <- factor(sg.6h, levels = c(sg.target, sg.reference))
-table(sg.d23.inf.6h.un, useNA = "ifany")
+summary(sg.d23.inf.6h.un)
 ```
 
 ```{r, eval=FALSE}
