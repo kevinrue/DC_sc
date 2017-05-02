@@ -30,7 +30,7 @@ Remove ERCC spike-ins
 !! Retain genes detected at each time (10 counts, 5 cells, 1 group)
 Error model: {cells @ time; genes @ time}
 Prior @ time
-DE: {group on all cells with NA; no batch correction, P-value < 0.01}
+DE: {group on all cells with NA; no batch correction; P-value < 0.01}
 -->
 
 # Prepare data
@@ -89,7 +89,7 @@ filtered based on gene and cell requirements.
 
 In this case, *for each time point*,
 let us retain only features detected with at least **10** counts in at least
-**5** cells of any of the five experimental groups,
+**10** cells of any of the five experimental groups,
 use the raw numbers of reads mapped to each endogenous
 feature, recast as `integer` type.
 
@@ -634,8 +634,6 @@ geneLengths <-
 Let us identify over- and under-represented GO categories in DE genes
 identified in each contrast,
 using as background the list of genes detected at each time point:
-
-prepare binary vectors to indicate 
 
 ### 2h
 

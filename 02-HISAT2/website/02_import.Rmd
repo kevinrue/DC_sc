@@ -7,7 +7,6 @@ title: "Import of RNA-Sequencing read counts and associated metadata"
 knitr::opts_chunk$set(cache = TRUE)
 library(scater)
 library(edgeR)
-library(xlsx)
 library(rtracklayer)
 library(DT)
 ```

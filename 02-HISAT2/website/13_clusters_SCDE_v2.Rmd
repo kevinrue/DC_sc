@@ -1,0 +1,748 @@
+---
+title: "Differential expression between unsupervised clusters using *scde*"
+bibliography:
+  bibtex.bib
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+library(scater)
+library(scran)
+library(ggplot2)
+library(scde)
+EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
+sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
+o.ifm.2h <- readRDS("rds/o.ifm.2h_v8.rds")
+o.ifm.4h <- readRDS("rds/o.ifm.4h_v8.rds")
+o.ifm.6h <- readRDS("rds/o.ifm.6h_v8.rds")
+scde.res <- readRDS("rds/13_cluster_scde.res_v2.rds")
+goseq.res <- readRDS("rds/13_cluster_goseq.res_v2.rds")
+```
+
+<!-- Cleaner code based on 08_SCDE_v8
+Remove ERCC spike-ins
+!! Split cells by time
+!! Retain genes detected at each time (10 counts, 5 cells, 1 group)
+Identify cell clusters @ time
+<!-- Error model: {cells @ time; genes @ time} <- same as 08_SCDE
+Prior @ time
+DE: {group on all cells with NA; no batch correction; P-value < 0.01}
+-->
+
+# Prepare data
+
+**Note:**
+for this analysis, the data is prepared identically to the
+[differential expression between experimental groups using *scde*](08_SCDE_v8.html):
+
+* ERCC spike-in features are removed,
+* Cells in the data set is subsetted by time point,
+* Genes in the data set are subsetted for those detected at sufficient levels
+  within each time point,
+* Error models are computed on the subsetted data sets
+* Differentially expressed genes are called within the subsetted data sets
+  using a cutoff *P*-value less than **0.01**
+
+[Jump](#identifyClusters) to the section where this analysis of
+unsupervised clusters diverges from the differential expression
+between supervised experimental groups.
+
+## Remove spike-in features
+
+The analysis starts with a matrix of read counts,
+filtered based on gene and cell requirements.
+In this case, let us use the raw numbers of reads mapped to each endogenous
+feature, recast as `integer` type:
+
+```{r table_isSpike}
+table(isSpike(sce.norm))
+```
+
+```{r sce.endo}
+sce.endo <- sce.norm[!isSpike(sce.norm),]
+```
+
+```{r sce.endo_show, echo=FALSE}
+dim(sce.endo)
+```
+
+## Subset data by time point {.tabset}
+
+Considering the demonstrated impact on the `Time` factor on gene expression
+profiles, and the fact that differential expression will *not* be assessed
+between time points, individual time points will be processed separately for
+the remainder of this *scde* analysis.
+
+### 2h
+
+```{r sce.2h}
+sce.2h <- sce.endo[,sce.endo$Time == '2h']
+dim(sce.2h)
+```
+
+### 4h
+
+```{r sce.4h}
+sce.4h <- sce.endo[,sce.endo$Time == '4h']
+dim(sce.4h)
+```
+
+### 6h
+
+```{r sce.6h}
+sce.6h <- sce.endo[,sce.endo$Time == '6h']
+dim(sce.6h)
+```
+
+## Filter count matrices {.tabset}
+
+The analysis starts with a matrix of read counts,
+filtered based on gene and cell requirements.
+
+In this case, *for each time point*,
+let us retain only features detected with at least **10** counts in at least
+**5** cells of any of the five experimental groups,
+use the raw numbers of reads mapped to each endogenous
+feature, recast as `integer` type.
+
+Let us first define a function to apply the detection cutoff:
+
+```{r filterCounts}
+filterCounts <- function(m, counts = 10, cells = 10){
+  apply(m, 1, function(e){
+    return(sum(e >= counts) >= cells)
+  })
+}
+```
+
+### 2h
+
+```{r cleanCounts_2h}
+sg.2h <- droplevels(sce.2h$Group)
+keep.2h <- filterCounts(counts(sce.2h))
+cd.2h <- counts(sce.2h)[keep.2h,]; storage.mode(cd.2h) <- 'integer'
+```
+
+```{r cd.2h_show, echo=FALSE}
+dim(cd.2h)
+```
+
+### 4h
+
+```{r cleanCounts_4h}
+sg.4h <- droplevels(sce.4h$Group)
+keep.4h <- filterCounts(counts(sce.4h))
+cd.4h <- counts(sce.4h)[keep.4h,]; storage.mode(cd.4h) <- 'integer'
+```
+
+```{r cd.4h_show, echo=FALSE}
+dim(cd.4h)
+```
+
+### 6h
+
+```{r cleanCounts_6h}
+sg.6h <- droplevels(sce.6h$Group)
+keep.6h <- filterCounts(counts(sce.6h))
+cd.6h <- counts(sce.6h)[keep.6h,]; storage.mode(cd.6h) <- 'integer'
+```
+
+```{r cd.6h_show, echo=FALSE}
+dim(cd.6h)
+```
+
+# Error models {.tabset}
+
+Here, we fit the error models on which all subsequent calculations
+will rely. The fitting process relies on a subset of robust genes that are
+detected in multiple cross-cell comparisons. Here we supply the
+`groups` argument, so that the error models for each
+experimental group of cells are fit independently.
+If the groups argument is omitted, the models would be fit using a common set.
+
+## 2h
+
+```{r o.ifm.2h, eval=FALSE}
+o.ifm.2h <- scde.error.models(
+  counts = cd.2h, groups = sg.2h, n.cores = 4, verbose = 1
+)
+```
+
+```{r save_o.ifm.2h, echo=FALSE, eval=FALSE}
+saveRDS(o.ifm.2h, "rds/o.ifm.2h_v8.rds")
+write.csv(o.ifm.2h, "SCDE_v8/o.ifm.2h.csv")
+```
+
+Particularly poor cells may result in abnormal fits, most commonly showing
+negative `corr.a`, and should be removed.
+
+```{r validCells.2h}
+valid.cells <- o.ifm.2h$corr.a > 0; table(valid.cells)
+o.ifm.2h <- o.ifm.2h[valid.cells, ]
+dim(o.ifm.2h)
+```
+
+## 4h
+
+```{r o.ifm.4h, eval=FALSE}
+o.ifm.4h <- scde.error.models(
+  counts = cd.4h, groups = sg.4h, n.cores = 4, verbose = 1
+)
+```
+
+```{r save_o.ifm.4h, echo=FALSE, eval=FALSE}
+saveRDS(o.ifm.4h, "rds/o.ifm.4h_v8.rds")
+write.csv(o.ifm.4h, "SCDE_v8/o.ifm.4h.csv")
+```
+
+Particularly poor cells may result in abnormal fits, most commonly showing
+negative `corr.a`, and should be removed.
+
+```{r validCells.4h}
+valid.cells <- o.ifm.4h$corr.a > 0; table(valid.cells)
+o.ifm.4h <- o.ifm.4h[valid.cells, ]
+dim(o.ifm.4h)
+```
+
+## 6h
+
+```{r o.ifm.6h, eval=FALSE}
+o.ifm.6h <- scde.error.models(
+  counts = cd.6h, groups = sg.6h, n.cores = 4, verbose = 1
+)
+```
+
+```{r save_o.ifm.6h, echo=FALSE, eval=FALSE}
+saveRDS(o.ifm.6h, "rds/o.ifm.6h_v8.rds")
+write.csv(o.ifm.6h, "SCDE_v8/o.ifm.6h.csv")
+```
+
+Particularly poor cells may result in abnormal fits, most commonly showing
+negative `corr.a`, and should be removed.
+
+```{r validCells.6h}
+valid.cells <- o.ifm.6h$corr.a > 0; table(valid.cells)
+o.ifm.6h <- o.ifm.6h[valid.cells, ]
+dim(o.ifm.6h)
+```
+
+# Reorder counts to match error models {.tabset}
+
+The `scde.error.models` produces error models with cells reordered 
+by experimental group.
+For clarity, let us prepare a `SCESet` and count matrix that match this order:
+
+## 2h
+
+```{r sce.ifm.2h}
+sce.ifm.2h <- sce.2h[,rownames(o.ifm.2h)]
+cd.ifm.2h <- counts(sce.ifm.2h); storage.mode(cd.ifm.2h) <- "integer"
+```
+
+## 4h
+
+```{r sce.ifm.4h}
+sce.ifm.4h <- sce.4h[,rownames(o.ifm.4h)]
+cd.ifm.4h <- counts(sce.ifm.4h); storage.mode(cd.ifm.4h) <- "integer"
+```
+
+## 6h
+
+```{r sce.ifm.6h}
+sce.ifm.6h <- sce.6h[,rownames(o.ifm.6h)]
+cd.ifm.6h <- counts(sce.ifm.6h); storage.mode(cd.ifm.6h) <- "integer"
+```
+
+# Prior distribution for gene expression magnitudes {.tabset}
+
+Finally, we need to define an expression magnitude prior for the genes.
+Its main function, however, is to define a grid of expression magnitude values
+on which the numerical calculations will be carried out.
+
+## 2h
+
+```{r o.prior.2h}
+o.prior.2h <- scde.expression.prior(
+  models = o.ifm.2h, counts = cd.ifm.2h, show.plot = TRUE
+)
+```
+
+## 4h
+
+```{r o.prior.4h}
+o.prior.4h <- scde.expression.prior(
+  models = o.ifm.4h, counts = cd.ifm.4h, show.plot = TRUE
+)
+```
+
+## 6h
+
+```{r o.prior.6h}
+o.prior.6h <- scde.expression.prior(
+  models = o.ifm.6h, counts = cd.ifm.6h, show.plot = TRUE
+)
+```
+
+# Identify clusters {#identifyClusters .tabset}
+
+## 2h
+
+```{r clusters.2h}
+clusters <- quickCluster(sce.ifm.2h,min.size=min(table(sce.ifm.2h$Treatment)))
+sce.ifm.2h$quickCluster <- clusters
+qc.2h <- rep(NA, ncol(sce.endo)); names(qc.2h) <- sampleNames(sce.endo)
+qc.2h[sampleNames(sce.ifm.2h)] <- as.numeric(levels(clusters)[clusters])
+sce.endo$quickCluster.2h <- factor(qc.2h, 0:3)
+```
+
+## 4h
+
+```{r clusters.4h}
+clusters <- quickCluster(sce.ifm.4h,min.size=min(table(sce.ifm.4h$Treatment)))
+sce.ifm.4h$quickCluster <- clusters
+qc.4h <- rep(NA, ncol(sce.endo)); names(qc.4h) <- sampleNames(sce.endo)
+qc.4h[sampleNames(sce.ifm.4h)] <- as.numeric(levels(clusters)[clusters])
+sce.endo$quickCluster.4h <- factor(qc.4h, 0:3)
+```
+
+## 6h
+
+```{r clusters.6h}
+clusters <- quickCluster(sce.ifm.6h,min.size=min(table(sce.ifm.6h$Treatment)))
+sce.ifm.6h$quickCluster <- clusters
+qc.6h <- rep(NA, ncol(sce.endo)); names(qc.6h) <- sampleNames(sce.endo)
+qc.6h[sampleNames(sce.ifm.6h)] <- as.numeric(levels(clusters)[clusters])
+sce.endo$quickCluster.6h <- factor(qc.6h, 0:3)
+```
+
+# Visualise {.tabset}
+
+## 2h
+
+```{r plotReducedDim.2h, echo=FALSE}
+tmpGG <- data.frame(
+  reducedDimension(sce.endo),
+  Cluster = sce.endo$quickCluster.2h,
+  Treatment = gsub("_", " ", sce.endo$Treatment)
+)
+ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
+  geom_point() + theme_bw() + labs(x="Dimension 1",y="Dimension 2",title="2h") +
+  scale_color_discrete(drop = FALSE)
+```
+
+Cross-tabulated counts of cells by cluster and experimental treatment:
+
+```{r table.2h, results='asis', echo=FALSE}
+pander::pandoc.table(
+  with(pData(sce.endo), table(Treatment, quickCluster.2h))
+)
+```
+
+## 4h
+
+```{r plotReducedDim.4h, echo=FALSE}
+tmpGG <- data.frame(
+  reducedDimension(sce.endo),
+  Cluster = sce.endo$quickCluster.4h,
+  Treatment = gsub("_", " ", sce.endo$Treatment)
+)
+ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
+  geom_point() + theme_bw() + labs(x="Dimension 1",y="Dimension 2",title="4h") +
+  scale_color_discrete(drop = FALSE)
+```
+
+Cross-tabulated counts of cells by cluster and experimental treatment:
+
+```{r table.4h, results='asis', echo=FALSE}
+pander::pandoc.table(
+  with(pData(sce.endo), table(Treatment, quickCluster.4h))
+)
+```
+
+## 6h
+
+```{r plotReducedDim.6h, echo=FALSE}
+tmpGG <- data.frame(
+  reducedDimension(sce.endo),
+  Cluster = sce.endo$quickCluster.6h,
+  Treatment = gsub("_", " ", sce.endo$Treatment)
+)
+ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
+  geom_point() + theme_bw() + labs(x="Dimension 1",y="Dimension 2",title="6h") +
+  scale_color_discrete(drop = FALSE)
+```
+
+Cross-tabulated counts of cells by cluster and experimental treatment:
+
+```{r table.6h, results='asis', echo=FALSE}
+pander::pandoc.table(
+  with(pData(sce.endo), table(Treatment, quickCluster.6h))
+)
+```
+
+# Differential expression {#DE}
+
+## Setup
+
+Let us first define:
+
+* a list to store the result tables returned by *scde*
+
+```{r scde.res_init, eval=FALSE}
+scde.res <- list()
+```
+
+* a function used to convert the Z-score computed by *scde* to a empirical
+P-value ([reference](https://www.biostars.org/p/17227/)):
+
+```{r convert.z.score}
+convert.z.score <- function(x, one.sided = NULL) {
+  z <- x$Z
+  if(is.null(one.sided)) {
+    pval = pnorm(-abs(z));
+    pval = 2 * pval
+  } else if(one.sided=="-") {
+    pval = pnorm(z);
+  } else {
+    pval = pnorm(-z);
+  }
+    x <- cbind(
+      x,
+      p.value = pval
+  )
+  return(x);
+}   
+```
+
+* a function used to annotate the tables of results returned by *scde*:
+
+```{r addGENENAME}
+addGENENAME <- function(x){
+  x <- cbind(
+    GENENAME=mapIds(EnsDb.Hsapiens.v79, rownames(x), 'GENENAME', 'GENEID'),
+    x
+  )
+  return(x)
+}
+```
+
+* a function to order results by decreasing absolute Z-score:
+
+```{r orderResults}
+orderResults <- function(x){
+  x <- x[with(x, order(abs(Z), decreasing = TRUE)),]
+  return(x)
+}
+```
+
+* a function to visualise *scran*-normalised gene expression for a given
+gene:
+
+Let us also define a function that displays normalised (*scran*) expression
+data in each group:
+
+```{r normExprsByName}
+normExprsById <- function(geneId){
+  geneName <- subset(fData(sce.endo),gene_id==geneId,"gene_name",drop=TRUE)
+  gdata <- data.frame(
+    norm_exprs = norm_exprs(sce.endo)[geneId,],
+    pData(sce.endo)[,c("Infection","Status","Time")],
+    row.names = sampleNames(sce.endo)
+  )
+  ggplot(gdata, aes(Infection, norm_exprs)) + 
+    geom_violin() + geom_jitter(width = 0.1) +
+    facet_grid(Time ~ Status) +
+    ggtitle(sprintf("%s - %s", geneId, geneName))
+}
+```
+
+* functions to visualise *scde* estimate of expression and
+  differential expression
+  for a given gene (identifier)
+  in a given contrast
+  within a specific time point:
+  
+```{r single.scde}
+single.scde.2h <- function(gene, groupTarget, groupRef){
+  gT <- sprintf("2h_%s", groupTarget); gR <- sprintf("2h_%s", groupRef)
+  sg.test <- factor(pData(sce.ifm.2h)[,"Group"], levels = c(gT, gR))
+  scde.test.gene.expression.difference(
+    gene, o.ifm.2h, cd.ifm.2h, o.prior.2h, sg.test,
+    n.cores = 4, verbose = 1
+  )
+}
+single.scde.4h <- function(gene, groupTarget, groupRef){
+  gT <- sprintf("4h_%s", groupTarget); gR <- sprintf("4h_%s", groupRef)
+  sg.test <- factor(pData(sce.ifm.4h)[,"Group"], levels = c(gT, gR))
+  scde.test.gene.expression.difference(
+    gene, o.ifm.4h, cd.ifm.4h, o.prior.4h, sg.test,
+    n.cores = 4, verbose = 1
+  )
+}
+single.scde.6h <- function(gene, groupTarget, groupRef){
+  gT <- sprintf("6h_%s", groupTarget); gR <- sprintf("6h_%s", groupRef)
+  sg.test <- factor(pData(sce.ifm.6h)[,"Group"], levels = c(gT, gR))
+  scde.test.gene.expression.difference(
+    gene, o.ifm.6h, cd.ifm.6h, o.prior.6h, sg.test,
+    n.cores = 4, verbose = 1
+  )
+}
+```
+
+* various significance levels:
+
+```{r volcano.sig}
+sig.levels <- c(0.05, 0.01)
+volcano.sig <- data.frame(
+  P = sig.levels,
+  level = as.character(sig.levels)
+)
+```
+
+* a function to visualise *scde* differential expression statistics, and
+  return a table with those statistics augmented by a an empirical *P* value
+  computed from the *Z* score returned by *scde*:
+
+```{r volcano.mle}
+volcano.mle <- function(x, sub = NULL){
+  varName <- deparse(substitute(x))
+  x <- convert.z.score(x)
+  gg <- ggplot(x, aes(mle, -log10(p.value))) +
+    geom_point(aes(colour = (cZ != 0))) +
+    geom_hline(aes(yintercept=-log10(p.value),linetype=level),volcano.sig) +
+    ggtitle(varName, sub)
+  print(gg)
+  return(x)
+}
+```
+
+## Contrasts {.tabset}
+
+### 4h (2 vs 1)
+
+```{r contrasts.4h_run, eval=FALSE}
+groupTarget <- 2; groupRef <- 1
+sg.test <- factor(sce.ifm.4h$quickCluster, levels = c(groupTarget, groupRef))
+names(sg.test) <- sampleNames(sce.4h); summary(sg.test)
+contrastName <- sprintf("4h_cluster%s-cluster%s", groupTarget, groupRef); message(contrastName)
+scde.res[[contrastName]] <- scde.expression.difference(
+    o.ifm.4h, cd.4h, o.prior.4h, sg.test, n.cores = 4, verbose = 1
+  )
+```
+
+### 6h (2 vs 1)
+
+```{r contrasts.6h_run, eval=FALSE}
+groupTarget <- 2; groupRef <- 1
+sg.test <- factor(sce.ifm.6h$quickCluster, levels = c(groupTarget, groupRef))
+names(sg.test) <- sampleNames(sce.6h); summary(sg.test)
+contrastName <- sprintf("6h_cluster%s-cluster%s", groupTarget, groupRef); message(contrastName)
+scde.res[[contrastName]] <- scde.expression.difference(
+    o.ifm.6h, cd.6h, o.prior.6h, sg.test, n.cores = 4, verbose = 1
+  )
+```
+
+```{r scde.table_csv, echo=FALSE, eval=FALSE}
+saveRDS(scde.res, "rds/13_cluster_scde.res_v2.rds")
+for (contrastName in names(scde.res)){
+  scde.table <- scde.res[[contrastName]]
+  scde.table <- convert.z.score(addGENENAME(orderResults(scde.table)))
+  csv.file <- sprintf("SCDE_cluster_v2/%s.csv", contrastName)
+  write.csv(scde.table, csv.file)
+}
+```
+
+# Volcano plots {.tabset}
+
+## Setup
+
+Let us identify the extreme values of maximum likelihood estimate of
+fold-change to scale subsequent plot for comparability:
+
+```{r rangeMle}
+rangeMle <- max(abs(c(
+   scde.res[["4h_cluster2-cluster1"]]$mle,
+   scde.res[["6h_cluster2-cluster1"]]$mle
+))) * c(-1, 1)
+```
+
+
+## 4h (2 vs 1)
+
+```{r volcano_4h_2v1, echo=FALSE}
+v.data <- scde.res[["4h_cluster2-cluster1"]][,c("mle", "Z", "cZ")]
+v.data <- convert.z.score(v.data)
+ggplot(v.data) +
+  geom_point(aes(mle, -log10(p.value), colour = (cZ != 0)), size = 0.5) +
+  geom_hline(
+    aes(yintercept = -log10(P), linetype = level), data = volcano.sig
+  ) + scale_x_continuous(limits = rangeMle) + theme_bw() +
+  ggtitle("4h: cluster 2 - cluster 1")
+```
+
+## 6h (2 vs 1)
+
+```{r volcano_6h_2v1, echo=FALSE}
+v.data <- scde.res[["6h_cluster2-cluster1"]][,c("mle", "Z", "cZ")]
+v.data <- convert.z.score(v.data)
+ggplot(v.data) +
+  geom_point(aes(mle, -log10(p.value), colour = (cZ != 0)), size = 0.5) +
+  geom_hline(
+    aes(yintercept = -log10(P), linetype = level), data = volcano.sig
+  ) + scale_x_continuous(limits = rangeMle) + theme_bw() +
+  ggtitle("6h: cluster 2 - cluster 1")
+```
+
+# Count DE genes at various cut-offs {.tabset}
+
+## 4h (2 vs 1)
+
+```{r countDE_4h_2v1, echo=FALSE, results='asis'}
+v.data <- scde.res[["4h_cluster2-cluster1"]][,c("Z", "cZ")]
+v.data <- convert.z.score(v.data)
+v.data <- data.frame(
+  P.01 = sum(v.data$p.value < 0.01),
+  P.05 = sum(v.data$p.value < 0.05),
+  cZ = sum(v.data$cZ != 0),
+  row.names = "4h: cluster2 - cluster1"
+)
+pander::pandoc.table(v.data)
+```
+
+## 6h (2 vs 1)
+
+```{r countDE_6h_2v1, echo=FALSE, results='asis'}
+v.data <- scde.res[["6h_cluster2-cluster1"]][,c("Z", "cZ")]
+v.data <- convert.z.score(v.data)
+v.data <- data.frame(
+  P.01 = sum(v.data$p.value < 0.01),
+  P.05 = sum(v.data$p.value < 0.05),
+  cZ = sum(v.data$cZ != 0),
+  row.names = "6h: cluster2 - cluster1"
+)
+pander::pandoc.table(v.data)
+```
+
+# Gene ontology
+
+Let us use the [goseq](http://bioconductor.org/packages/goseq) package to
+identify the most enriched gene ontologies among the various lists of DE genes.
+Note that we restrict the results to GO categories associated with at least
+**10** genes, for robustness.
+
+Let us first define:
+
+* a list to store the GO enrichment tables returned by *goseq*
+
+```{r goseq.res_init, eval=FALSE}
+goseq.res <- list()
+```
+
+* the gene length information reported by *featureCounts*:
+
+```{r geneLengths}
+geneLengths <-
+  read.delim("counts/WTCHG_305264_201201", row.names = 1)[,1, drop = FALSE]
+```
+
+Let us identify over- and under-represented GO categories in DE genes
+identified in each contrast,
+using as background the list of genes detected at each time point:
+
+### 4h (2 vs 1)
+
+### 4h
+
+```{r GO_4h_DE, eval=FALSE}
+contrastName <- "4h_cluster2-cluster1"
+bg.4h <- featureNames(sce.ifm.4h)
+scde.table <- scde.res[[contrastName]]
+scde.table <- convert.z.score(scde.table)
+scde.table <- subset(scde.table, p.value < 0.01)
+de.genes <- (bg.4h %in% rownames(scde.table))
+names(de.genes) <- bg.4h; table(de.genes)
+pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes),])
+go.res <- goseq(pwf, "hg38", "ensGene")
+goseq.res[[contrastName]] <- go.res
+```
+
+### 6h
+
+```{r GO_6h_DE, eval=FALSE}
+contrastName <- "6h_cluster2-cluster1"
+bg.6h <- featureNames(sce.ifm.6h)
+scde.table <- scde.res[[contrastName]]
+scde.table <- convert.z.score(scde.table)
+scde.table <- subset(scde.table, p.value < 0.01)
+de.genes <- (bg.6h %in% rownames(scde.table))
+names(de.genes) <- bg.6h; table(de.genes)
+pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes),])
+go.res <- goseq(pwf, "hg38", "ensGene")
+goseq.res[[contrastName]] <- go.res
+```
+
+```{r, echo=FALSE, eval=FALSE}
+saveRDS(goseq.res, "rds/13_cluster_goseq.res_v2.rds")
+```
+
+## Tables {.tabset}
+
+### Setup
+
+Let us define a function to display the **50** most significantly
+`"over"`- or `"under"`-represented GO categories
+annotated to at least **10** genes (in the entire genome):
+
+```{r showTopGO}
+showTopGO <- function(x, direction = "over", cutoff = 0.05, min = 10){
+  goCols <- c(
+  "category","over_represented_pvalue","under_represented_pvalue",
+  "numDEInCat","numInCat","ontology","term")
+  directionCol <- sprintf("%s_represented_pvalue", direction)
+  tmp.go <- x[,goCols]
+  tmp.sig <- (tmp.go[,directionCol] < cutoff); tmp.go <- tmp.go[tmp.sig,]
+  tmp.min <- (tmp.go[,"numInCat"] >= min); tmp.go <- tmp.go[tmp.min,]
+  tmp.go <- tmp.go[order(tmp.go[,directionCol]),]
+  tmp.go <- head(tmp.go, 50)
+  DT::datatable(
+    tmp.go, list(pageLength = 10, searching = TRUE), filter = "top",
+    rownames = FALSE
+  )
+}
+```
+
+### Over-represented {.tabset}
+
+#### `r names(goseq.res)[1]`
+
+```{r goseq.over_1, echo=FALSE}
+showTopGO(goseq.res[[1]])
+```
+
+#### `r names(goseq.res)[2]`
+
+```{r goseq.over_2, echo=FALSE}
+showTopGO(goseq.res[[2]])
+```
+
+### Under-represented {.tabset}
+
+#### `r names(goseq.res)[1]`
+
+```{r goseq.under_1, echo=FALSE}
+showTopGO(goseq.res[[1]], "under")
+```
+
+#### `r names(goseq.res)[2]`
+
+```{r goseq.under_2, echo=FALSE}
+showTopGO(goseq.res[[2]], "under")
+```
+
+# Comparison of fold-change estimates
+
+*To do.*
+

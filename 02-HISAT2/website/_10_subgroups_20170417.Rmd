@@ -19,7 +19,7 @@ HVGs.group <- readRDS("rds/HVGsByGroups.rds")
 # Objective
 
 In previous sections, we have observed that the detection of
-[significant differences in gene expression](08_SCDE.html)
+[significant differences in gene expression](08_SCDE_v8.html)
 between groups of stimulated cells is limited by variability and bi-/multi-modal
 distribution of gene expression within each group.
 

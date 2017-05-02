@@ -44,12 +44,8 @@ navbar:
         href: 07_highlyVariableGenes.html
       - text: "SCDE"
         href: 08_SCDE_v8.html
-      - text: "Mann-Whitney"
-        href: 12_MannWhitney.html
-      - text: "Sub-group"
-        href: 10_subgroups.html
-      - text: "Temporal"
-        href: 11_SCPattern.html
+      - text: "Clusters"
+        href: 13_clusters_SCDE_v2.html
     - text: "About"
       href: about.html
 output:
@@ -63,5 +59,5 @@ output:
       collapsed: false
       smooth_scroll: true
 exclude: [
-  "rds", "counts", "expdata", "*.R", "*.pdf",
+  "rds", "counts", "expdata", "*.R", "*.pdf", "GO", "GOexpress",
   "t-test", "SCDE", "SCDE_v*", "BASiCS", "HVGs", "poster", "NGS-SIG", "out_*"]
