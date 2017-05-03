@@ -770,19 +770,9 @@ col9 <- RColorBrewer::brewer.pal(10, "Set3")[c(1:8, 10)]
 
 ## 4h
 
-```{r HeatMap_DE_4h, echo=FALSE}
+```{r HeatMap_DE_4h, echo=FALSE, fig.height=7}
 scde.table <- convert.z.score(scde.res[["4h_cluster2-cluster1"]])
-fn <- rownames(scde.table)
-tmp.gene <- data.frame(
-  Gene = fn,
-  DE = scde.table[fn, "p.value"] < 0.01,
-  Up = scde.table[fn, "mle"] > 0,
-  MeanExprs = rowMeans(norm_exprs(sce.ifm.4h)[fn,]),
-  p.value = scde.table[fn, "p.value"],
-  mle = scde.table[fn, "mle"],
-  stringsAsFactors = FALSE
-)
-scde.genes <- subset(arrange(tmp.gene, Up, -abs(mle)), DE, Gene, drop = TRUE)
+scde.genes <- rownames(scde.table)[scde.table$p.value < 0.01]
 scde.cells <-
   sampleNames(sce.ifm.4h)[order(factor(sce.ifm.4h$quickCluster,1:2),na.last=NA)]
 scde.norm <- norm_exprs(sce.ifm.4h)[scde.genes, scde.cells]
@@ -797,32 +787,17 @@ ha <- HeatmapAnnotation(
 )
 hm <- Heatmap(
   scde.norm,
-  name = "norm_exprs", column_title = "4h",
-  cluster_columns = FALSE, cluster_rows = FALSE, top_annotation = ha,
-  show_row_names = FALSE, show_column_names = FALSE
-) +
-  Heatmap(
-    tmp.gene[scde.genes,"mle"],
-    name = "MLE"
-  )
+  name = "norm_exprs", column_title = "4h", cluster_columns = FALSE,
+  top_annotation = ha, show_row_names = FALSE, show_column_names = FALSE
+)
 draw(hm)
 ```
 
 ## 6h
 
-```{r HeatMap_DE_h, echo=FALSE}
+```{r HeatMap_DE_6h, echo=FALSE, fig.height=7}
 scde.table <- convert.z.score(scde.res[["6h_cluster2-cluster1"]])
-fn <- rownames(scde.table)
-tmp.gene <- data.frame(
-  Gene = fn,
-  DE = scde.table[fn, "p.value"] < 0.01,
-  Up = scde.table[fn, "mle"] > 0,
-  MeanExprs = rowMeans(norm_exprs(sce.ifm.6h)[fn,]),
-  p.value = scde.table[fn, "p.value"],
-  mle = scde.table[fn, "mle"],
-  stringsAsFactors = FALSE
-)
-scde.genes <- subset(arrange(tmp.gene, Up, -abs(mle)), DE, Gene, drop = TRUE)
+scde.genes <- rownames(scde.table)[scde.table$p.value < 0.01]
 scde.cells <-
   sampleNames(sce.ifm.6h)[order(factor(sce.ifm.6h$quickCluster,1:2),na.last=NA)]
 scde.norm <- norm_exprs(sce.ifm.6h)[scde.genes, scde.cells]
@@ -837,13 +812,8 @@ ha <- HeatmapAnnotation(
 )
 hm <- Heatmap(
   scde.norm,
-  name = "norm_exprs", column_title = "6h",
-  cluster_columns = FALSE, cluster_rows = FALSE, top_annotation = ha,
-  show_row_names = FALSE, show_column_names = FALSE
-) +
-  Heatmap(
-    tmp.gene[scde.genes,"mle"],
-    name = "MLE"
-  )
+  name = "norm_exprs", column_title = "6h", cluster_columns = FALSE,
+  top_annotation = ha, show_row_names = FALSE, show_column_names = FALSE
+)
 draw(hm)
 ```
