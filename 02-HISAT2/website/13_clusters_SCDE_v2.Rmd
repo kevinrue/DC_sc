@@ -13,6 +13,9 @@ library(scater)
 library(scran)
 library(ggplot2)
 library(scde)
+library(ensembldb)
+library(ComplexHeatmap)
+library(dplyr)
 EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
 sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 o.ifm.2h <- readRDS("rds/o.ifm.2h_v8.rds")
@@ -626,7 +629,7 @@ v.data <- data.frame(
 pander::pandoc.table(v.data)
 ```
 
-# Gene ontology
+# Gene ontology {.tabset}
 
 Let us use the [goseq](http://bioconductor.org/packages/goseq) package to
 identify the most enriched gene ontologies among the various lists of DE genes.
@@ -684,8 +687,12 @@ go.res <- goseq(pwf, "hg38", "ensGene")
 goseq.res[[contrastName]] <- go.res
 ```
 
-```{r, echo=FALSE, eval=FALSE}
+```{r goseq.res, echo=FALSE, eval=FALSE}
 saveRDS(goseq.res, "rds/13_cluster_goseq.res_v2.rds")
+for (contrastName in names(goseq.res)){
+  goseq.table <- goseq.res[[contrastName]]
+  write.csv(goseq.table, sprintf("SCDE_cluster_v2/GO_%s.csv", contrastName))
+}
 ```
 
 ## Tables {.tabset}
@@ -746,3 +753,97 @@ showTopGO(goseq.res[[2]], "under")
 
 *To do.*
 
+# Heat map {#HeatMap .tabset}
+
+In this section, the differentially expressed genes identified above
+between clusters are displayed in heat maps
+
+
+First let us:
+
+* prepare a set of nine colours used to indicate *cluster membership*,
+  *infection*, and *status* information for each sample:
+
+```{r col9}
+col9 <- RColorBrewer::brewer.pal(10, "Set3")[c(1:8, 10)]
+```
+
+## 4h
+
+```{r HeatMap_DE_4h, echo=FALSE}
+scde.table <- convert.z.score(scde.res[["4h_cluster2-cluster1"]])
+fn <- rownames(scde.table)
+tmp.gene <- data.frame(
+  Gene = fn,
+  DE = scde.table[fn, "p.value"] < 0.01,
+  Up = scde.table[fn, "mle"] > 0,
+  MeanExprs = rowMeans(norm_exprs(sce.ifm.4h)[fn,]),
+  p.value = scde.table[fn, "p.value"],
+  mle = scde.table[fn, "mle"],
+  stringsAsFactors = FALSE
+)
+scde.genes <- subset(arrange(tmp.gene, Up, -abs(mle)), DE, Gene, drop = TRUE)
+scde.cells <-
+  sampleNames(sce.ifm.4h)[order(factor(sce.ifm.4h$quickCluster,1:2),na.last=NA)]
+scde.norm <- norm_exprs(sce.ifm.4h)[scde.genes, scde.cells]
+haNames <- c("quickCluster", "Status", "Infection")
+ha <- HeatmapAnnotation(
+  df = pData(sce.ifm.4h)[scde.cells, haNames],
+  col = list(
+    quickCluster = c("1" = col9[1], "2" = col9[2], "3" = col9[3]),
+    Status=c("uninfected" = col9[4],"exposed" = col9[5], "infected" = col9[6]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+  )
+)
+hm <- Heatmap(
+  scde.norm,
+  name = "norm_exprs", column_title = "4h",
+  cluster_columns = FALSE, cluster_rows = FALSE, top_annotation = ha,
+  show_row_names = FALSE, show_column_names = FALSE
+) +
+  Heatmap(
+    tmp.gene[scde.genes,"mle"],
+    name = "MLE"
+  )
+draw(hm)
+```
+
+## 6h
+
+```{r HeatMap_DE_h, echo=FALSE}
+scde.table <- convert.z.score(scde.res[["6h_cluster2-cluster1"]])
+fn <- rownames(scde.table)
+tmp.gene <- data.frame(
+  Gene = fn,
+  DE = scde.table[fn, "p.value"] < 0.01,
+  Up = scde.table[fn, "mle"] > 0,
+  MeanExprs = rowMeans(norm_exprs(sce.ifm.6h)[fn,]),
+  p.value = scde.table[fn, "p.value"],
+  mle = scde.table[fn, "mle"],
+  stringsAsFactors = FALSE
+)
+scde.genes <- subset(arrange(tmp.gene, Up, -abs(mle)), DE, Gene, drop = TRUE)
+scde.cells <-
+  sampleNames(sce.ifm.6h)[order(factor(sce.ifm.6h$quickCluster,1:2),na.last=NA)]
+scde.norm <- norm_exprs(sce.ifm.6h)[scde.genes, scde.cells]
+haNames <- c("quickCluster", "Status", "Infection")
+ha <- HeatmapAnnotation(
+  df = pData(sce.ifm.6h)[scde.cells, haNames],
+  col = list(
+    quickCluster = c("1" = col9[1], "2" = col9[2], "3" = col9[3]),
+    Status=c("uninfected" = col9[4],"exposed" = col9[5], "infected" = col9[6]),
+    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+  )
+)
+hm <- Heatmap(
+  scde.norm,
+  name = "norm_exprs", column_title = "6h",
+  cluster_columns = FALSE, cluster_rows = FALSE, top_annotation = ha,
+  show_row_names = FALSE, show_column_names = FALSE
+) +
+  Heatmap(
+    tmp.gene[scde.genes,"mle"],
+    name = "MLE"
+  )
+draw(hm)
+```
