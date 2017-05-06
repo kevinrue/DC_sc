@@ -11,7 +11,7 @@ reimported from disk, and smaller ones quickly recomputed. -->
 ```{r setup, include=FALSE}
 library(scater)
 library(ggplot2)
-sce.norm <- readRDS("rds/sce.norm.rds")
+sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 ```
 
 # normExprsByName
@@ -38,3 +38,8 @@ normExprsByName <- function(geneName = 'RAB29'){
 normExprsByName()
 ```
 
+# RAB29
+
+```{r MGLL}
+normExprsByName("MGLL")
+```
