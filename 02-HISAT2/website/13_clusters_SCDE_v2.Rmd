@@ -16,6 +16,7 @@ library(scde)
 library(ensembldb)
 library(ComplexHeatmap)
 library(dplyr)
+library(ggrepel)
 EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
 sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 o.ifm.2h <- readRDS("rds/o.ifm.2h_v8.rds")
@@ -744,7 +745,7 @@ showTopGO(goseq.res[[1]], "under")
 showTopGO(goseq.res[[2]], "under")
 ```
 
-# Comparison of fold-change estimates
+# Comparison of fold-change estimates {.tabset}
 
 Let us first define:
 
@@ -759,6 +760,7 @@ normExprsByName.4h <- function(geneId){
     pData(sc)[,c("Infection","Status","quickCluster")],
     row.names = sampleNames(sc)
   )
+  gdata$Infection <- paste("STM", gdata$Infection)
   geneName <- subset(fData(sc),gene_id==geneId,"gene_name",drop=TRUE)
   ggplot(gdata, aes(Status, norm_exprs, fill = Status)) + 
     geom_violin(alpha = 0.5) +
@@ -792,14 +794,14 @@ scde.table <- data.frame(
 )
 scde.table$GENENAME <-
   mapIds(EnsDb.Hsapiens.v79,scde.table$GENEID,"GENENAME","GENEID")
-scde.CTS <- subset(scde.table, GENENAME %in% c(
+scde.genes <- subset(scde.table, GENENAME %in% c(
   "CTSL","CTSD","IL1B","CD40",
   "CCL1","CCL7","STAT5B","S100A9"))
 ggplot(scde.table,aes(-mle.cluster,mle.group))+
   geom_point(size = 0.5, colour = "turquoise3", alpha = 0.2) +
   theme_minimal() + facet_grid(~ Group) +
-  ggrepel::geom_text_repel(
-    aes(label = GENENAME),data=scde.CTS,min.segment.length=unit(0,"mm")) +
+  geom_text_repel(
+    aes(label = GENENAME),data=scde.genes,min.segment.length=unit(0,"mm")) +
   labs(y="MLE infected / exposed",x="MLE cluster 1 / cluster 2",title="4h")
 ```
 
@@ -854,6 +856,43 @@ normExprsByName.4h("ENSG00000101017")
 
 ```{r IL1B_normExprsByName.4h, echo=FALSE, message=FALSE}
 normExprsByName.4h("ENSG00000125538")
+```
+
+## 6h {.tabset}
+
+### Plot
+
+```{r 6h_MLE_cluster_group, echo=FALSE}
+scde.6h.D23580 <- scde.groupRes[["6h_D23580_infected-6h_D23580_exposed"]]
+scde.6h.LT2 <- scde.groupRes[["6h_LT2_infected-6h_LT2_exposed"]]
+scde.6h.cluster <- scde.res[["6h_cluster2-cluster1"]]
+scde.6h.D23580 <- convert.z.score(scde.6h.D23580)
+scde.6h.LT2 <- convert.z.score(scde.6h.LT2)
+scde.6h.cluster <- convert.z.score(scde.6h.cluster)
+fn <- rownames(scde.6h.cluster)
+scde.table <- data.frame(
+  mle.cluster = rep(scde.6h.cluster[fn,"mle"], 2),
+  mle.group = c(scde.6h.D23580[fn,"mle"], scde.6h.LT2[fn,"mle"]),
+  Group = c(rep("STM-D23580",length(fn)), rep("STM-LT2",length(fn))),
+  GENEID = rep(fn, 2),
+  stringsAsFactors = FALSE
+)
+scde.table$GENENAME <-
+  mapIds(EnsDb.Hsapiens.v79,scde.table$GENEID,"GENENAME","GENEID")
+scde.genes <- subset(scde.table, GENENAME %in% c(
+  "LAMP3","IL12B","IL23A","IL1A",
+  "STAT5B","IL6","EBI3","IL36B"))
+ggplot(scde.table,aes(-mle.cluster,mle.group))+
+  geom_point(size = 0.5, colour = "turquoise3", alpha = 0.2) +
+  theme_minimal() + facet_grid(~ Group) +
+  geom_text_repel(
+    aes(label = GENENAME),data=scde.genes,min.segment.length=unit(0,"mm")) +
+  labs(y="MLE infected / exposed",x="MLE cluster 1 / cluster 2",title="6h")
+```
+
+```{r 6h_MLE_cluster_group_csv, echo=FALSE, eval=FALSE}
+scde.table$mle.p <- scde.table$mle.cluster * scde.table$mle.group
+write.csv(scde.table, "SCDE_cluster_v2/6h_MLE_cluster_group.csv")
 ```
 
 # Heat map {#HeatMap .tabset}
