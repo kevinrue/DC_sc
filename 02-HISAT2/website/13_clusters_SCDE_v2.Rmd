@@ -746,7 +746,56 @@ showTopGO(goseq.res[[2]], "under")
 
 # Comparison of fold-change estimates
 
-*To do.*
+```{r}
+# names(scde.res)
+scde.groupRes <- readRDS("rds/scde.res_v8.rds")
+# names(scde.groupRes)
+scde.4h.D23580 <- scde.groupRes[["4h_D23580_infected-4h_D23580_exposed"]]
+scde.4h.LT2 <- scde.groupRes[["4h_LT2_infected-4h_LT2_exposed"]]
+scde.4h.cluster <- scde.res[["4h_cluster2-cluster1"]]
+# head(scde.4h.cluster)
+scde.4h.D23580 <- convert.z.score(scde.4h.D23580)
+scde.4h.LT2 <- convert.z.score(scde.4h.LT2)
+scde.4h.cluster <- convert.z.score(scde.4h.cluster)
+# scde.table <- subset(scde.table, p.value < 0.01)
+fn <- rownames(scde.4h.cluster)
+scde.table <- data.frame(
+  mle.cluster = rep(scde.4h.cluster[fn,"mle"], 2),
+  mle.group = c(scde.4h.D23580[fn,"mle"], scde.4h.LT2[fn,"mle"]),
+  Group = c(rep("D23580",length(fn)), rep("LT2",length(fn))),
+  GENEID = rep(fn, 2),
+  stringsAsFactors = FALSE
+)
+ggplot(scde.table, aes(-mle.cluster, mle.group, colour = Group)) +
+  geom_point(size = 0.5) + theme_minimal() +
+  labs(y="MLE infected / exposed",x="MLE cluster 1 / cluster 2",title="4h")
+```
+
+```{r}
+scde.table$GENENAME <-
+  mapIds(EnsDb.Hsapiens.v79,scde.table$GENEID,"GENENAME","GENEID")
+scde.table$mle.p <- scde.table$mle.cluster * scde.table$mle.group
+scde.table <- subset(scde.table, abs(mle.cluster) > 2.5 & abs(mle.group) > 2.5)
+scde.dup.idx <- duplicated(scde.table$GENEID); table(scde.dup)
+scde.dup <- scde.table[scde.dup.idx,]
+```
+
+Venn diagram:
+
+```{r}
+de.4h.D23580 <- rownames(subset(scde.4h.D23580, p.value < 0.01))
+de.4h.LT2 <- rownames(subset(scde.4h.LT2, p.value < 0.01))
+de.4h.cluster <- rownames(subset(scde.4h.cluster, p.value < 0.01))
+vp <- VennDiagram::venn.diagram(
+  list(
+    D23580 = de.4h.D23580,
+    LT2 = de.4h.LT2,
+    clusters = de.4h.cluster
+  ), NULL
+)
+grid.newpage(); grid.draw(vp)
+```
+
 
 # Heat map {#HeatMap .tabset}
 
@@ -857,4 +906,5 @@ Up-regulated in cluster 2 relative to cluster 1 at the 6h time point:
 scde.id <- mapIds(EnsDb.Hsapiens.v79,"IL6","GENEID","GENENAME")
 single.scde.6h(scde.id, 2, 1)
 ```
+
 
