@@ -1027,7 +1027,7 @@ pander::pandoc.table(ex.scde.last.sig)
 ```
 
 
-## `r rownames(ex.scde.last.sig)`
+## `r rownames(ex.scde.last.sig)` {.tabset}
 
 Least significant gene record (P ~ 0.01)
 in contrast D23580 vs. LT2 infected at 6h:
