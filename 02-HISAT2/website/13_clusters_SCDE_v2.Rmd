@@ -298,7 +298,7 @@ clusters <- quickCluster(sce.ifm.2h,min.size=min(table(sce.ifm.2h$Treatment)))
 sce.ifm.2h$quickCluster <- clusters
 qc.2h <- rep(NA, ncol(sce.endo)); names(qc.2h) <- sampleNames(sce.endo)
 qc.2h[sampleNames(sce.ifm.2h)] <- as.numeric(levels(clusters)[clusters])
-sce.endo$quickCluster.2h <- factor(qc.2h, 0:3)
+sce.endo$quickCluster.2h <- as.factor(qc.2h)
 ```
 
 ## 4h
@@ -308,7 +308,7 @@ clusters <- quickCluster(sce.ifm.4h,min.size=min(table(sce.ifm.4h$Treatment)))
 sce.ifm.4h$quickCluster <- clusters
 qc.4h <- rep(NA, ncol(sce.endo)); names(qc.4h) <- sampleNames(sce.endo)
 qc.4h[sampleNames(sce.ifm.4h)] <- as.numeric(levels(clusters)[clusters])
-sce.endo$quickCluster.4h <- factor(qc.4h, 0:3)
+sce.endo$quickCluster.4h <- as.factor(qc.4h)
 ```
 
 ## 6h
@@ -318,8 +318,13 @@ clusters <- quickCluster(sce.ifm.6h,min.size=min(table(sce.ifm.6h$Treatment)))
 sce.ifm.6h$quickCluster <- clusters
 qc.6h <- rep(NA, ncol(sce.endo)); names(qc.6h) <- sampleNames(sce.endo)
 qc.6h[sampleNames(sce.ifm.6h)] <- as.numeric(levels(clusters)[clusters])
-sce.endo$quickCluster.6h <- factor(qc.6h, 0:3)
+sce.endo$quickCluster.6h <- as.factor(qc.6h)
 ```
+
+```{r, echo=FALSE, eval=FALSE}
+saveRDS(sce.endo, "rds/13_sce.endo_clusters.rds")
+```
+
 
 # Visualise {.tabset}
 
@@ -465,29 +470,19 @@ normExprsById <- function(geneId){
 * functions to visualise *scde* estimate of expression and
   differential expression
   for a given gene (identifier)
-  in a given contrast
+  in a given contrast of clusters
   within a specific time point:
   
 ```{r single.scde}
-single.scde.2h <- function(gene, groupTarget, groupRef){
-  gT <- sprintf("2h_%s", groupTarget); gR <- sprintf("2h_%s", groupRef)
-  sg.test <- factor(pData(sce.ifm.2h)[,"Group"], levels = c(gT, gR))
-  scde.test.gene.expression.difference(
-    gene, o.ifm.2h, cd.ifm.2h, o.prior.2h, sg.test,
-    n.cores = 4, verbose = 1
-  )
-}
 single.scde.4h <- function(gene, groupTarget, groupRef){
-  gT <- sprintf("4h_%s", groupTarget); gR <- sprintf("4h_%s", groupRef)
-  sg.test <- factor(pData(sce.ifm.4h)[,"Group"], levels = c(gT, gR))
+  sg.test <- factor(sce.ifm.4h$quickCluster, levels = c(groupTarget, groupRef))
   scde.test.gene.expression.difference(
     gene, o.ifm.4h, cd.ifm.4h, o.prior.4h, sg.test,
     n.cores = 4, verbose = 1
   )
 }
 single.scde.6h <- function(gene, groupTarget, groupRef){
-  gT <- sprintf("6h_%s", groupTarget); gR <- sprintf("6h_%s", groupRef)
-  sg.test <- factor(pData(sce.ifm.6h)[,"Group"], levels = c(gT, gR))
+  sg.test <- factor(sce.ifm.6h$quickCluster, levels = c(groupTarget, groupRef))
   scde.test.gene.expression.difference(
     gene, o.ifm.6h, cd.ifm.6h, o.prior.6h, sg.test,
     n.cores = 4, verbose = 1
@@ -771,11 +766,13 @@ col9 <- RColorBrewer::brewer.pal(10, "Set3")[c(1:8, 10)]
 ## 4h
 
 ```{r HeatMap_DE_4h, echo=FALSE, fig.height=7}
+# Expression matrix
 scde.table <- convert.z.score(scde.res[["4h_cluster2-cluster1"]])
 scde.genes <- rownames(scde.table)[scde.table$p.value < 0.01]
 scde.cells <-
   sampleNames(sce.ifm.4h)[order(factor(sce.ifm.4h$quickCluster,1:2),na.last=NA)]
 scde.norm <- norm_exprs(sce.ifm.4h)[scde.genes, scde.cells]
+# Sample annotations
 haNames <- c("quickCluster", "Status", "Infection")
 ha <- HeatmapAnnotation(
   df = pData(sce.ifm.4h)[scde.cells, haNames],
@@ -785,22 +782,39 @@ ha <- HeatmapAnnotation(
     Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
   )
 )
+# Gene annotations
+anno.names <- c(
+  "CTSS","CTSD","CTSL","CTSC","SPSB1","CTSB","GRN", # cathepsin
+  "S100A9","STAB1", # antimicrobial
+  "SPIRE1","VAMP4","LRP1","PSAP", # vesicles
+  "NFKBIA","IRF8","STAT5A","CEBPA", # transcription factors
+  "IL1B","IL1A","EBI3" # pro-inflammatory
+)
+anno.ids <- mapIds(EnsDb.Hsapiens.v79, anno.names, "GENEID", "GENENAME")
+stopifnot(length(anno.ids) == length(anno.names))
+gene.idx = match(anno.ids, rownames(scde.norm))
+ra <- rowAnnotation(
+  link = row_anno_link(at = gene.idx, labels = anno.names),
+  width = unit(0.25, "char") + max_text_width(labels))
+# Heat map
 hm <- Heatmap(
   scde.norm,
   name = "norm_exprs", column_title = "4h", cluster_columns = FALSE,
   top_annotation = ha, show_row_names = FALSE, show_column_names = FALSE
 )
-draw(hm)
+draw(hm + ra)
 ```
 
 ## 6h
 
 ```{r HeatMap_DE_6h, echo=FALSE, fig.height=7}
+# Expression matrix
 scde.table <- convert.z.score(scde.res[["6h_cluster2-cluster1"]])
 scde.genes <- rownames(scde.table)[scde.table$p.value < 0.01]
 scde.cells <-
   sampleNames(sce.ifm.6h)[order(factor(sce.ifm.6h$quickCluster,1:2),na.last=NA)]
 scde.norm <- norm_exprs(sce.ifm.6h)[scde.genes, scde.cells]
+# Sample annotations
 haNames <- c("quickCluster", "Status", "Infection")
 ha <- HeatmapAnnotation(
   df = pData(sce.ifm.6h)[scde.cells, haNames],
@@ -810,10 +824,37 @@ ha <- HeatmapAnnotation(
     Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
   )
 )
+# Gene annotations
+anno.names <- c(
+  "IL12B","IL23A","IL1A","EBI3","IL6","LITAF","NLRP1", # pro-inflammatory
+  "CREBRF","IRF8","STAT5","NFKB1","NFKB2","NFKBIA","MAFF", # TFs
+  "CTSB","CTSC","CTSD","CTSL","CAPN1", # proteases
+  "DEFB1","DUOX", # antimicrobial
+  "CORO1A" # vesicles
+)
+anno.ids <- mapIds(EnsDb.Hsapiens.v79, anno.names, "GENEID", "GENENAME")
+stopifnot(length(anno.ids) == length(anno.names))
+gene.idx = match(anno.ids, rownames(scde.norm))
+ra <- rowAnnotation(
+  link = row_anno_link(at = gene.idx, labels = anno.names),
+  width = unit(0.25, "char") + max_text_width(labels))
+# Heat map
 hm <- Heatmap(
   scde.norm,
   name = "norm_exprs", column_title = "6h", cluster_columns = FALSE,
   top_annotation = ha, show_row_names = FALSE, show_column_names = FALSE
 )
-draw(hm)
+draw(hm + ra)
 ```
+
+# Expression profile of selected genes {.tabset}
+
+## IL6
+
+Up-regulated in cluster 2 relative to cluster 1 at the 6h time point:
+
+```{r single.scde.6h_D23580_IL6, echo=FALSE}
+scde.id <- mapIds(EnsDb.Hsapiens.v79,"IL6","GENEID","GENENAME")
+single.scde.6h(scde.id, 2, 1)
+```
+
