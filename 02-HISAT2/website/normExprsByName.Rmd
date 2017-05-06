@@ -39,7 +39,8 @@ sce.endo$quickCluster.time <- qc.time
 
 ```{r normExprsByName}
 normExprsByName <- function(geneName = 'RAB29'){
-geneId <- subset(fData(sce.endo), gene_name == geneName, "gene_id", drop = TRUE)
+  geneId <-
+    subset(fData(sce.endo), gene_name == geneName, "gene_id", drop = TRUE)
   stopifnot(length(geneId) == 1)
   gdata <- data.frame(
     norm_exprs = norm_exprs(sce.endo)[geneId,],
