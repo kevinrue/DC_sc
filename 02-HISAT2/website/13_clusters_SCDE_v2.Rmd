@@ -761,13 +761,15 @@ scde.4h.cluster <- convert.z.score(scde.4h.cluster)
 fn <- rownames(scde.4h.cluster)
 scde.table <- data.frame(
   mle.cluster = rep(scde.4h.cluster[fn,"mle"], 2),
+  p.value.cluster = rep(scde.4h.cluster[fn,"p.value"], 2),
   mle.group = c(scde.4h.D23580[fn,"mle"], scde.4h.LT2[fn,"mle"]),
+  p.value.group = c(scde.4h.D23580[fn,"p.value"], scde.4h.LT2[fn,"p.value"]),
   Group = c(rep("D23580",length(fn)), rep("LT2",length(fn))),
   GENEID = rep(fn, 2),
   stringsAsFactors = FALSE
 )
-ggplot(scde.table, aes(-mle.cluster, mle.group)) +
-  geom_point(size = 0.5) + theme_minimal() + facet_grid(~ Group)
+ggplot(scde.table,aes(-mle.cluster,mle.group,colour=-log10(p.value.group)))+
+  geom_point(size = 0.5) + theme_minimal() + facet_grid(~ Group) +
   labs(y="MLE infected / exposed",x="MLE cluster 1 / cluster 2",title="4h")
 ```
 
