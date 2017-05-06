@@ -746,6 +746,34 @@ showTopGO(goseq.res[[2]], "under")
 
 # Comparison of fold-change estimates
 
+Let us first define:
+
+* a function that displays as violins the expression level of a given
+  gene in each group
+
+```{r normExprsById}
+normExprsByName.4h <- function(geneId){
+  sc <- sce.ifm.4h[,sce.ifm.4h$Infection != "Mock"]
+  gdata <- data.frame(
+    norm_exprs = norm_exprs(sc)[geneId,],
+    pData(sc)[,c("Infection","Status","quickCluster")],
+    row.names = sampleNames(sc)
+  )
+  geneName <- subset(fData(sc),gene_id==geneId,"gene_name",drop=TRUE)
+  ggplot(gdata, aes(Status, norm_exprs, fill = Status)) + 
+    geom_violin(alpha = 0.5) +
+    geom_jitter(width = 0.1) +
+    facet_grid(~Infection) +
+    ggtitle(sprintf("%s - %s", geneName, geneId)) +
+    scale_y_continuous(limits=range(norm_exprs(sce.endo))) + theme_minimal()
+}
+```
+
+
+## 4h {.tabset}
+
+### Plot
+
 ```{r 4h_MLE_cluster_group, echo=FALSE}
 scde.groupRes <- readRDS("rds/scde.res_v8.rds")
 scde.4h.D23580 <- scde.groupRes[["4h_D23580_infected-4h_D23580_exposed"]]
@@ -778,6 +806,54 @@ ggplot(scde.table,aes(-mle.cluster,mle.group))+
 ```{r 4h_MLE_cluster_group_csv, echo=FALSE, eval=FALSE}
 scde.table$mle.p <- scde.table$mle.cluster * scde.table$mle.group
 write.csv(scde.table, "SCDE_cluster_v2/4h_MLE_cluster_group.csv")
+```
+
+### CCL7
+
+```{r CCL7_normExprsByName.4h, echo=FALSE, message=FALSE}
+normExprsByName.4h("ENSG00000108688")
+```
+
+### S100A9
+
+```{r S100A9_normExprsByName.4h, echo=FALSE, message=FALSE}
+normExprsByName.4h("ENSG00000163220")
+```
+
+### CTSL
+
+```{r CTSL_normExprsByName.4h, echo=FALSE, message=FALSE}
+normExprsByName.4h("ENSG00000135047")
+```
+
+### CTSD
+
+```{r CTSD_normExprsByName.4h, echo=FALSE, message=FALSE}
+normExprsByName.4h("ENSG00000117984")
+```
+
+### STAT5B
+
+```{r STAT5B_normExprsByName.4h, echo=FALSE, message=FALSE}
+normExprsByName.4h("ENSG00000173757")
+```
+
+### CCL1
+
+```{r CCL1_normExprsByName.4h, echo=FALSE, message=FALSE}
+normExprsByName.4h("ENSG00000108702")
+```
+
+### CD40
+
+```{r CD40_normExprsByName.4h, echo=FALSE, message=FALSE}
+normExprsByName.4h("ENSG00000101017")
+```
+
+### IL1B
+
+```{r IL1B_normExprsByName.4h, echo=FALSE, message=FALSE}
+normExprsByName.4h("ENSG00000125538")
 ```
 
 # Heat map {#HeatMap .tabset}
