@@ -11,24 +11,46 @@ reimported from disk, and smaller ones quickly recomputed. -->
 ```{r setup, include=FALSE}
 library(scater)
 library(ggplot2)
-sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
+sce.endo <- readRDS("rds/13_sce.endo_clusters.rds")
+```
+
+# Prepare data
+
+Let us create for each cell, a new `phenoData` field that indicates which
+clustes of which time point it belongs to:
+
+```{r}
+qc.time <- NA
+qc.time[sce.endo$Time == "2h"] <- 
+  paste("2h", sce.endo$quickCluster.2h[sce.endo$Time == "2h"])
+qc.time[sce.endo$Time == "4h"] <-
+  sprintf("4h %s", sce.endo$quickCluster.4h[sce.endo$Time == "4h"])
+qc.time[sce.endo$Time == "6h"] <-
+  sprintf("6h %s", sce.endo$quickCluster.6h[sce.endo$Time == "6h"])
+qc.time <- factor(qc.time, c(
+  paste("2h", levels(sce.endo$quickCluster.2h)),
+  paste("4h", levels(sce.endo$quickCluster.4h)),
+  paste("6h", levels(sce.endo$quickCluster.6h))
+))
+sce.endo$quickCluster.time <- qc.time
 ```
 
 # normExprsByName
 
 ```{r normExprsByName}
 normExprsByName <- function(geneName = 'RAB29'){
-  geneId <- subset(fData(sce.norm), gene_name == geneName, "gene_id", drop = TRUE)
+geneId <- subset(fData(sce.endo), gene_name == geneName, "gene_id", drop = TRUE)
   stopifnot(length(geneId) == 1)
   gdata <- data.frame(
-    norm_exprs = norm_exprs(sce.norm)[geneId,],
-    pData(sce.norm)[,c("Infection","Status","Time")],
-    row.names = sampleNames(sce.norm)
+    norm_exprs = norm_exprs(sce.endo)[geneId,],
+    pData(sce.endo)[,c("Infection","Status","Time","quickCluster.time")],
+    row.names = sampleNames(sce.endo)
   )
   ggplot(gdata, aes(Infection, norm_exprs)) + 
-    geom_violin() + geom_jitter(width = 0.1) +
+    geom_violin() +
+    geom_jitter(aes(colour = quickCluster.time), width = 0.1) +
     facet_grid(Time ~ Status) +
-    ggtitle(sprintf("%s - %s", "RAB29", geneId))
+    ggtitle(sprintf("%s - %s", geneName, geneId))
 }
 ```
 
@@ -38,8 +60,27 @@ normExprsByName <- function(geneName = 'RAB29'){
 normExprsByName()
 ```
 
-# RAB29
+# MGLL
 
 ```{r MGLL}
 normExprsByName("MGLL")
 ```
+
+# NLRP1
+
+```{r NLRP1}
+normExprsByName("NLRP1")
+```
+
+# CTSB
+
+```{r CTSB}
+normExprsByName("CTSB")
+```
+
+# IL6
+
+```{r IL6}
+normExprsByName("IL6")
+```
+
