@@ -24,6 +24,7 @@ o.ifm.4h <- readRDS("rds/o.ifm.4h_v8.rds")
 o.ifm.6h <- readRDS("rds/o.ifm.6h_v8.rds")
 scde.res <- readRDS("rds/13_cluster_scde.res_v2.rds")
 goseq.res <- readRDS("rds/13_cluster_goseq.res_v2.rds")
+scde.groupRes <- readRDS("rds/scde.res_v8.rds")
 ```
 
 <!-- Cleaner code based on 08_SCDE_v8
@@ -561,11 +562,9 @@ for (contrastName in names(scde.res)){
 Let us identify the extreme values of maximum likelihood estimate of
 fold-change to scale subsequent plot for comparability:
 
-```{r rangeMle}
-rangeMle <- max(abs(c(
-   scde.res[["4h_cluster2-cluster1"]]$mle,
-   scde.res[["6h_cluster2-cluster1"]]$mle
-))) * c(-1, 1)
+```{r mleRange}
+mleRange <-
+  max(abs(do.call("c", lapply(scde.res, function(x){return(x$mle)}))))*c(-1,1)
 ```
 
 
@@ -578,7 +577,7 @@ ggplot(v.data) +
   geom_point(aes(mle, -log10(p.value), colour = (cZ != 0)), size = 0.5) +
   geom_hline(
     aes(yintercept = -log10(P), linetype = level), data = volcano.sig
-  ) + scale_x_continuous(limits = rangeMle) + theme_bw() +
+  ) + scale_x_continuous(limits = mleRange) + theme_bw() +
   ggtitle("4h: cluster 2 - cluster 1")
 ```
 
@@ -591,7 +590,7 @@ ggplot(v.data) +
   geom_point(aes(mle, -log10(p.value), colour = (cZ != 0)), size = 0.5) +
   geom_hline(
     aes(yintercept = -log10(P), linetype = level), data = volcano.sig
-  ) + scale_x_continuous(limits = rangeMle) + theme_bw() +
+  ) + scale_x_continuous(limits = mleRange) + theme_bw() +
   ggtitle("6h: cluster 2 - cluster 1")
 ```
 
@@ -745,14 +744,21 @@ showTopGO(goseq.res[[1]], "under")
 showTopGO(goseq.res[[2]], "under")
 ```
 
-# Comparison of fold-change estimates {.tabset}
+# Comparison of fold-change between clusters and experimental groups {.tabset}
 
 Let us first define:
 
-* a function that displays as violins the expression level of a given
-  gene in each group
+* prepare a set of nine colours used to indicate *cluster membership*,
+  *infection*, and *status* information for each sample:
 
-```{r normExprsById}
+```{r col9}
+col9 <- RColorBrewer::brewer.pal(10, "Set3")[c(1:8, 10)]
+```
+
+* functions that displays as violins the expression level of a given
+  gene in each group at 4h and 6h, respectively
+
+```{r normExprsByName.4h}
 normExprsByName.4h <- function(geneId){
   sc <- sce.ifm.4h[,sce.ifm.4h$Infection != "Mock"]
   gdata <- data.frame(
@@ -767,8 +773,35 @@ normExprsByName.4h <- function(geneId){
     geom_jitter(width = 0.1) +
     facet_grid(~Infection) +
     ggtitle(sprintf("%s - %s", geneName, geneId)) +
-    scale_y_continuous(limits=range(norm_exprs(sce.endo))) + theme_minimal()
+    scale_y_continuous(limits=range(norm_exprs(sc))) + theme_minimal()
 }
+normExprsByName.6h <- function(geneId){
+  sc <- sce.ifm.6h[,sce.ifm.6h$Infection != "Mock"]
+  gdata <- data.frame(
+    norm_exprs = norm_exprs(sc)[geneId,],
+    pData(sc)[,c("Infection","Status","quickCluster")],
+    row.names = sampleNames(sc)
+  )
+  gdata$Infection <- paste("STM", gdata$Infection)
+  geneName <- subset(fData(sc),gene_id==geneId,"gene_name",drop=TRUE)
+  ggplot(gdata, aes(Status, norm_exprs, fill = Status)) + 
+    geom_violin(alpha = 0.5) +
+    geom_jitter(width = 0.1) +
+    facet_grid(~Infection) +
+    ggtitle(sprintf("%s - %s", geneName, geneId)) +
+    scale_y_continuous(limits=range(norm_exprs(sc))) + theme_minimal()
+}
+```
+
+```{r mleRange2, include=FALSE}
+scde.4h.D23580 <- scde.groupRes[["4h_D23580_infected-4h_D23580_exposed"]]
+scde.4h.LT2 <- scde.groupRes[["4h_LT2_infected-4h_LT2_exposed"]]
+scde.6h.D23580 <- scde.groupRes[["6h_D23580_infected-6h_D23580_exposed"]]
+scde.6h.LT2 <- scde.groupRes[["6h_LT2_infected-6h_LT2_exposed"]]
+mleRange2 <-
+  max(abs(do.call("c", lapply(
+    append(scde.res,list(scde.4h.D23580,scde.4h.LT2,scde.6h.D23580,scde.6h.LT2)),
+    function(x){return(x$mle)}))))*c(-1,1)
 ```
 
 
@@ -776,10 +809,7 @@ normExprsByName.4h <- function(geneId){
 
 ### Plot
 
-```{r 4h_MLE_cluster_group, echo=FALSE}
-scde.groupRes <- readRDS("rds/scde.res_v8.rds")
-scde.4h.D23580 <- scde.groupRes[["4h_D23580_infected-4h_D23580_exposed"]]
-scde.4h.LT2 <- scde.groupRes[["4h_LT2_infected-4h_LT2_exposed"]]
+```{r 4h_MLE_cluster_group, echo=FALSE, warning=FALSE, fig.height=5}
 scde.4h.cluster <- scde.res[["4h_cluster2-cluster1"]]
 scde.4h.D23580 <- convert.z.score(scde.4h.D23580)
 scde.4h.LT2 <- convert.z.score(scde.4h.LT2)
@@ -800,6 +830,7 @@ scde.genes <- subset(scde.table, GENENAME %in% c(
 ggplot(scde.table,aes(-mle.cluster,mle.group))+
   geom_point(size = 0.5, colour = "turquoise3", alpha = 0.2) +
   theme_minimal() + facet_grid(~ Group) +
+  scale_x_continuous(limits=mleRange2) + scale_y_continuous(limits=mleRange2) +
   geom_text_repel(
     aes(label = GENENAME),data=scde.genes,min.segment.length=unit(0,"mm")) +
   labs(y="MLE infected / exposed",x="MLE cluster 1 / cluster 2",title="4h")
@@ -812,49 +843,49 @@ write.csv(scde.table, "SCDE_cluster_v2/4h_MLE_cluster_group.csv")
 
 ### CCL7
 
-```{r CCL7_normExprsByName.4h, echo=FALSE, message=FALSE}
+```{r CCL7_normExprsByName.4h, echo=FALSE, warning=FALSE}
 normExprsByName.4h("ENSG00000108688")
 ```
 
 ### S100A9
 
-```{r S100A9_normExprsByName.4h, echo=FALSE, message=FALSE}
+```{r S100A9_normExprsByName.4h, echo=FALSE, warning=FALSE}
 normExprsByName.4h("ENSG00000163220")
 ```
 
 ### CTSL
 
-```{r CTSL_normExprsByName.4h, echo=FALSE, message=FALSE}
+```{r CTSL_normExprsByName.4h, echo=FALSE, warning=FALSE}
 normExprsByName.4h("ENSG00000135047")
 ```
 
 ### CTSD
 
-```{r CTSD_normExprsByName.4h, echo=FALSE, message=FALSE}
+```{r CTSD_normExprsByName.4h, echo=FALSE, warning=FALSE}
 normExprsByName.4h("ENSG00000117984")
 ```
 
 ### STAT5B
 
-```{r STAT5B_normExprsByName.4h, echo=FALSE, message=FALSE}
+```{r STAT5B_normExprsByName.4h, echo=FALSE, warning=FALSE}
 normExprsByName.4h("ENSG00000173757")
 ```
 
 ### CCL1
 
-```{r CCL1_normExprsByName.4h, echo=FALSE, message=FALSE}
+```{r CCL1_normExprsByName.4h, echo=FALSE, warning=FALSE}
 normExprsByName.4h("ENSG00000108702")
 ```
 
 ### CD40
 
-```{r CD40_normExprsByName.4h, echo=FALSE, message=FALSE}
+```{r CD40_normExprsByName.4h, echo=FALSE, warning=FALSE}
 normExprsByName.4h("ENSG00000101017")
 ```
 
 ### IL1B
 
-```{r IL1B_normExprsByName.4h, echo=FALSE, message=FALSE}
+```{r IL1B_normExprsByName.4h, echo=FALSE, warning=FALSE}
 normExprsByName.4h("ENSG00000125538")
 ```
 
@@ -862,9 +893,7 @@ normExprsByName.4h("ENSG00000125538")
 
 ### Plot
 
-```{r 6h_MLE_cluster_group, echo=FALSE}
-scde.6h.D23580 <- scde.groupRes[["6h_D23580_infected-6h_D23580_exposed"]]
-scde.6h.LT2 <- scde.groupRes[["6h_LT2_infected-6h_LT2_exposed"]]
+```{r 6h_MLE_cluster_group, echo=FALSE, warning=FALSE, fig.height=5}
 scde.6h.cluster <- scde.res[["6h_cluster2-cluster1"]]
 scde.6h.D23580 <- convert.z.score(scde.6h.D23580)
 scde.6h.LT2 <- convert.z.score(scde.6h.LT2)
@@ -885,6 +914,7 @@ scde.genes <- subset(scde.table, GENENAME %in% c(
 ggplot(scde.table,aes(-mle.cluster,mle.group))+
   geom_point(size = 0.5, colour = "turquoise3", alpha = 0.2) +
   theme_minimal() + facet_grid(~ Group) +
+  scale_x_continuous(limits=mleRange2) + scale_y_continuous(limits=mleRange2) +
   geom_text_repel(
     aes(label = GENENAME),data=scde.genes,min.segment.length=unit(0,"mm")) +
   labs(y="MLE infected / exposed",x="MLE cluster 1 / cluster 2",title="6h")
@@ -895,20 +925,121 @@ scde.table$mle.p <- scde.table$mle.cluster * scde.table$mle.group
 write.csv(scde.table, "SCDE_cluster_v2/6h_MLE_cluster_group.csv")
 ```
 
+### IL23A
+
+```{r IL23A_normExprsByName.6h, echo=FALSE, warning=FALSE}
+normExprsByName.6h("ENSG00000110944")
+```
+
+### IL12B
+
+```{r IL12B_normExprsByName.6h, echo=FALSE, warning=FALSE}
+normExprsByName.6h("ENSG00000110944")
+```
+
+### EBI3
+
+```{r EBI3_normExprsByName.6h, echo=FALSE, warning=FALSE}
+normExprsByName.6h("ENSG00000105246")
+```
+
+### IL1A
+
+```{r IL1A_normExprsByName.6h, echo=FALSE, warning=FALSE}
+normExprsByName.6h("ENSG00000115008")
+```
+
+### IL6
+
+```{r IL6_normExprsByName.6h, echo=FALSE, warning=FALSE}
+normExprsByName.6h("ENSG00000136244")
+```
+
+### LAMP3
+
+```{r LAMP3_normExprsByName.6h, echo=FALSE, warning=FALSE}
+normExprsByName.6h("ENSG00000078081")
+```
+
+### STAT5B
+
+```{r STAT5B_normExprsByName.6h, echo=FALSE, warning=FALSE}
+normExprsByName.6h("ENSG00000173757")
+```
+
+### IL36B
+
+```{r IL36B_normExprsByName.6h, echo=FALSE, warning=FALSE}
+normExprsByName.6h("ENSG00000136696")
+```
+
+### Heat map
+
+```{r heatmap, echo=FALSE}
+exprsRange <- range(norm_exprs(sce.ifm.6h))
+colorMap <- circlize::colorRamp2(
+  c(min(exprsRange), median(exprsRange), max(exprsRange)),
+  c("blue","white","red"))
+geneNames <- c(
+  "IL12B","IL23A","IL1A","IL1B","IL6","EBI3",
+  "DEFB1","CTSL")
+geneIds<-mapIds(EnsDb.Hsapiens.v79,geneNames,"GENEID","GENENAME")
+stopifnot(length(geneIds) == length(geneNames))
+norm.mat <- norm_exprs(sce.ifm.6h)[geneIds,]
+norm.d23exp <- norm.mat[,sce.ifm.6h$Treatment == "D23580_exposed"]
+norm.d23inf <- norm.mat[,sce.ifm.6h$Treatment == "D23580_infected"]
+norm.lt2exp <- norm.mat[,sce.ifm.6h$Treatment == "LT2_exposed"]
+norm.lt2inf <- norm.mat[,sce.ifm.6h$Treatment == "LT2_infected"]
+ha.d23.exp <- HeatmapAnnotation(
+  df = pData(sce.ifm.6h)[colnames(norm.d23exp), "quickCluster", drop = FALSE],
+  col = list(quickCluster = c("1" = col9[1], "2" = col9[2], "3" = col9[3]))
+)
+ha.d23.inf <- HeatmapAnnotation(
+  df = pData(sce.ifm.6h)[colnames(norm.d23inf), "quickCluster", drop = FALSE],
+  col = list(quickCluster = c("1" = col9[1], "2" = col9[2], "3" = col9[3])),
+  show_legend = FALSE
+)
+ha.lt2.exp <- HeatmapAnnotation(
+  df = pData(sce.ifm.6h)[colnames(norm.lt2exp), "quickCluster", drop = FALSE],
+  col = list(quickCluster = c("1" = col9[1], "2" = col9[2], "3" = col9[3])),
+  show_legend = FALSE
+)
+ha.lt2.inf <- HeatmapAnnotation(
+  df = pData(sce.ifm.6h)[colnames(norm.lt2inf), "quickCluster", drop = FALSE],
+  col = list(quickCluster = c("1" = col9[1], "2" = col9[2], "3" = col9[3])),
+  show_legend = FALSE
+)
+rownames(norm.d23exp) <- geneNames
+hm.split <- c(rep(" ",6), rep("  ",2))
+ht_list <-
+  Heatmap(
+    norm.d23exp, colorMap, "Normalised\nexpression", row_names_side = "left",
+    cluster_rows=FALSE,show_column_names=FALSE,show_column_dend=FALSE,
+    column_title_gp = gpar(fontsize = 10), top_annotation = ha.d23.exp,
+    column_title = "STM-D23580\nexposed") +
+  Heatmap(
+    norm.d23inf, colorMap, "hm2", show_row_names = FALSE,
+    cluster_rows=FALSE,show_column_names=FALSE,show_column_dend=FALSE,
+    column_title_gp = gpar(fontsize = 10), column_title = "STM-D23580\ninfected",
+    top_annotation = ha.d23.inf, show_heatmap_legend = FALSE) + 
+  Heatmap(
+    norm.lt2exp, colorMap, "hm3", show_row_names = FALSE,
+    cluster_rows=FALSE,show_column_names=FALSE,show_column_dend=FALSE,
+    column_title_gp = gpar(fontsize = 10), column_title = "STM-LT2\nexposed",
+    top_annotation = ha.lt2.inf, show_heatmap_legend = FALSE) + 
+  Heatmap(
+    norm.lt2inf, colorMap, "hm4", show_row_names = FALSE,
+    cluster_rows=FALSE,show_column_names=FALSE,show_column_dend=FALSE,
+    column_title_gp = gpar(fontsize = 10), column_title = "STM-LT2\ninfected",
+    top_annotation = ha.lt2.inf, show_heatmap_legend = FALSE)
+draw(ht_list, split = hm.split)
+```
+
+
 # Heat map {#HeatMap .tabset}
 
 In this section, the differentially expressed genes identified above
-between clusters are displayed in heat maps
-
-
-First let us:
-
-* prepare a set of nine colours used to indicate *cluster membership*,
-  *infection*, and *status* information for each sample:
-
-```{r col9}
-col9 <- RColorBrewer::brewer.pal(10, "Set3")[c(1:8, 10)]
-```
+between clusters are displayed in heat maps.
 
 ## 4h
 
