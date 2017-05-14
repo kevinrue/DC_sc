@@ -17,6 +17,7 @@ library(ensembldb)
 library(ComplexHeatmap)
 library(dplyr)
 library(ggrepel)
+library(RColorBrewer)
 EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
 sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 o.ifm.2h <- readRDS("rds/o.ifm.2h_v8.rds")
@@ -328,7 +329,19 @@ saveRDS(sce.endo, "rds/13_sce.endo_clusters.rds")
 ```
 
 
-# Visualise {.tabset}
+# tSNE {.tabset}
+
+Let us first define:
+
+* a set of colours used to indicate *cluster membership*,
+  *Infection* and *Status* phenotypes consistently in the upcoming sections:
+
+```{r col.sets}
+col.set3 <- brewer.pal(12, "Set3")
+col.cluster <- col.set3[c(1,12,3,4,9)]; names(col.cluster) <- c(1:3,0,"NA")
+col.status<-col.set3[c(3,5:6)];names(col.status)<-levels(sce.norm$Status)
+col.infection<-col.set3[c(3,8,10)];names(col.infection)<-levels(sce.norm$Infection)
+```
 
 ## 2h
 
@@ -340,7 +353,7 @@ tmpGG <- data.frame(
 )
 ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
   geom_point() + theme_bw() + labs(x="Dimension 1",y="Dimension 2",title="2h") +
-  scale_color_discrete(drop = FALSE)
+  scale_color_manual(values = col.cluster, na.value = col.cluster["NA"])
 ```
 
 Cross-tabulated counts of cells by cluster and experimental treatment:
@@ -361,7 +374,7 @@ tmpGG <- data.frame(
 )
 ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
   geom_point() + theme_bw() + labs(x="Dimension 1",y="Dimension 2",title="4h") +
-  scale_color_discrete(drop = FALSE)
+  scale_color_manual(values = col.cluster, na.value = col.cluster["NA"])
 ```
 
 Cross-tabulated counts of cells by cluster and experimental treatment:
@@ -382,7 +395,7 @@ tmpGG <- data.frame(
 )
 ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
   geom_point() + theme_bw() + labs(x="Dimension 1",y="Dimension 2",title="6h") +
-  scale_color_discrete(drop = FALSE)
+  scale_color_manual(values = col.cluster, na.value = col.cluster["NA"])
 ```
 
 Cross-tabulated counts of cells by cluster and experimental treatment:
@@ -624,7 +637,7 @@ v.data <- data.frame(
 pander::pandoc.table(v.data)
 ```
 
-# Gene ontology {.tabset}
+# Gene ontology
 
 Let us use the [goseq](http://bioconductor.org/packages/goseq) package to
 identify the most enriched gene ontologies among the various lists of DE genes.
@@ -650,9 +663,9 @@ Let us identify over- and under-represented GO categories in DE genes
 identified in each contrast,
 using as background the list of genes detected at each time point:
 
-### 4h (2 vs 1)
+## Estimate enrichment {.tabset}
 
-### 4h
+### 4h (2 vs 1)
 
 ```{r GO_4h_DE, eval=FALSE}
 contrastName <- "4h_cluster2-cluster1"
@@ -667,7 +680,7 @@ go.res <- goseq(pwf, "hg38", "ensGene")
 goseq.res[[contrastName]] <- go.res
 ```
 
-### 6h
+### 6h (2 vs 1)
 
 ```{r GO_6h_DE, eval=FALSE}
 contrastName <- "6h_cluster2-cluster1"
@@ -748,13 +761,6 @@ showTopGO(goseq.res[[2]], "under")
 
 Let us first define:
 
-* prepare a set of nine colours used to indicate *cluster membership*,
-  *infection*, and *status* information for each sample:
-
-```{r col9}
-col9 <- RColorBrewer::brewer.pal(10, "Set3")[c(1:8, 10)]
-```
-
 * functions that displays as violins the expression level of a given
   gene in each group at 4h and 6h, respectively
 
@@ -769,11 +775,11 @@ normExprsByName.4h <- function(geneId){
   gdata$Infection <- paste("STM", gdata$Infection)
   geneName <- subset(fData(sc),gene_id==geneId,"gene_name",drop=TRUE)
   ggplot(gdata, aes(Status, norm_exprs, fill = Status)) + 
-    geom_violin(alpha = 0.5) +
-    geom_jitter(width = 0.1) +
-    facet_grid(~Infection) +
-    ggtitle(sprintf("%s - %s", geneName, geneId)) +
-    scale_y_continuous(limits=range(norm_exprs(sc))) + theme_minimal()
+    geom_violin(alpha = 0.25) +
+    geom_jitter(aes(colour = quickCluster), width = 0.25, size = 3) +
+    facet_grid(~Infection) + ggtitle(sprintf("%s - %s", geneName, geneId)) +
+    scale_y_continuous(limits=range(norm_exprs(sc))) +
+    scale_colour_manual(values = col.cluster) + theme_minimal()
 }
 normExprsByName.6h <- function(geneId){
   sc <- sce.ifm.6h[,sce.ifm.6h$Infection != "Mock"]
@@ -785,11 +791,11 @@ normExprsByName.6h <- function(geneId){
   gdata$Infection <- paste("STM", gdata$Infection)
   geneName <- subset(fData(sc),gene_id==geneId,"gene_name",drop=TRUE)
   ggplot(gdata, aes(Status, norm_exprs, fill = Status)) + 
-    geom_violin(alpha = 0.5) +
-    geom_jitter(width = 0.1) +
-    facet_grid(~Infection) +
-    ggtitle(sprintf("%s - %s", geneName, geneId)) +
-    scale_y_continuous(limits=range(norm_exprs(sc))) + theme_minimal()
+    geom_violin(alpha = 0.25) +
+    geom_jitter(aes(colour = quickCluster), width = 0.25, size = 3) +
+    facet_grid(~Infection) + ggtitle(sprintf("%s - %s", geneName, geneId)) +
+    scale_y_continuous(limits=range(norm_exprs(sc))) +
+    scale_colour_manual(values = col.cluster) + theme_minimal()
 }
 ```
 
@@ -824,9 +830,22 @@ scde.table <- data.frame(
 )
 scde.table$GENENAME <-
   mapIds(EnsDb.Hsapiens.v79,scde.table$GENEID,"GENENAME","GENEID")
-scde.genes <- subset(scde.table, GENENAME %in% c(
-  "CTSL","CTSD","IL1B","CD40",
-  "CCL1","CCL7","STAT5B","S100A9"))
+scde.genes <- subset(scde.table, GENEID %in% c(
+  # Cluster 1
+  "ENSG00000108688", # CCL7
+  "ENSG00000163220", # S100A9
+  "ENSG00000135047", # CTSL
+  "ENSG00000117984", # CTSD
+  "ENSG00000010327", # STAB1
+  "ENSG00000163131", # CTSS
+  # Cluster 2
+  "ENSG00000173757", # STAT5B
+  "ENSG00000108702", # CCL1
+  "ENSG00000101017", # CD40
+  "ENSG00000115008", # IL1A
+  "ENSG00000125538", # IL1B
+  "ENSG00000100906" # NFKBIA
+))
 ggplot(scde.table,aes(-mle.cluster,mle.group))+
   geom_point(size = 0.5, colour = "turquoise3", alpha = 0.2) +
   theme_minimal() + facet_grid(~ Group) +
@@ -843,50 +862,78 @@ write.csv(scde.table, "SCDE_cluster_v2/4h_MLE_cluster_group.csv")
 
 ### CCL7
 
-```{r CCL7_normExprsByName.4h, echo=FALSE, warning=FALSE}
+<!-- From the highest cluster 1 genes -->
+
+```{r CCL7_normExprsByName.4h, echo=FALSE, warning=FALSE, fig.height=5}
 normExprsByName.4h("ENSG00000108688")
 ```
 
 ### S100A9
 
-```{r S100A9_normExprsByName.4h, echo=FALSE, warning=FALSE}
+```{r S100A9_normExprsByName.4h, echo=FALSE, warning=FALSE, fig.height=5}
 normExprsByName.4h("ENSG00000163220")
 ```
 
 ### CTSL
 
-```{r CTSL_normExprsByName.4h, echo=FALSE, warning=FALSE}
+```{r CTSL_normExprsByName.4h, echo=FALSE, warning=FALSE, fig.height=5}
 normExprsByName.4h("ENSG00000135047")
 ```
 
 ### CTSD
 
-```{r CTSD_normExprsByName.4h, echo=FALSE, warning=FALSE}
+```{r CTSD_normExprsByName.4h, echo=FALSE, warning=FALSE, fig.height=5}
 normExprsByName.4h("ENSG00000117984")
+```
+
+### CTSS
+
+```{r CTSS_normExprsByName.4h, echo=FALSE, warning=FALSE, fig.height=5}
+normExprsByName.4h("ENSG00000163131")
+```
+
+### STAB1
+
+```{r STAB1_normExprsByName.4h, echo=FALSE, warning=FALSE, fig.height=5}
+normExprsByName.4h("ENSG00000010327")
 ```
 
 ### STAT5B
 
-```{r STAT5B_normExprsByName.4h, echo=FALSE, warning=FALSE}
+<!-- From the highest cluster 2 genes -->
+
+```{r STAT5B_normExprsByName.4h, echo=FALSE, warning=FALSE, fig.height=5}
 normExprsByName.4h("ENSG00000173757")
 ```
 
 ### CCL1
 
-```{r CCL1_normExprsByName.4h, echo=FALSE, warning=FALSE}
+```{r CCL1_normExprsByName.4h, echo=FALSE, warning=FALSE, fig.height=5}
 normExprsByName.4h("ENSG00000108702")
 ```
 
 ### CD40
 
-```{r CD40_normExprsByName.4h, echo=FALSE, warning=FALSE}
+```{r CD40_normExprsByName.4h, echo=FALSE, warning=FALSE, fig.height=5}
 normExprsByName.4h("ENSG00000101017")
+```
+
+### IL1A
+
+```{r IL1A_normExprsByName.4h, echo=FALSE, warning=FALSE, fig.height=5}
+normExprsByName.4h("ENSG00000115008")
 ```
 
 ### IL1B
 
-```{r IL1B_normExprsByName.4h, echo=FALSE, warning=FALSE}
+```{r IL1B_normExprsByName.4h, echo=FALSE, warning=FALSE, fig.height=5}
 normExprsByName.4h("ENSG00000125538")
+```
+
+### NFKBIA
+
+```{r NFKBIA_normExprsByName.4h, echo=FALSE, warning=FALSE, fig.height=5}
+normExprsByName.4h("ENSG00000100906")
 ```
 
 ## 6h {.tabset}
@@ -909,8 +956,9 @@ scde.table <- data.frame(
 scde.table$GENENAME <-
   mapIds(EnsDb.Hsapiens.v79,scde.table$GENEID,"GENENAME","GENEID")
 scde.genes <- subset(scde.table, GENENAME %in% c(
-  "LAMP3","IL12B","IL23A","IL1A",
-  "STAT5B","IL6","EBI3","IL36B"))
+  "IL23A","STAT5B","EBI3","LAMP3",
+  "IL12B","IL36B","IL1A","IL6"
+  ))
 ggplot(scde.table,aes(-mle.cluster,mle.group))+
   geom_point(size = 0.5, colour = "turquoise3", alpha = 0.2) +
   theme_minimal() + facet_grid(~ Group) +
@@ -927,49 +975,49 @@ write.csv(scde.table, "SCDE_cluster_v2/6h_MLE_cluster_group.csv")
 
 ### IL23A
 
-```{r IL23A_normExprsByName.6h, echo=FALSE, warning=FALSE}
+```{r IL23A_normExprsByName.6h, echo=FALSE, warning=FALSE, fig.height=5}
 normExprsByName.6h("ENSG00000110944")
 ```
 
 ### IL12B
 
-```{r IL12B_normExprsByName.6h, echo=FALSE, warning=FALSE}
+```{r IL12B_normExprsByName.6h, echo=FALSE, warning=FALSE, fig.height=5}
 normExprsByName.6h("ENSG00000110944")
 ```
 
 ### EBI3
 
-```{r EBI3_normExprsByName.6h, echo=FALSE, warning=FALSE}
+```{r EBI3_normExprsByName.6h, echo=FALSE, warning=FALSE, fig.height=5}
 normExprsByName.6h("ENSG00000105246")
 ```
 
 ### IL1A
 
-```{r IL1A_normExprsByName.6h, echo=FALSE, warning=FALSE}
+```{r IL1A_normExprsByName.6h, echo=FALSE, warning=FALSE, fig.height=5}
 normExprsByName.6h("ENSG00000115008")
 ```
 
 ### IL6
 
-```{r IL6_normExprsByName.6h, echo=FALSE, warning=FALSE}
+```{r IL6_normExprsByName.6h, echo=FALSE, warning=FALSE, fig.height=5}
 normExprsByName.6h("ENSG00000136244")
 ```
 
 ### LAMP3
 
-```{r LAMP3_normExprsByName.6h, echo=FALSE, warning=FALSE}
+```{r LAMP3_normExprsByName.6h, echo=FALSE, warning=FALSE, fig.height=5}
 normExprsByName.6h("ENSG00000078081")
 ```
 
 ### STAT5B
 
-```{r STAT5B_normExprsByName.6h, echo=FALSE, warning=FALSE}
+```{r STAT5B_normExprsByName.6h, echo=FALSE, warning=FALSE, fig.height=5}
 normExprsByName.6h("ENSG00000173757")
 ```
 
 ### IL36B
 
-```{r IL36B_normExprsByName.6h, echo=FALSE, warning=FALSE}
+```{r IL36B_normExprsByName.6h, echo=FALSE, warning=FALSE, fig.height=5}
 normExprsByName.6h("ENSG00000136696")
 ```
 
@@ -992,21 +1040,21 @@ norm.lt2exp <- norm.mat[,sce.ifm.6h$Treatment == "LT2_exposed"]
 norm.lt2inf <- norm.mat[,sce.ifm.6h$Treatment == "LT2_infected"]
 ha.d23.exp <- HeatmapAnnotation(
   df = pData(sce.ifm.6h)[colnames(norm.d23exp), "quickCluster", drop = FALSE],
-  col = list(quickCluster = c("1" = col9[1], "2" = col9[2], "3" = col9[3]))
+  col = list(quickCluster = col.cluster)
 )
 ha.d23.inf <- HeatmapAnnotation(
   df = pData(sce.ifm.6h)[colnames(norm.d23inf), "quickCluster", drop = FALSE],
-  col = list(quickCluster = c("1" = col9[1], "2" = col9[2], "3" = col9[3])),
+  col = list(quickCluster = col.cluster),
   show_legend = FALSE
 )
 ha.lt2.exp <- HeatmapAnnotation(
   df = pData(sce.ifm.6h)[colnames(norm.lt2exp), "quickCluster", drop = FALSE],
-  col = list(quickCluster = c("1" = col9[1], "2" = col9[2], "3" = col9[3])),
+  col = list(quickCluster = col.cluster),
   show_legend = FALSE
 )
 ha.lt2.inf <- HeatmapAnnotation(
   df = pData(sce.ifm.6h)[colnames(norm.lt2inf), "quickCluster", drop = FALSE],
-  col = list(quickCluster = c("1" = col9[1], "2" = col9[2], "3" = col9[3])),
+  col = list(quickCluster = col.cluster),
   show_legend = FALSE
 )
 rownames(norm.d23exp) <- geneNames
@@ -1055,9 +1103,9 @@ haNames <- c("quickCluster", "Status", "Infection")
 ha <- HeatmapAnnotation(
   df = pData(sce.ifm.4h)[scde.cells, haNames],
   col = list(
-    quickCluster = c("1" = col9[1], "2" = col9[2], "3" = col9[3]),
-    Status=c("uninfected" = col9[4],"exposed" = col9[5], "infected" = col9[6]),
-    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+    quickCluster = col.cluster,
+    Status = col.status,
+    Infection = col.infection
   )
 )
 # Gene annotations
@@ -1097,9 +1145,9 @@ haNames <- c("quickCluster", "Status", "Infection")
 ha <- HeatmapAnnotation(
   df = pData(sce.ifm.6h)[scde.cells, haNames],
   col = list(
-    quickCluster = c("1" = col9[1], "2" = col9[2], "3" = col9[3]),
-    Status=c("uninfected" = col9[4],"exposed" = col9[5], "infected" = col9[6]),
-    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+    quickCluster = col.cluster,
+    Status = col.status,
+    Infection = col.infection
   )
 )
 # Gene annotations
