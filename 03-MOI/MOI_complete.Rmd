@@ -9,6 +9,8 @@ output: html_notebook
 library(readxl)
 library(RColorBrewer)
 library(ggplot2)
+library(broom)
+library(dplyr)
 ```
 
 
@@ -24,12 +26,48 @@ viability <- read_excel("~/git/DC_sc/03-MOI/MOI_complete.xlsx", sheet = "Viabili
 viability
 ```
 
-# Reshape data
+# Summarise replicates
 
 ```{r}
-library(reshape2)
-moiLong <- melt(moi, measure.vars = sprintf("Replicate %i", 1:3), variable.name = "Replicate", value.name = "CFU.mL")
-moiLong
+moi$Mean <- rowMeans(moi[,sprintf("Replicate %i", 1:3)])
+moi$SEM <- apply(
+  moi[,sprintf("Replicate %i", 1:3)],
+  1,
+  function(x){sd(x)/sqrt(length(x))}
+)
+moi$MeanLog <- rowMeans(log10(moi[,sprintf("Replicate %i", 1:3)]))
+moi$SEMLog <- apply(
+  log10(moi[,sprintf("Replicate %i", 1:3)]),
+  1,
+  function(x){sd(x)/sqrt(length(x))}
+)
+```
+
+# Estimate strain differences
+
+```{r}
+moiLong <- melt(
+  moi,
+  id.vars = c("MOI","Time","Infection"),
+  measure.vars = sprintf("Replicate %i", 1:3),
+  variable.name = "Replicate",
+  value.name = "CFU.mL"
+)
+moiWide <- dcast(moiLong, MOI+Time ~ Infection+Replicate, value.var = "CFU.mL")
+moiCompare <- do.call(
+  "rbind",
+  apply(moiWide, 1, function(x){
+    x.d23 <- as.numeric(x[2+1:3]); x.lt2 <- as.numeric(x[2+4:6]);
+    return(tidy(t.test(x.d23, x.lt2)))
+}))
+maxCFU <- dcast(
+  mutate(moi, MeanPlusSEM = Mean + SEM),
+  MOI+Time ~ ., max, value.var = "MeanPlusSEM")[,".", drop = FALSE]
+moiTtest <- cbind(
+  moiWide[,c("MOI","Time")],
+  moiCompare,
+  maxCFU = maxCFU[,"."]
+)
 ```
 
 # Set colours
@@ -39,28 +77,48 @@ colours.infection <- brewer.pal(3, "Set1")[2:3]
 names(colours.infection) <- rev(unique(moi$Infection))
 ```
 
-```{r colours.infection_show, echo=FALSE}
-colours.infection
+# Bar plot {.tabset}
+
+## CFU/mL
+
+```{r, fig.height=5, fig.width=8, fig.height=4, echo=FALSE, warning=FALSE}
+ggplot(moi, aes(Time, Mean)) +
+  geom_errorbar(
+    aes(ymin = Mean - SEM, ymax = Mean + SEM, fill = Infection),
+    position = "dodge", width = 0.9, size = 0.5
+  ) +
+  geom_col(
+    aes(fill = Infection),
+    position = "dodge") +
+  geom_text(
+    aes(y = maxCFU + 2E3, label = format(p.value, digits = 2)),
+    moiTtest,
+    size = 5
+  ) +
+  facet_grid(~ MOI) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_fill_manual(values = colours.infection) +
+  labs(y = "CFU/mL") +
+  theme_bw()
 ```
 
+## log10(CFU/mL)
 
-# Simple plot
-
-```{r}
-ggplot(moiLong) +
+```{r, fig.height=5, fig.width=8, fig.height=5, echo=FALSE}
+ggplot(moi, aes(Time, MeanLog, fill = Infection)) +
+  geom_errorbar(
+    aes(ymin = MeanLog - SEMLog, ymax = MeanLog + SEMLog),
+    position = "dodge", width = 0.9, size = 0.5
+  ) +
   geom_col(
-    aes(Time, CFU.mL, fill = Infection),
+    aes(),
     position = "dodge") +
   facet_grid(~ MOI) +
   theme(axis.text.x = element_text(angle = 90)) +
   scale_fill_manual(values = colours.infection) +
   labs(y = "CFU/mL") +
-  scale_y_continuous(
-    breaks = seq(0, max(moiLong$CFU.mL), 10E3),
-    labels = c(0, sprintf("%i,000", seq(10E3, max(moiLong$CFU.mL), 10E3)/1E3))
-  ) + theme_bw()
+  theme_bw()
 ```
-
 
 # Usage
 
