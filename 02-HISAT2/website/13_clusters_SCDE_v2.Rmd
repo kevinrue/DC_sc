@@ -364,6 +364,17 @@ pander::pandoc.table(
 )
 ```
 
+```{r clusterBarplot.2h, echo=FALSE}
+tmpGG <- ggplot(pData(sce.ifm.2h)) +
+  stat_count(aes(x = Treatment, fill = quickCluster)) +
+  facet_grid(~ quickCluster) +
+  scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+  theme_minimal() + theme(
+    axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
+  ) + labs(y = "Cells", fill = "Cluster")
+ggsave("out_13/cluster_count_2h.pdf", width = 9, height = 4)
+```
+
 ## 4h
 
 ```{r plotReducedDim.4h, echo=FALSE}
@@ -385,6 +396,17 @@ pander::pandoc.table(
 )
 ```
 
+```{r clusterBarplot.4h, echo=FALSE}
+tmpGG <- ggplot(pData(sce.ifm.4h)) +
+  stat_count(aes(x = Treatment, fill = quickCluster)) +
+  facet_grid(~ quickCluster) +
+  scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+  theme_minimal() + theme(
+    axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
+  ) + labs(y = "Cells", fill = "Cluster")
+ggsave("out_13/cluster_count_4h.pdf", width = 9, height = 4)
+```
+
 ## 6h
 
 ```{r plotReducedDim.6h, echo=FALSE}
@@ -404,6 +426,17 @@ Cross-tabulated counts of cells by cluster and experimental treatment:
 pander::pandoc.table(
   with(pData(sce.endo), table(Treatment, quickCluster.6h))
 )
+```
+
+```{r clusterBarplot.6h, echo=FALSE}
+tmpGG <- ggplot(pData(sce.ifm.6h)) +
+  stat_count(aes(x = Treatment, fill = quickCluster)) +
+  facet_grid(~ quickCluster) +
+  scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+  theme_minimal() + theme(
+    axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
+  ) + labs(y = "Cells", fill = "Cluster")
+ggsave("out_13/cluster_count_6h.pdf", width = 9, height = 4)
 ```
 
 # Differential expression {#DE}
