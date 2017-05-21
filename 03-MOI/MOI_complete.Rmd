@@ -1,0 +1,77 @@
+---
+title: "MOI figures"
+output: html_notebook
+---
+
+# Dependencies
+
+```{r library}
+library(readxl)
+library(RColorBrewer)
+library(ggplot2)
+```
+
+
+# Load data
+
+```{r moi}
+moi <- read_excel("MOI_complete.xlsx", sheet = "MOI")
+moi
+```
+
+```{r viability}
+viability <- read_excel("~/git/DC_sc/03-MOI/MOI_complete.xlsx", sheet = "Viability")
+viability
+```
+
+# Reshape data
+
+```{r}
+library(reshape2)
+moiLong <- melt(moi, measure.vars = sprintf("Replicate %i", 1:3), variable.name = "Replicate", value.name = "CFU.mL")
+moiLong
+```
+
+# Set colours
+
+```{r colours.infection}
+colours.infection <- brewer.pal(3, "Set1")[2:3]
+names(colours.infection) <- rev(unique(moi$Infection))
+```
+
+```{r colours.infection_show, echo=FALSE}
+colours.infection
+```
+
+
+# Simple plot
+
+```{r}
+ggplot(moiLong) +
+  geom_col(
+    aes(Time, CFU.mL, fill = Infection),
+    position = "dodge") +
+  facet_grid(~ MOI) +
+  theme(axis.text.x = element_text(angle = 90)) +
+  scale_fill_manual(values = colours.infection) +
+  labs(y = "CFU/mL") +
+  scale_y_continuous(
+    breaks = seq(0, max(moiLong$CFU.mL), 10E3),
+    labels = c(0, sprintf("%i,000", seq(10E3, max(moiLong$CFU.mL), 10E3)/1E3))
+  ) + theme_bw()
+```
+
+
+# Usage
+
+This is an [R Markdown](http://rmarkdown.rstudio.com) Notebook. When you execute code within the notebook, the results appear beneath the code. 
+
+Try executing this chunk by clicking the *Run* button within the chunk or by placing your cursor inside it and pressing *Cmd+Shift+Enter*. 
+
+```{r}
+plot(cars)
+```
+
+Add a new chunk by clicking the *Insert Chunk* button on the toolbar or by pressing *Cmd+Option+I*.
+
+When you save the notebook, an HTML file containing the code and output will be saved alongside it (click the *Preview* button or press *Cmd+Shift+K* to preview the HTML file).
