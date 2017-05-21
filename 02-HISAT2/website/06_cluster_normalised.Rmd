@@ -64,7 +64,7 @@ clustering of those cells using different approaches.
 
 ## Principal component analysis (PCA) {#PCA}
 
-### All cells {.tabset}
+### All cells
 
 Let us initially focus our attention on the two principal components that
 explain the largest amount of variance in the endogenous features.
@@ -84,7 +84,7 @@ explain the largest amount of variance in the endogenous features.
   (see this [earlier section](05_normalisation.html#setSpike) where the
   set of spike-in features is defined).
 
-```{r plotPCASCESet}
+```{r plotPCASCESet, echo=FALSE}
 sce.norm <- plotPCASCESet(
   sce.norm, ncomponents = 2, exprs_values = "norm_exprs",
   colour_by = "Treatment", shape_by = "Time",
@@ -92,7 +92,9 @@ sce.norm <- plotPCASCESet(
 )
 ```
 
-#### Group
+#### Principal components 1 and 2 {.tabset}
+
+##### Group
 
 ```{r plotPCASCESet_Group, fig.height=6}
 plotReducedDim.SCESet(sce.norm, 2, colour_by = "Group", shape_by = "Time") +
@@ -114,62 +116,62 @@ increasingly apparent over time.
 Overall, the observations above suggest different transcriptional trajectories
 taken by cells in response to experimental stimuli.
 
-#### Time
+##### Time
 
 ```{r plotPCASCESet_Time, fig.height=5}
 plotReducedDim.SCESet(sce.norm, 2, "Time", "Plate") +
   PCAtheme
 ```
 
-#### Infection
+##### Infection
 
 ```{r plotPCASCESet_Infection, fig.height=5}
 plotReducedDim.SCESet(sce.norm, 2, "Infection", "Time") +
   PCAtheme
 ```
 
-#### Status
+##### Status
 
 ```{r plotPCASCESet_Status, fig.height=5}
 plotReducedDim.SCESet(sce.norm, 2, "Status", "Time") +
   PCAtheme
 ```
 
-### Additional principal components {.tabset}
+#### Additional principal components {.tabset}
 
 The analysis may be extended to more principal components; however, by
 definition those principal components will report decreasing amount of variance
 in the data set:
 
-#### Treatment
+##### Treatment
 
 ```{r plotPCASCESet_PC1to3_Treatment}
 plotReducedDim.SCESet(sce.norm, 3, colour_by = "Treatment", shape_by = "Time") +
   PCAtheme + theme(legend.text = element_text(size = 6))
 ```
 
-#### Time
+##### Time
 
 ```{r plotPCASCESet_PC1to3_Time}
 plotReducedDim.SCESet(sce.norm, 3, colour_by = "Time", shape_by = "Plate") +
   PCAtheme
 ```
 
-#### Status
+##### Status
 
 ```{r plotPCASCESet_PC1to3_Status}
 plotReducedDim.SCESet(sce.norm, 3, colour_by = "Status", shape_by = "Time") +
   PCAtheme
 ```
 
-#### Infection
+##### Infection
 
 ```{r plotPCASCESet_PC1to3_Infection}
 plotReducedDim.SCESet(sce.norm, 3, colour_by = "Infection", shape_by = "Time") +
   PCAtheme
 ```
 
-## Time-independent PCA analyses {.tabset}
+### Time-independent PCA analyses {.tabset}
 
 In the above [section](#PCA), the overwhelming influence of the `Time` factor
 likely shadows the relatively weaker effect of other biologically relevant
@@ -197,57 +199,63 @@ for (time in levels(sce.norm$Time)){
 rm(time)
 ```
 
-### 2h-Infection
+#### 2h {.tabset}
 
-```{r 2h-Infection}
+##### Infection
+
+```{r 2h-Infection, echo=FALSE}
 plotReducedDim.SCESet(time.sce[["2h"]], 3, colour_by = "Infection") + PCAtheme
 ```
 
-### 2h-Status
+##### Status
 
-```{r 2h-Status}
+```{r 2h-Status, echo=FALSE}
 plotReducedDim.SCESet(time.sce[["2h"]], 3, colour_by = "Status") + PCAtheme
 ```
 
-### 2h-Treatment
+##### Treatment
 
-```{r 2h-Treatment}
+```{r 2h-Treatment, echo=FALSE}
 plotReducedDim.SCESet(time.sce[["2h"]], 3, colour_by = "Treatment") + PCAtheme
 ```
 
-### 4h-Infection
+#### 4h {.tabset}
 
-```{r 4h-Infection}
+##### Infection
+
+```{r 4h-Infection, echo=FALSE}
 plotReducedDim.SCESet(time.sce[["4h"]], 3, colour_by = "Infection") + PCAtheme
 ```
 
-### 4h-Status
+##### Status
 
-```{r 4h-Status}
+```{r 4h-Status, echo=FALSE}
 plotReducedDim.SCESet(time.sce[["4h"]], 3, colour_by = "Status") + PCAtheme
 ```
 
-### 4h-Treatment
+##### Treatment
 
-```{r 4h-Treatment}
+```{r 4h-Treatment, echo=FALSE}
 plotReducedDim.SCESet(time.sce[["4h"]], 3, colour_by = "Treatment") + PCAtheme
 ```
 
-### 6h-Infection
+#### 6h {.tabset}
 
-```{r 6h-Infection}
+##### Infection
+
+```{r 6h-Infection, echo=FALSE}
 plotReducedDim.SCESet(time.sce[["6h"]], 3, colour_by = "Infection") + PCAtheme
 ```
 
-### 6h-Status
+##### Status
 
-```{r 6h-Status}
+```{r 6h-Status, echo=FALSE}
 plotReducedDim.SCESet(time.sce[["6h"]], 3, colour_by="Status") + PCAtheme
 ```
 
-### 6h-Treatment
+##### Treatment
 
-```{r 6h-Treatment}
+```{r 6h-Treatment, echo=FALSE}
 plotReducedDim.SCESet(time.sce[["6h"]], 3, colour_by = "Treatment") + PCAtheme
 ```
 
