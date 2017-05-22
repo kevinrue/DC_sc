@@ -24,29 +24,42 @@ gtfData <- readRDS("rds/gtfData.rds")
 
 # Plotting themes
 
-First of all, let us define theme elements used throughout various figures
-in the following sections:
+First of all, let us define:
+
+* theme elements used throughout various figures in the following sections:
 
 ```{r sampleQCtheme}
-sampleQCtheme <- theme(
+sampleQCtheme <- theme_minimal() + theme(
     axis.ticks.x = element_blank(), axis.text.x = element_blank(),
     panel.grid.major.x = element_blank(),
     legend.position = "bottom", legend.box = "vertical")
 ```
 
+* a set of colours used to indicate phenotype information consistently
+  in the upcoming sections:
+
+```{r col.sets}
+col.set3 <- brewer.pal(12, "Set3")
+col.status<-col.set3[c(3,5:6)];names(col.status)<-levels(sce.all$Status)[1:3]
+col.infection<-col.set3[c(3,8,10)];names(col.infection)<-levels(sce.all$Infection)[1:3]
+col.time<-col.set3[c(2,7:8)];names(col.time)<-levels(sce.all$Time)[1:3]
+```
 
 # _MultiQC_
 ## Import QC metrics
 
 Importantly, [MultiQC](http://multiqc.info) was used to collate metrics
 for each sample at each step of preprocessing---from raw reads to assignment
-counts---; those QC metrics already provide an idea of technical issues
+counts---; those QC metrics already give a good idea of technical issues
 in certain samples.
 
 Let us import the QC metrics produced by [MultiQC](http://multiqc.info):
 
 ```{r importMultiQC}
 multiqc <- read.delim("MultiQC/final_pipeline_data/multiqc_general_stats.txt")
+```
+
+```{r multiqc_names, echo=FALSE}
 names(multiqc)
 ```
 
@@ -92,20 +105,19 @@ multiqc.assigned.outliers <-
 table(multiqc.assigned.outliers)
 ```
 
-For the record, the lower cut-off value is:
-
-```{r assigned_lowerCutOff}
-10^(multiqc.assigned.M - 3 * multiqc.assigned.MAD)
-```
-
 Let us visualise those outliers, along with blank and bulk samples
-for reference[^1]:
+for reference
+(median: `r sprintf("%.1fe+06", 10^multiqc.assigned.M/1E6)`,
+lower bound:
+`r 10^(multiqc.assigned.M-multiqc.assigned.MAD*3)`,
+upper bound:
+`r sprintf("%.1fe+06", 10^(multiqc.assigned.M+multiqc.assigned.MAD*3)/1E6)`):
 
-```{r multiQC_ggplot_assigned}
+```{r multiQC_ggplot_assigned, echo=FALSE}
 ggplot(multiqc, aes(Sample, featureCounts_Assigned)) +
   geom_point(aes(colour = Status, shape = Infection)) +
   geom_text_repel(
-    aes(label = Sample), subset(multiqc[idx.sc,], multiqc.assigned.outliers),
+    aes(label = Time), subset(multiqc[idx.sc,], multiqc.assigned.outliers),
     alpha = 0.4
   ) +
   geom_hline(
@@ -133,14 +145,17 @@ multiqc.GC.outliers <-
 table(multiqc.GC.outliers)
 ```
 
-Let us visualise the outlier, along with blank and bulk samples
-for reference:
+Let us visualise outliers, along with blank and bulk samples
+for reference
+(median: `r sprintf("%.1f%%", multiqc.GC.M)`,
+lower bound: `r sprintf("%.1f", multiqc.GC.M-multiqc.GC.MAD*3)`,
+upper bound: `r sprintf("%.1f", multiqc.GC.M+multiqc.GC.MAD*3)`):
 
-```{r multiQC_ggplot_GC}
+```{r multiQC_ggplot_GC, echo=FALSE}
 ggplot(multiqc, aes(Sample, FastQC_percent_gc)) +
   geom_point(aes(colour = Status, shape = Infection)) +
   geom_text_repel(
-    aes(label = Sample), subset(multiqc[idx.sc,], multiqc.GC.outliers),
+    aes(label = Time), subset(multiqc[idx.sc,], multiqc.GC.outliers),
     alpha = 0.4
   ) +
   geom_hline(
@@ -170,13 +185,18 @@ table(multiqc.aligned.outliers)
 ```
 
 Let us visualise the outlier, along with blank and bulk samples
-for reference:
+for reference
+(median: `r sprintf("%.1f%%", multiqc.aligned.M)`,
+lower bound:
+`r 10^(multiqc.assigned.M-multiqc.assigned.MAD*3)`,
+upper bound:
+`r sprintf("%.1fe+06", 10^(multiqc.assigned.M+multiqc.assigned.MAD*3)/1E6)`):
 
 ```{r multiQC_ggplot_align}
 ggplot(multiqc, aes(Sample, Bowtie.2_overall_alignment_rate)) +
   geom_point(aes(colour = Status, shape = Infection)) +
   geom_text_repel(
-    aes(label = Sample), subset(multiqc[idx.sc,], multiqc.aligned.outliers),
+    aes(label = Time), subset(multiqc[idx.sc,], multiqc.aligned.outliers),
     alpha = 0.4
   ) +
   geom_hline(
@@ -193,7 +213,7 @@ posterAligned <-
   ggplot(multiqc, aes(Sample, Bowtie.2_overall_alignment_rate)) +
   geom_point(aes(colour = Status, shape = Infection)) +
   geom_text_repel(
-    aes(label = Sample), subset(multiqc[idx.sc,], multiqc.aligned.outliers),
+    aes(label = Time), subset(multiqc[idx.sc,], multiqc.aligned.outliers),
     alpha = 0.4
   ) +
   geom_hline(
@@ -232,7 +252,7 @@ for reference:
 ggplot(multiqc, aes(Sample, featureCounts_percent_assigned)) +
   geom_point(aes(colour = Status, shape = Infection)) +
   geom_text_repel(
-    aes(label = Sample), subset(multiqc[idx.sc,], multiqc.assignedPerc.outliers),
+    aes(label = Time), subset(multiqc[idx.sc,], multiqc.assignedPerc.outliers),
     alpha = 0.4
   ) +
   geom_hline(
@@ -355,7 +375,7 @@ for reference:
 ggplot(pData(sce.all), aes(Sample, log10_total_counts)) +
   geom_point(aes(colour = Status, shape = Infection)) +
   geom_text_repel(
-    aes(label = Sample), subset(pData(sce.sc), scater.totalCounts.outliers),
+    aes(label = Time), subset(pData(sce.sc), scater.totalCounts.outliers),
     alpha = 0.4
   ) +
   geom_hline(
@@ -512,7 +532,7 @@ shown [earlier](#libraryComplexity).
 ggplot(pData(sce.all), aes(Sample, pct_counts_top_50_features)) +
   geom_point(aes(colour = Time, shape = Infection)) +
   geom_text_repel(
-    aes(label = Sample), subset(pData(sce.sc), scater.top50.outliers),
+    aes(label = Time), subset(pData(sce.sc), scater.top50.outliers),
     alpha = 0.4) +
   geom_hline(
     yintercept = scater.top50.M + 3 * c(-1,1) * scater.top50.MAD,
@@ -527,7 +547,7 @@ ggplot(pData(sce.all), aes(Sample, pct_counts_top_50_features)) +
 ggplot(pData(sce.all), aes(Sample, pct_counts_top_100_features)) +
   geom_point(aes(colour = Time, shape = Infection)) +
   geom_text_repel(
-    aes(label = Sample), subset(pData(sce.sc), scater.top100.outliers),
+    aes(label = Time), subset(pData(sce.sc), scater.top100.outliers),
     alpha = 0.4) +
   geom_hline(
     yintercept = scater.top100.M + 3 * c(-1,1) * scater.top100.MAD,
@@ -542,7 +562,7 @@ ggplot(pData(sce.all), aes(Sample, pct_counts_top_100_features)) +
 ggplot(pData(sce.all), aes(Sample, pct_counts_top_200_features)) +
   geom_point(aes(colour = Time, shape = Infection)) +
   geom_text_repel(
-    aes(label = Sample), subset(pData(sce.sc), scater.top200.outliers),
+    aes(label = Time), subset(pData(sce.sc), scater.top200.outliers),
     alpha = 0.4) +
   geom_hline(
     yintercept = scater.top200.M + 3 * c(-1,1) * scater.top200.MAD,
@@ -584,7 +604,7 @@ for reference:
 ggplot(pData(sce.all), aes(Sample, total_features)) +
   geom_point(aes(colour = Status, shape = Infection)) +
   geom_text_repel(
-    aes(label = Sample), subset(pData(sce.sc), scater.features.outliers),
+    aes(label = Time), subset(pData(sce.sc), scater.features.outliers),
     alpha = 0.4
   ) +
   geom_hline(
@@ -622,7 +642,7 @@ for reference:
 ggplot(pData(sce.all), aes(Sample, pct_counts_feature_controls_ERCC)) +
   geom_point(aes(colour = Status, shape = Infection)) +
   geom_text_repel(
-    aes(label = Sample), subset(pData(sce.sc), scater.ERCC.outliers),
+    aes(label = Time), subset(pData(sce.sc), scater.ERCC.outliers),
     alpha = 0.6
   ) +
   geom_hline(
@@ -663,7 +683,7 @@ for reference:
 ggplot(pData(sce.all), aes(Sample, pct_counts_feature_controls_MT)) +
   geom_point(aes(colour = Status, shape = Infection)) +
   geom_text_repel(
-    aes(label = Sample), subset(pData(sce.sc), scater.MT.outliers),
+    aes(label = Time), subset(pData(sce.sc), scater.MT.outliers),
     alpha = 0.4
   ) +
   geom_hline(
@@ -722,29 +742,24 @@ table(idx.pass)
 
 Let us visually summarise *single cells* that pass each filter as a heat map.
 
-First, let us define colours used to indicate phenotype information:
-
-```{r palette9}
-col9 <- brewer.pal(10, "Set3")[c(1:8, 10)]
-```
-
 We may then display the QC metrics failed by each single cell as red cells
 in an heat map:
 
-```{r QC_heatmap, fig.height=7}
+```{r QC_heatmap, fig.height=7, echo=FALSE}
 hm_row <- rowAnnotation(
   df = pData(sce.sc)[sample.order.supervised,c("Time", "Status", "Infection")],
   col = list(
-    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
-    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
-    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+    Time = col.time,
+    Status = col.status,
+    Infection = col.infection
   )
 )
 hm <- Heatmap(
   as.matrix(outliers.df)[sample.order.supervised,],
   name = "Filter",
   col = c("Pass" = "lightblue", "Fail" = "red"),
-  cluster_rows = FALSE, show_row_names = FALSE
+  cluster_rows = FALSE, show_row_names = FALSE,
+  split = sce.sc$Time[sample.order.supervised]
 )
 draw(hm + hm_row)
 ```
