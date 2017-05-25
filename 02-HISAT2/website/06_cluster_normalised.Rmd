@@ -505,6 +505,45 @@ plotReducedDim.SCESet(
   scale_colour_gradientn(name="CTSB",limits=exprScale,colours=colourScale)
 ```
 
+#### CD86
+
+```{r tSNE_CD86, message=FALSE}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm),gene_name=="CD86"))) + PCAtheme +
+  scale_colour_gradientn(name="CD86",limits=exprScale,colours=colourScale)
+```
+
+```{r tSNE_CD86_pdf, include=FALSE}
+ggsave("20170525_lab-meeting/tSNE_CD86.pdf", width = 5, height = 5)
+```
+
+#### MARCH1
+
+```{r tSNE_MARCH1, message=FALSE}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm),gene_name=="MARCH1"))) + PCAtheme +
+  scale_colour_gradientn(name="MARCH1",limits=exprScale,colours=colourScale)
+```
+
+```{r tSNE_MARCH1_pdf, include=FALSE}
+ggsave("20170525_lab-meeting/tSNE_MARCH1.pdf", width = 5, height = 5)
+```
+
+#### IL10
+
+```{r tSNE_IL10, message=FALSE}
+plotReducedDim.SCESet(
+  sce.norm, ncomponents = 2, shape_by = "Time",
+  colour_by = rownames(subset(fData(sce.norm),gene_name=="IL10"))) + PCAtheme +
+  scale_colour_gradientn(name="IL10",limits=exprScale,colours=colourScale)
+```
+
+```{r tSNE_IL10_pdf, include=FALSE}
+ggsave("20170525_lab-meeting/tSNE_IL10.pdf", width = 5, height = 5)
+```
+
 ## Diffusion map
 
 Finally, let us also produce a diffusion map plot of two components as a
