@@ -855,7 +855,7 @@ normExprsByName.4h.Status <- function(geneId){ # facet by status
 }
 ```
 
-```{r normExprsByName.6h, echo=FALSE}
+```{r normExprsByName.6h.Status, echo=FALSE}
 normExprsByName.6h.Status <- function(geneId){ # facet by status
   sc <- sce.ifm.6h[,sce.ifm.6h$Infection != "Mock"]
   gdata <- data.frame(
