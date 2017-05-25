@@ -796,7 +796,7 @@ showTopGO(goseq.res[[2]], "under")
 Let us first define:
 
 * functions that displays as violins the expression level of a given
-  gene in each group at 4h and 6h, respectively
+  gene in each group at 4h and 6h, respectively (only one shown)
 
 ```{r normExprsByName.4h}
 normExprsByName.4h <- function(geneId){
@@ -815,6 +815,9 @@ normExprsByName.4h <- function(geneId){
     scale_y_continuous(limits=range(norm_exprs(sc))) +
     scale_colour_manual(values = col.cluster) + theme_minimal()
 }
+```
+
+```{r normExprsByName.6h, echo=FALSE}
 normExprsByName.6h <- function(geneId){
   sc <- sce.ifm.6h[,sce.ifm.6h$Infection != "Mock"]
   gdata <- data.frame(
@@ -833,6 +836,45 @@ normExprsByName.6h <- function(geneId){
 }
 ```
 
+```{r normExprsByName.4h.Status}
+normExprsByName.4h.Status <- function(geneId){ # facet by status
+  sc <- sce.ifm.4h[,sce.ifm.4h$Infection != "Mock"]
+  gdata <- data.frame(
+    norm_exprs = norm_exprs(sc)[geneId,],
+    pData(sc)[,c("Infection","Status","quickCluster")],
+    row.names = sampleNames(sc)
+  )
+  gdata$Infection <- paste("STM", gdata$Infection)
+  geneName <- subset(fData(sc),gene_id==geneId,"gene_name",drop=TRUE)
+  ggplot(gdata, aes(Infection, norm_exprs, fill = Infection)) + 
+    geom_violin(alpha = 0.25) +
+    geom_jitter(aes(colour = quickCluster), width = 0.25, size = 3) +
+    facet_grid(~Status) + ggtitle(sprintf("%s - %s", geneName, geneId)) +
+    scale_y_continuous(limits=range(norm_exprs(sc))) +
+    scale_colour_manual(values = col.cluster) + theme_minimal()
+}
+```
+
+```{r normExprsByName.6h, echo=FALSE}
+normExprsByName.6h.Status <- function(geneId){ # facet by status
+  sc <- sce.ifm.6h[,sce.ifm.6h$Infection != "Mock"]
+  gdata <- data.frame(
+    norm_exprs = norm_exprs(sc)[geneId,],
+    pData(sc)[,c("Infection","Status","quickCluster")],
+    row.names = sampleNames(sc)
+  )
+  gdata$Infection <- paste("STM", gdata$Infection)
+  geneName <- subset(fData(sc),gene_id==geneId,"gene_name",drop=TRUE)
+  ggplot(gdata, aes(Infection, norm_exprs, fill = Infection)) + 
+    geom_violin(alpha = 0.25) +
+    geom_jitter(aes(colour = quickCluster), width = 0.25, size = 3) +
+    facet_grid(~Status) + ggtitle(sprintf("%s - %s", geneName, geneId)) +
+    scale_y_continuous(limits=range(norm_exprs(sc))) +
+    scale_colour_manual(values = col.cluster) + theme_minimal()
+}
+```
+
+
 ```{r mleRange2, include=FALSE}
 scde.4h.D23580 <- scde.groupRes[["4h_D23580_infected-4h_D23580_exposed"]]
 scde.4h.LT2 <- scde.groupRes[["4h_LT2_infected-4h_LT2_exposed"]]
@@ -840,8 +882,11 @@ scde.6h.D23580 <- scde.groupRes[["6h_D23580_infected-6h_D23580_exposed"]]
 scde.6h.LT2 <- scde.groupRes[["6h_LT2_infected-6h_LT2_exposed"]]
 mleRange2 <-
   max(abs(do.call("c", lapply(
-    append(scde.res,list(scde.4h.D23580,scde.4h.LT2,scde.6h.D23580,scde.6h.LT2)),
-    function(x){return(x$mle)}))))*c(-1,1)
+    append(
+      scde.res,list(scde.4h.D23580,scde.4h.LT2,scde.6h.D23580,scde.6h.LT2)
+    ),
+    function(x){return(x$mle)}
+  )))) * c(-1,1)
 ```
 
 
@@ -1115,6 +1160,26 @@ ht_list <-
     column_title_gp = gpar(fontsize = 10), column_title = "STM-LT2\ninfected",
     top_annotation = ha.lt2.inf, show_heatmap_legend = FALSE)
 draw(ht_list, split = hm.split)
+```
+
+```{r MARCH1_normExprsByName.6h.Status, eval=FALSE}
+normExprsByName.6h.Status("ENSG00000145416")
+ggsave(sprintf("20170525_lab-meeting/%s_colour.pdf", "MARCH1"), width = 6, height = 4)
+```
+
+```{r CD86_normExprsByName.6h.Status, eval=FALSE}
+normExprsByName.6h.Status("ENSG00000114013")
+ggsave(sprintf("20170525_lab-meeting/%s_colour.pdf", "CD86"), width = 6, height = 4)
+```
+
+```{r CD83_normExprsByName.6h.Status, eval=FALSE}
+normExprsByName.6h.Status("ENSG00000112149")
+ggsave(sprintf("20170525_lab-meeting/%s_colour.pdf", "CD83"), width = 6, height = 4)
+```
+
+```{r IL10_normExprsByName.6h.Status, eval=FALSE}
+normExprsByName.6h.Status("ENSG00000136634")
+ggsave(sprintf("20170525_lab-meeting/%s_colour.pdf", "IL10"), width = 6, height = 4)
 ```
 
 
