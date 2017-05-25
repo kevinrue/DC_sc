@@ -35,7 +35,29 @@ qc.time <- factor(qc.time, c(
 sce.endo$quickCluster.time <- qc.time
 ```
 
-# normExprsByName
+# normExprsByName {.tabset}
+
+## Basic
+
+```{r normExprsByName.basic}
+normExprsByName.basic <- function(geneName = 'RAB29'){
+  geneId <-
+    subset(fData(sce.endo), gene_name == geneName, "gene_id", drop = TRUE)
+  stopifnot(length(geneId) == 1)
+  gdata <- data.frame(
+    norm_exprs = norm_exprs(sce.endo)[geneId,],
+    pData(sce.endo)[,c("Infection","Status","Time","quickCluster.time")],
+    row.names = sampleNames(sce.endo)
+  )
+  ggplot(gdata, aes(Infection, norm_exprs)) + 
+    geom_violin() +
+    geom_jitter(, width = 0.1) +
+    facet_grid(Time ~ Status) +
+    ggtitle(sprintf("%s - %s", geneName, geneId))
+}
+```
+
+## Colour:Cluster
 
 ```{r normExprsByName}
 normExprsByName <- function(geneName = 'RAB29'){
@@ -85,3 +107,60 @@ normExprsByName("CTSB")
 normExprsByName("IL6")
 ```
 
+# CD86
+
+```{r CD86}
+genename <- "CD86"
+normExprsByName.basic(genename) + theme_minimal()
+ggsave(sprintf("20170525_lab-meeting/%s.pdf", genename), width = 5, height = 5)
+```
+
+# CD83
+
+```{r CD83}
+genename <- "CD83"
+normExprsByName.basic(genename) + theme_minimal()
+ggsave(sprintf("20170525_lab-meeting/%s.pdf", genename), width = 5, height = 5)
+```
+
+# HLA-DR {.tabset}
+
+## HLA-DRA
+
+```{r}
+genename <- "HLA-DRA"
+normExprsByName.basic(genename) + theme_minimal()
+ggsave(sprintf("20170525_lab-meeting/%s.pdf", genename), width = 5, height = 5)
+```
+
+## HLA-DRB1
+
+```{r}
+genename <- "HLA-DRB1"
+normExprsByName.basic(genename) + theme_minimal()
+ggsave(sprintf("20170525_lab-meeting/%s.pdf", genename), width = 5, height = 5)
+```
+
+## HLA-DRB5
+
+```{r}
+genename <- "HLA-DRB5"
+normExprsByName.basic(genename) + theme_minimal()
+ggsave(sprintf("20170525_lab-meeting/%s.pdf", genename), width = 5, height = 5)
+```
+
+## HLA-DRB6
+
+```{r}
+genename <- "HLA-DRB6"
+normExprsByName.basic(genename) + theme_minimal()
+ggsave(sprintf("20170525_lab-meeting/%s.pdf", genename), width = 5, height = 5)
+```
+
+# IL10
+
+```{r IL10}
+genename <- "IL10"
+normExprsByName.basic(genename) + theme_minimal()
+ggsave(sprintf("20170525_lab-meeting/%s.pdf", genename), width = 5, height = 5)
+```
