@@ -57,10 +57,7 @@ Let us import the QC metrics produced by [MultiQC](http://multiqc.info):
 
 ```{r importMultiQC}
 multiqc <- read.delim("MultiQC/final_pipeline_data/multiqc_general_stats.txt")
-```
-
-```{r multiqc_names, echo=FALSE}
-names(multiqc)
+colnames(multiqc)
 ```
 
 Let us shorten the sample identifier used by [MultiQC](http://multiqc.info)
@@ -109,7 +106,7 @@ Let us visualise those outliers, along with blank and bulk samples
 for reference
 (median: `r sprintf("%.1fe+06", 10^multiqc.assigned.M/1E6)`,
 lower bound:
-`r 10^(multiqc.assigned.M-multiqc.assigned.MAD*3)`,
+`r sprintf("%.1fe+06", 10^(multiqc.assigned.M-multiqc.assigned.MAD*3)/1E6)`,
 upper bound:
 `r sprintf("%.1fe+06", 10^(multiqc.assigned.M+multiqc.assigned.MAD*3)/1E6)`):
 
@@ -342,47 +339,24 @@ setSpike(sce.all) <- "ERCC"
 ## Library size
 
 The *library size* refers to the total count of reads assigned to 
-annotated features in each individua sample.
-As an internal validation, let us verify that identifying outliers
-using the counts imported into the `SCESet` produce the same results as
-the [earlier](#featureCounts) use of [MultiQC](http://multiqc.info) reports
-of read pairs assignment by
-[featureCounts](http://bioinf.wehi.edu.au/featureCounts).
+annotated features in each individual sample.
 
-First let us identify as outliers single cells
-for which the library size
-is excessively different from the median of *single cell* samples:
+Here, let us simply show that the counts imported into the `SCESet`
+are identical to those detected by [MultiQC](http://multiqc.info) in
+an earlier section [above](#featureCounts):
 
 ```{r scater_outliers_totalCounts}
-metric <- sce.sc$log10_total_counts
-scater.totalCounts.M <- median(metric)
-scater.totalCounts.MAD <- mad(metric)
-scater.totalCounts.outliers <-
-  abs(metric - scater.totalCounts.M) > 3 * scater.totalCounts.MAD
-table(scater.totalCounts.outliers)
+multiqc.libsize <- log10(multiqc$featureCounts_Assigned[idx.sc])
+names(multiqc.libsize) <- multiqc$Sample[idx.sc]
+sce.sc.libsize <- sce.sc$log10_total_counts
+names(sce.sc.libsize) <- sce.sc$Sample
+multiqc.libsize <- multiqc.libsize[names(multiqc.libsize)]
+all(multiqc.libsize == sce.sc.libsize)
 ```
 
-In particular, the lower cut-off value is:
-
-```{r totalCounts_lowerCutOff}
-10^(scater.totalCounts.M - 3 * scater.totalCounts.MAD)
-```
-
-Let us visualise those outliers, along with blank and bulk samples
-for reference:
-
-```{r scater_ggplot_totalCounts}
-ggplot(pData(sce.all), aes(Sample, log10_total_counts)) +
-  geom_point(aes(colour = Status, shape = Infection)) +
-  geom_text_repel(
-    aes(label = Time), subset(pData(sce.sc), scater.totalCounts.outliers),
-    alpha = 0.4
-  ) +
-  geom_hline(
-    yintercept = scater.totalCounts.M + 3*c(1,-1)*scater.totalCounts.MAD,
-    colour = "red"
-  ) + geom_hline(yintercept = scater.totalCounts.M) + sampleQCtheme
-```
+As a result, this metric is identical to the *featureCounts_Assigned*
+metric described [above](#featureCounts); and thereby would
+unnecessarily identify the same outliers.
 
 ## Library complexity {#libraryComplexity}
 
