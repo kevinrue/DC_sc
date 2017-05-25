@@ -12,9 +12,8 @@ library(jsonlite)
 
 # Objective
 
-As an input, [BASiCS](https://github.com/catavallejos/BASiCS)
-requires the input number of spike-in molecules per cell,
-which may be calculated as described in the
+The input number of spike-in molecules per cell may be calculated
+as described in the
 [BASiCS tutorial](#https://github.com/catavallejos/TutorialBASiCS)
 (*./Material/TutorialBASiCS2016.html*):
 
@@ -30,8 +29,8 @@ which may be calculated as described in the
 # Concentrations in ERCC Mix from the manufacturer
 
 Let us import the concentration of individual spike-in molecules
-from the *ThermoFisher*
-[website](https://www.thermofisher.com/order/catalog/product/4456739):
+from
+[ThermoFisher](https://www.thermofisher.com/order/catalog/product/4456739):
 
 ```{r mixC}
 mixC <- read.table(
@@ -40,12 +39,16 @@ mixC <- read.table(
   )[,c("ERCC.ID","concentration.in.Mix.1..attomoles.ul.")]
 rownames(mixC) <- mixC$ERCC.ID
 colnames(mixC) <- c("ID","Concentration_attomoles_ul")
+```
+
+```{r mixC_DT, echo=FALSE}
 datatable(
   mixC,
   options = list(pageLength = 10, searching = TRUE), filter = "top",
   rownames = FALSE
 )
 ```
+
 
 # Number of individual ERCC molecules added to each cell
 
