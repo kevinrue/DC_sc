@@ -1162,22 +1162,22 @@ ht_list <-
 draw(ht_list, split = hm.split)
 ```
 
-```{r MARCH1_normExprsByName.6h.Status, eval=FALSE}
+```{r MARCH1_normExprsByName.6h.Status, include=FALSE}
 normExprsByName.6h.Status("ENSG00000145416")
 ggsave(sprintf("20170525_lab-meeting/%s_colour.pdf", "MARCH1"), width = 6, height = 4)
 ```
 
-```{r CD86_normExprsByName.6h.Status, eval=FALSE}
+```{r CD86_normExprsByName.6h.Status, include=FALSE}
 normExprsByName.6h.Status("ENSG00000114013")
 ggsave(sprintf("20170525_lab-meeting/%s_colour.pdf", "CD86"), width = 6, height = 4)
 ```
 
-```{r CD83_normExprsByName.6h.Status, eval=FALSE}
+```{r CD83_normExprsByName.6h.Status, include=FALSE}
 normExprsByName.6h.Status("ENSG00000112149")
 ggsave(sprintf("20170525_lab-meeting/%s_colour.pdf", "CD83"), width = 6, height = 4)
 ```
 
-```{r IL10_normExprsByName.6h.Status, eval=FALSE}
+```{r IL10_normExprsByName.6h.Status, include=FALSE}
 normExprsByName.6h.Status("ENSG00000136634")
 ggsave(sprintf("20170525_lab-meeting/%s_colour.pdf", "IL10"), width = 6, height = 4)
 ```
