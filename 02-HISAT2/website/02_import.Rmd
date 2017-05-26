@@ -8,20 +8,27 @@ knitr::opts_chunk$set(cache = TRUE)
 library(scater)
 library(edgeR)
 library(rtracklayer)
-library(DT)
+stopifnot(requireNamespace("DT"))
+stopifnot(requireNamespace("xlsx"))
 ```
 
-# Phenotype information
+# Phenotype information {#phenotypes .tabset}
+
+Phenotype information is central to all aspects of the analysis.
+In the broad sense, it encompasses sample-level information beyond the
+experimental design (*e.g.*, files of read counts, quality control metrics)
+to coordinate statistical analyses and data visualisation
+throughout downstream analyses. Defined in the earliest steps of an analytical
+workflow, it ensures traceability of sample data from files of raw data to
+every output and result.
+
+## Processing
 
 Let us import experimental information:
 
 ```{r importPheno}
 pheno <- xlsx::read.xlsx("expdata/samples.xlsx", sheetName = "pheno")
-DT::datatable(
-  pheno,
-  options = list(pageLength = 10, searching = TRUE), filter = "top",
-  rownames = FALSE
-)
+colnames(pheno)
 ```
 
 To facilitate later use, let us retype some fields, reorder some factor levels,
@@ -43,11 +50,63 @@ pheno$Group <-
   droplevels(interaction(pheno$Time, pheno$Treatment, sep = "_")) # factor
 ```
 
+## Table
+
+```{r pheno_DT, echo=FALSE}
+DT::datatable(
+  pheno,
+  options = list(pageLength = 10, searching = TRUE), filter = "top",
+  rownames = FALSE
+)
+```
+
+# QC metrics {#QC .tabset}
+
+Importantly, [MultiQC](http://multiqc.info) was used to collate metrics
+for each sample at each step of preprocessing---from raw reads to assigned
+read counts---; those QC metrics provide key information to identify
+technical issues and sample outliers.
+
+## Processing
+
+Let us import the QC metrics produced by [MultiQC](http://multiqc.info):
+
+```{r importMultiQC}
+multiqc <- read.delim("MultiQC/final_pipeline_data/multiqc_general_stats.txt")
+colnames(multiqc)
+```
+
+Let us shorten the sample identifier used by [MultiQC](http://multiqc.info)
+to a minimal unique identifier
+(as done [above](#phenotypes) for phenotype information):
+
+```{r gsub_Sample}
+multiqc$Sample <- gsub("WTCHG_[[:digit:]]+_", "", multiqc$Sample)
+rownames(multiqc) <- multiqc$Sample
+```
+
+Let us append those QC metrics to the phenotype information
+(that will [later](#SCESet) be attached to the read counts in a `SCESet`):
+
+```{r addPhenoMultiQC}
+pheno <- merge(pheno, multiqc, by = "Sample", sort = FALSE)
+```
+
+## Table
+
+```{r multiqc_DT, echo=FALSE}
+DT::datatable(
+  multiqc,
+  options = list(pageLength = 10, searching = TRUE), filter = "top",
+  rownames = FALSE
+)
+```
+
 # Counts {#Counts}
 
 To import count data that is stored in a separate file for each sample,
 let us use the [edgeR](http://bioconductor.org/packages/edgeR)
-`readDGE` method and the above `data.frame` of phenotype information:
+`readDGE` method and the phenotype information prepared [above](#phenotypes):
 
 ```{r readDGE}
 RG <- readDGE(
@@ -60,34 +119,53 @@ RG <- readDGE(
 dim(RG)
 ```
 
-# Gene annotations
+# Gene annotations {.tabset}
 
 To ensure coherence between gene annotations and gene expression data,
-let us also import the `gene` records from the same GTF file that was supplied
-to *featureCounts* as `GRanges` of the
-[GenomicRanges](http://bioconductor.org/packages/GenomicRanges) package:
+let us also import the records for genes and ERCC spike-ins molecules
+from the same GTF file that was supplied to *featureCounts*,
+as `GRanges` of the
+[GenomicRanges](http://bioconductor.org/packages/GenomicRanges) package;
+in the next section, those annotations will be attached to the corresponding
+read counts in a [scater](http://bioconductor.org/packages/scater) `SCESet`
+object.
+
+First we import all the records from the composite GFF file that includes
+both endogenous gene features and ERCC spike-in molecules:
 
 ```{r import.gff}
-gtfData <- import.gff(
-  "expdata/genes_with_ERCC.gtf", feature.type = "gene")
-names(as.data.frame(gtfData))
+gtfData <- import.gff("expdata/genes_with_ERCC.gtf")
+colnames(as.data.frame(gtfData))
 ```
 
-**Note:** the above code does *not* import records that relate to ERCC
-spike-in features, as these are annotated with **exon** *type* (GTF column 2)
-from the **ERCC** *soure* (GTF column 3).
+We may then extract records associated with endogenous gene features:
 
-Let us match the order of the features in the GTF file to the order of the
-features imported from the count files:
-
-```{r gtfOrder}
-orderGtf <- match(rownames(RG$counts), gtfData$gene_id)
+```{r gtfGenes}
+gtf.genes <- subset(gtfData, type == "gene"); length(gtf.genes)
 ```
 
-# `SCESet`
+Similarly, records associated with ERCC spike-in molecules:
 
-Let us assemble the phenotype information and count data above into
-[scater](http://bioconductor.org/packages/scater) `SCESet` objects:
+```{r}
+gtf.ERCC <- subset(gtfData, source == "ERCC"); length(gtf.ERCC)
+```
+
+Finally, let us combine the two types of feature annotations,
+and reorder them to ensure that they match the order of features imported
+[above](#Counts):
+
+```{r}
+gtf.final <- c(gtf.genes, gtf.ERCC)
+stopifnot(all(rownames(RG) %in% gtf.final$gene_id))
+gtf.order <- match(rownames(RG), gtf.final$gene_id)
+gtf.final <- gtf.final[gtf.order]
+```
+
+# SCESet {#SCESet .tabset}
+
+Let us assemble the count data, phenotype information, and feature information
+prepared above into [scater](http://bioconductor.org/packages/scater)
+`SCESet` objects:
 
 * one `SCESet` that contains all samples together
 * one for the blank samples
@@ -109,35 +187,46 @@ rownames(pheno) <- pheno$Sample
 Similarly, we let us also prepare an `AnnotatedDataFrame` with appropriate
 `rownames` to describe the feature meta-information:
 
-```{r}
-fdata <- AnnotatedDataFrame(as.data.frame(mcols(gtfData)[orderGtf,]))
-rownames(fdata) <- rownames(RG$counts)
+```{r fdata}
+fdata <- AnnotatedDataFrame(as.data.frame(gtfData))
+rownames(fdata) <- fdata$gene_id
 ```
 
 We may then create the four data sets:
 
+## All samples
+
 ```{r sce.all}
-pd.all <- new("AnnotatedDataFrame", data = pheno)
+pd.all <- AnnotatedDataFrame(data = pheno)
 sce.all <- newSCESet(countData = RG$counts, phenoData = pd.all, featureData = fdata)
 dim(sce.all)
 ```
+
+## Blanks
+
 ```{r sce.blank}
 idx.blank <- pheno$Status == "Blank"
-pd.blank <- new("AnnotatedDataFrame", data = droplevels(pheno[idx.blank,]))
+pd.blank <- AnnotatedDataFrame(droplevels(pheno[idx.blank,]))
 sce.blank <- newSCESet(
   countData = RG$counts[,idx.blank], phenoData = pd.blank, featureData = fdata)
 dim(sce.blank)
 ```
+
+## Bulks
+
 ```{r sce.bulk}
 idx.bulk<- pheno$Status == "BULK"
-pd.bulk <- new("AnnotatedDataFrame", data = droplevels(pheno[idx.bulk,]))
+pd.bulk <- AnnotatedDataFrame(droplevels(pheno[idx.bulk,]))
 sce.bulk <- newSCESet(
   countData = RG$counts[,idx.bulk], phenoData = pd.bulk, featureData = fdata)
 dim(sce.bulk)
 ```
+
+## Single cells
+
 ```{r sce.sc}
 idx.sc <- pheno$Status %in% c("exposed","infected","uninfected")
-pd.sc <- new("AnnotatedDataFrame", data = droplevels(pheno[idx.sc,]))
+pd.sc <- AnnotatedDataFrame(droplevels(pheno[idx.sc,]))
 sce.sc <- newSCESet(
   countData = RG$counts[,idx.sc], phenoData = pd.sc, featureData = fdata)
 dim(sce.sc)
@@ -154,6 +243,8 @@ saveRDS(sce.sc, "rds/sce.sc.rds")
 saveRDS(gtfData, "rds/gtfData.rds")
 ```
 
+<!-- Comparison with Kallisto -->
+
 ```{r loadKallisto, include=FALSE}
 kallisto_all <- readRDS("../../01-kallisto/rds/all_EnsDb.rds")
 ```
@@ -162,6 +253,7 @@ kallisto_all <- readRDS("../../01-kallisto/rds/all_EnsDb.rds")
 fData(kallisto_all)[,"feature_id"]
 features.overlap <-
   intersect(fData(kallisto_all)[,"feature_id"], featureNames(sce.all))
+# Reorder Kallisto to match SCESet
 kallisto.overlap <- kallisto_all[
   match(features.overlap, fData(kallisto_all)$feature_id),
 ]
@@ -192,14 +284,12 @@ for (time in c("2h", "4h", "6h")){
         kallisto.overlap$Infection == infection &
         kallisto.overlap$Status == "BULK"
     ])[,1]
-    print(length(kallisto))
     hf = counts(sce.overlap)[
       ,
       sce.overlap$Time == time &
         sce.overlap$Infection == infection &
         sce.overlap$Status == "BULK"
     ]
-    print(length(hf))
     new.df <- data.frame(
       Time = time,
       Infection = infection,
@@ -220,10 +310,10 @@ ggplot(comp.bulks, aes(log10(Kallisto + 1), log10(HF + 1))) +
   geom_point(
     aes(log10(Kallisto + 1), log10(HF + 1)),
     subset(comp.bulks, ERCC),
-    colour = "red", size = 0.3) +
-  labs(y = "HISAT2 + featureCounts") +
+    colour = "red", size = 0.5) +
+  labs(y = "HISAT2 & featureCounts", x = "Kallisto", main = "log10(counts + 1)") +
   scale_fill_continuous(name = "Density")
-ggsave("NGS-SIG/Kallisto-HISAT2_bulk.pdf")
+ggsave("NGS-SIG/Kallisto-HISAT2_bulk.pdf", width = 6, height = 4)
 ```
 
 ```{r prepareSCplot, include=FALSE}
@@ -243,15 +333,14 @@ cells.df <- data.frame(
 )
 for (time in c("2h", "4h", "6h")){
    for (infection in c("Mock", "D23580", "LT2")){
+     message(sprintf("%s - %s", time, infection))
     sname <- as.character(sample(subset(
       pData(kallisto.overlap),
       Time == time & Infection == infection & Status != 'BULK',
       select = sample,
       drop = TRUE), 1))
     kallisto <- counts(kallisto.overlap[,sname])[,1]
-    print(length(kallisto))
     hf = counts(sce.overlap)[,sname]
-    print(length(hf))
     new.df <- data.frame(
       Time = time,
       Infection = infection,
@@ -282,10 +371,11 @@ ggplot(comp.sc, aes(log10(Kallisto + 1), log10(HF + 1))) +
   geom_point(
     aes(log10(Kallisto + 1), log10(HF + 1)),
     subset(comp.sc, ERCC),
-    colour = "red", size = 0.3) +
+    colour = "red", size = 0.5) +
   ggrepel::geom_label_repel(
-    aes(X, Y, label = Cell), cells.df,
+    aes(X, Y, label = Cell), cells.df, min.segment.length = unit(3, "lines"),
     size = 2, alpha = 0.5) +
+  labs(y = "HISAT2 & featureCounts", x = "Kallisto", main = "log10(counts + 1)") +
   scale_fill_continuous(name = "Density")
-ggsave("NGS-SIG/Kallisto-HISAT2_SC9.pdf")
+ggsave("NGS-SIG/Kallisto-HISAT2_SC9.pdf", width = 6, height = 4)
 ```
