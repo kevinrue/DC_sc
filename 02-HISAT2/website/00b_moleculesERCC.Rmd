@@ -26,7 +26,7 @@ as described in the
 * $V$ is the volume added into each well, here $10\mu{L}$
 * $D$ is a dilution factor, here $1:100,000,000$
 
-# Concentrations in ERCC Mix from the manufacturer
+# Concentrations in ERCC Mix from the manufacturer {#import}
 
 Let us import the concentration of individual spike-in molecules
 from
