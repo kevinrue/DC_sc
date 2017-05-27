@@ -48,6 +48,7 @@ moi$SEMLog <- apply(
   1,
   function(x){sd(x)/sqrt(length(x))}
 )
+moi
 ```
 
 ## Viability
