@@ -1162,6 +1162,68 @@ ht_list <-
 draw(ht_list, split = hm.split)
 ```
 
+```{r heatmap_2, echo=FALSE, include=FALSE}
+exprsRange <- range(norm_exprs(sce.ifm.6h))
+colorMap <- circlize::colorRamp2(
+  c(min(exprsRange), median(exprsRange), max(exprsRange)),
+  c("blue","white","red"))
+geneNames <- c(
+  "IL10","STAT3","MARCH1","SOCS1","SOCS2","SOCS3","CD86","CD83",
+  "DNAJC13","BLOC1S3")
+geneIds<-subset(fData(sce.ifm.6h), gene_name %in% geneNames, "gene_id", drop = TRUE)
+stopifnot(length(geneIds) == length(geneNames))
+norm.mat <- norm_exprs(sce.ifm.6h)[geneIds,]
+norm.d23exp <- norm.mat[,sce.ifm.6h$Treatment == "D23580_exposed"]
+norm.d23inf <- norm.mat[,sce.ifm.6h$Treatment == "D23580_infected"]
+norm.lt2exp <- norm.mat[,sce.ifm.6h$Treatment == "LT2_exposed"]
+norm.lt2inf <- norm.mat[,sce.ifm.6h$Treatment == "LT2_infected"]
+ha.d23.exp <- HeatmapAnnotation(
+  df = pData(sce.ifm.6h)[colnames(norm.d23exp), "quickCluster", drop = FALSE],
+  col = list(quickCluster = col.cluster)
+)
+ha.d23.inf <- HeatmapAnnotation(
+  df = pData(sce.ifm.6h)[colnames(norm.d23inf), "quickCluster", drop = FALSE],
+  col = list(quickCluster = col.cluster),
+  show_legend = FALSE
+)
+ha.lt2.exp <- HeatmapAnnotation(
+  df = pData(sce.ifm.6h)[colnames(norm.lt2exp), "quickCluster", drop = FALSE],
+  col = list(quickCluster = col.cluster),
+  show_legend = FALSE
+)
+ha.lt2.inf <- HeatmapAnnotation(
+  df = pData(sce.ifm.6h)[colnames(norm.lt2inf), "quickCluster", drop = FALSE],
+  col = list(quickCluster = col.cluster),
+  show_legend = FALSE
+)
+rownames(norm.d23exp) <- geneNames
+hm.split <- c(rep(" ",6), rep("  ",2))
+ht_list <-
+  Heatmap(
+    norm.d23exp, colorMap, "Normalised\nexpression", row_names_side = "left",
+    cluster_rows=FALSE,show_column_names=FALSE,show_column_dend=FALSE,
+    column_title_gp = gpar(fontsize = 10), top_annotation = ha.d23.exp,
+    column_title = "STM-D23580\nexposed") +
+  Heatmap(
+    norm.d23inf, colorMap, "hm2", show_row_names = FALSE,
+    cluster_rows=FALSE,show_column_names=FALSE,show_column_dend=FALSE,
+    column_title_gp = gpar(fontsize = 10), column_title = "STM-D23580\ninfected",
+    top_annotation = ha.d23.inf, show_heatmap_legend = FALSE) + 
+  Heatmap(
+    norm.lt2exp, colorMap, "hm3", show_row_names = FALSE,
+    cluster_rows=FALSE,show_column_names=FALSE,show_column_dend=FALSE,
+    column_title_gp = gpar(fontsize = 10), column_title = "STM-LT2\nexposed",
+    top_annotation = ha.lt2.inf, show_heatmap_legend = FALSE) + 
+  Heatmap(
+    norm.lt2inf, colorMap, "hm4", show_row_names = FALSE,
+    cluster_rows=FALSE,show_column_names=FALSE,show_column_dend=FALSE,
+    column_title_gp = gpar(fontsize = 10), column_title = "STM-LT2\ninfected",
+    top_annotation = ha.lt2.inf, show_heatmap_legend = FALSE)
+pdf("out_13/heatmap_2.pdf", height = 5, width = 7)
+draw(ht_list)
+dev.off()
+```
+
 ```{r MARCH1_normExprsByName.6h.Status, include=FALSE}
 normExprsByName.6h.Status("ENSG00000145416")
 ggsave(sprintf("20170525_lab-meeting/%s_colour.pdf", "MARCH1"), width = 6, height = 4)
