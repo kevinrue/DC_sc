@@ -15,146 +15,81 @@ library(ggplot2)
 library(SummarizedExperiment)
 sce.pass <- readRDS("rds/sce.pass.rds")
 sce.bulk <- readRDS("rds/sce.bulk.rds")
-gtfData <- readRDS("rds/gtfData.rds")
 mixC <- readRDS("rds/mixC.rds")
 ERCCs <- grep("^ERCC-[[:digit:]]+$", featureNames(sce.pass), value = TRUE)
-MTs <- mcols(gtfData)[seqnames(gtfData) == "MT", "gene_id"]
+MTs <- subset(fData(sce.pass), seqnames== "MT", "gene_id", drop = TRUE)
 ```
 
-# Correlation of bulks and single cell average {.tabset}
+# Preliminary notes
+
+This section uses objects defined in previous sections of the website, namely:
+
+* `mixC`: concentrations of ERCC spike-in molecules in mix
+  ([ERCC content](00b_moleculesERCC.html#import)),
+* `ERCCs`: names of the ERCC spike-in features in the count matrix
+  ([Sample QC#blanks](03_sample_QC.html#blanks)),
+* `MTs`: names of the mitochondrial gene features in the count matrix
+  ([Sample QC#calculateQCMetrics](03_sample_QC.html#calculateQCMetrics)).
+
+# Correlation of bulks and single cell average
+
+## Preprocessing
 
 For each experimental group of single cells, let us calculate the average
-expression level (`log2(counts+1)`) of each feature:
+expression level (`log2(counts+1)`) of each feature.
 
-```{r}
-bulkSCdata <- list()
-for (groupName in levels(sce.pass$Group)){
-  time <- gsub("^(.*h)_.*", "\\1", groupName)
-  infection <- gsub(".*_(.*)_.*", "\\1", groupName) 
-  cellIndex <- which(sce.pass$Group == groupName)
+Let us first initialise a `data.frame`:
+
+```{r bulkSCdata_init}
+bulkSCdata <- data.frame()
+```
+
+That we then progressively populate with data for each experimental group:
+
+```{r bulkSCdata_fill}
+for (x_group in levels(sce.pass$Group)){
+  time <- gsub("^(.*h)_.*", "\\1", x_group)
+  infection <- gsub(".*_(.*)_.*", "\\1", x_group)
+  status <- gsub(".*_.*_(.*)", "\\1", x_group)
+  treatment <- gsub(".*_(.*_.*)", "\\1", x_group)
+  cellIndex <- which(sce.pass$Group == x_group)
   cellAvg <- rowMeans(exprs(sce.pass[,cellIndex]))
   bulkExpr <- exprs(sce.bulk)[,which(
     sce.bulk$Time == time & sce.bulk$Infection == infection
     )]
   geneNames <- names(cellAvg)
-  bulkSCdata[[groupName]] <- data.frame(
-    Cells = cellAvg[geneNames], Bulk = bulkExpr, row.names = geneNames
+  bulkSCdata <- rbind(
+    bulkSCdata,
+    data.frame(
+      Cells = cellAvg,
+      Bulk = bulkExpr[geneNames],
+      Gene = geneNames,
+      Group = x_group, Treatment = treatment,
+      Time = time, Infection = infection, Status = status
+    )
   )
 }
 ```
 
-We may then display the average expression level of each gene within each
-experimental group of single cells against their matched bulk sample.
-
 Importantly, stimulated bulk samples are expected to be a mixture of
-`infected` and `exposed` cells. We may therefore compare the average expression
-in each subset of cells against the bulk average, to identify potential
-differences:
+`infected` (minority; < 5%) and `exposed` cells (vast majority; > 95%).
+We may therefore compare the average expression
+in each subset of cells against the bulk average,
+to identify potential differences.
+For reference, let us also indicate the identity line $y = x$ in grey:
 
-## 2h_Mock_uninfected
-
-```{r 2h_Mock_uninfected}
-ggplot(bulkSCdata[["2h_Mock_uninfected"]]) +
-  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
+```{r bulkSCdata_plot, fig.height=8}
+ggplot(bulkSCdata) + geom_abline(slope = 1, intercept = 0, colour = "grey") +
+  stat_bin2d(aes(Bulk, Cells), bins = 150) + coord_fixed(ratio = 1) +
+  labs(y="Cell average", title="exprs: log2(CPM + offset)") +
+  guides(fill = FALSE) + facet_grid(Infection + Status ~ Time) + theme_minimal()
 ```
 
-## 4h_Mock_uninfected
-
-```{r 4h_Mock_uninfected}
-ggplot(bulkSCdata[["4h_Mock_uninfected"]]) +
-  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
-```
-
-## 6h_Mock_uninfected
-
-```{r 6h_Mock_uninfected}
-ggplot(bulkSCdata[["6h_Mock_uninfected"]]) +
-  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
-```
-
-## 2h_D23580_exposed
-
-```{r 2h_D23580_exposed}
-ggplot(bulkSCdata[["2h_D23580_exposed"]]) +
-  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
-```
-
-## 4h_D23580_exposed
-
-```{r 4h_D23580_exposed}
-ggplot(bulkSCdata[["4h_D23580_exposed"]]) +
-  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
-```
-
-## 6h_D23580_exposed
-
-```{r 6h_D23580_exposed}
-ggplot(bulkSCdata[["6h_D23580_exposed"]]) +
-  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
-```
-
-## 2h_LT2_exposed
-
-```{r 2h_LT2_exposed}
-ggplot(bulkSCdata[["2h_LT2_exposed"]]) +
-  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
-```
-
-## 4h_LT2_exposed
-
-```{r 4h_LT2_exposed}
-ggplot(bulkSCdata[["4h_LT2_exposed"]]) +
-  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
-```
-
-## 6h_LT2_exposed
-
-```{r 6h_LT2_exposed}
-ggplot(bulkSCdata[["6h_LT2_exposed"]]) +
-  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
-```
-
-## 2h_D23580_infected
-
-```{r 2h_D23580_infected}
-ggplot(bulkSCdata[["2h_D23580_infected"]]) +
-  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
-```
-
-## 4h_D23580_infected
-
-```{r 4h_D23580_infected}
-ggplot(bulkSCdata[["4h_D23580_infected"]]) +
-  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
-```
-
-## 6h_D23580_infected
-
-```{r 6h_D23580_infected}
-ggplot(bulkSCdata[["6h_D23580_infected"]]) +
-  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
-```
-
-## 2h_LT2_infected
-
-```{r 2h_LT2_infected}
-ggplot(bulkSCdata[["2h_LT2_infected"]]) +
-  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
-```
-
-## 4h_LT2_infected
-
-```{r 4h_LT2_infected}
-ggplot(bulkSCdata[["4h_LT2_infected"]]) +
-  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
-```
-
-## 6h_LT2_infected
-
-```{r 6h_LT2_infected}
-ggplot(bulkSCdata[["6h_LT2_infected"]]) +
-  stat_bin2d(aes(Bulk, Cells), bins = 100) + guides(fill = FALSE)
-```
+The figure above displays higher detection levels in bulk samples for a large
+proportion of genes; this demonstrates the higher frequency of dropout
+events in single cell samples, and the average measurement of bulk
+that rescues detection of rarer transcripts expressed
+stochastically at low levels or in few cells.
 
 # Overview of feature detection levels
 
@@ -167,6 +102,8 @@ moreover, those features negatively affect the performance of normalisation
 algorithms, due to the large number of dropout (*i.e.*, zero count) events
 [@67; @Brennecke_2013].
 
+## Counts per million (CPM)
+
 First, let us initalise the matrix of CPM:
 
 ```{r cpm}
@@ -174,16 +111,23 @@ scater::cpm(sce.pass) <- edgeR::cpm(counts(sce.pass))
 range(colSums(cpm(sce.pass)))
 ```
 
+**Note:**
+The `scater::cpm` method is an accessor to the corresponding slot of
+`SCESet` objects, while the `edgeR::cpm` method *calculates* normalised
+counts per million for given a matrix of read counts.
+
 ## Detection frequency and mean expression level
 
-For this purpose, let us first calculate updated QC metrics in the subsetted
-data set using once more the [scater](http://bioconductor.org/packages/scater)
-`calculateQCMetrics` method:
+For this purpose, let us first calculate updated QC metrics--in the subsetted
+of cells that *passed* quality control in the
+[previous section](#03_sample_QC.html)--using once more the
+[scater](http://bioconductor.org/packages/scater) `calculateQCMetrics` method:
 
 ```{r pass_calculateQCMetrics}
 sce.pass <- calculateQCMetrics(
   sce.pass, feature_controls = list(ERCC = ERCCs, MT = MTs)
 )
+setSpike(sce.pass) <- "ERCC"
 ```
 
 We may then examine for each feature the proportion of cells in which it is
@@ -200,26 +144,27 @@ plotExprsFreqVsMean(
 ## Spike-in expectations
 
 Let us compare the expected number of spike-in molecules introduced in each
-sample (calculated in this [section](00b_moleculesERCC.html)) against the
+sample
+(calculated in this [earlier section](00b_moleculesERCC.html)) against the
 average count detected across all single cells, while indicating the identity
 relationship $y = x$ as a solid black line:
 
 ```{r ERCCcorrelation, warning=FALSE, fig.height=6}
 mixC$avgCount <- rowMeans(counts(sce.pass)[mixC$ID,])
-names(mixC)
-maxPlot <- max(mixC$avgCount, mixC$ERCCmolecules)
 ggplot(mixC) + geom_point(aes(ERCCmolecules, avgCount)) +
-  labs(x = "ERCC molecules injected", y = "Average count in cells passed QC") +
   geom_abline(slope = 1, intercept = 0) +
-  scale_x_log10() + scale_y_log10() + coord_fixed(ratio = 1)
+  labs(
+    x = "Expected ERCC molecules injected",
+    y = "Average observed read count in cells passed QC") +
+  scale_x_log10() + scale_y_log10() + coord_fixed(ratio = 1) + theme_minimal()
 ```
 
 # Definition of detected features
 
 ## Count of genes by mean expression level
 
-Let us examine the distribution of log-mean CPM across all genes, while
-indicating an average value of **1** CPM:
+Let us examine the distribution of log-mean CPM across all genes,
+while indicating an average value of **1** CPM by a vertical blue dashed line:
 
 ```{r detectVsMean_hist}
 ave.cpm <- rowMeans(scater::cpm(sce.pass))
@@ -253,60 +198,56 @@ abline(v = log10(1), col = "blue", lwd = 2, lty = 2)
 
 ## Distribution of expression levels within groups {.tabset}
 
-In the context of the present multifactorial experimental design, let us define
-informative endogenous features as those with an average expression level
-above an expression threshold of **10** counts per million (CPM)
-in at least **25%** of at least **1** experimental group of cells
-(`r min(table(sce.pass$Group))`-`r max(table(sce.pass$Group))`
-cells per group, after exclusion of outliers).
-In contrast, let us define informative spike-in features
-as those with an average count across all single cells greater or equal
-to a threhsold of **1** count.
-Note that the count of cells per group was reported
-[here](03_sample_QC.html#cellSelection)
+### Density
 
 Let us first calculate the average CPM for each gene within each experimental
 group:
-
-**Note:** Make sure to use `scater::cpm` (*not* `edge::cpm`) below, to
-*access* the `cpm` matrix of the `assayData` slot; otherwise a new CPM matrix
-may be inappropriately calculated.
 
 ```{r avgCPMbyGroup}
 avgCPMbyGroup <- apply(scater::cpm(sce.pass), 1, function(x){
   tapply(x, sce.pass$Group, mean)})
 avgCPMbyGroup <- reshape2::melt(
   avgCPMbyGroup, varnames = c("Group", "Feature"), value.name = "AvgCPM")
+avgCPMbyGroup[,c("Time","Infection","Status")] <-
+  limma::strsplit2(avgCPMbyGroup$Group, "_")
 ```
 
-### Density
+The following figure displays the resulting distribution of
+average log~10~(CPM) within each experimental group of single cells
+(after removal of zero-count genes):
 
-The following figure display the distribution of average log~10~(CPM)
-within each experimental group of single cells
-(after removing zero-count genes):
-
-```{r density_avgCPM}
+```{r density_avgCPM, echo=FALSE, fig.height=8}
 ggplot(avgCPMbyGroup) + geom_density(aes(log10(AvgCPM))) +
-  facet_wrap(~ Group)
+  facet_grid(Infection + Status ~ Time) +
+  labs(x = "log10(Average CPM)") + theme_minimal()
 ```
 
 ### Violin
 
-The following figure display the distribution of average log~10~(CPM)
-within each experimental group of single cells,
-while indicating in each text label the count of non-zero values in each
-experimental groups (*i.e.*, the count of genes present in each violin):
+Alternatively, we may also display the distribution of  average log~10~(CPM)
+within each experimental group of single cells as a violin plot.
 
-```{r violin_avgCPM}
+Let us first identify the count of detected features in each experimental
+group of cells:
+
+```{r detectedCounts}
 detectedCounts <- data.frame(
   Group = levels(avgCPMbyGroup$Group), y = 1E-2,
   Count = with(avgCPMbyGroup, tapply(AvgCPM, Group, function(x){sum(x>0)}))
 )
+```
+
+The following figure displays the distribution of average
+log~10~(CPM) within each experimental group of single cells, while
+indicating for each of them the count of non-zero values in each
+experimental groups:
+
+```{r violin_avgCPM, echo=FALSE, warning=FALSE}
 ggplot(avgCPMbyGroup, aes(Group, AvgCPM)) +
   geom_violin(draw_quantiles = seq(0.25, 0.75, 0.25)) +
   geom_label(aes(Group, y, label = Count), data = detectedCounts, size = 2) +
   scale_y_log10(limits = c(1E-2, 1E5)) + labs(y = "Average CPM") +
-  theme(
+  theme_minimal() + theme(
     axis.text.x = element_text(angle = 90, vjust = 0.5),
     panel.grid.major.x = element_blank()
   )
@@ -314,7 +255,25 @@ ggplot(avgCPMbyGroup, aes(Group, AvgCPM)) +
 
 # Selection of detected features {#selectFeatures}
 
-Let us obtain---for each feature---the proportion of cells within each
+In the context of the present multifactorial experimental design,
+it is expected that many genes display detectable expression levels in
+only a subset of experimental conditions (*e.g.*, cells stimulated with 
+bacteria after sufficient time to allow intracellular signalling).
+
+Consequently, let us define informative endogenous features as those
+that display an average expression level above an expression threshold
+of **10** counts per million (CPM) in at least **25%** of
+at least **1** experimental group of cells
+(`r min(table(sce.pass$Group))`-`r max(table(sce.pass$Group))`
+cells per group, after the earlier [exclusion of outliers](#03_sample_QC.html)).
+
+In contrast, let us define informative spike-in features
+as those with an average count across all single cells greater or equal
+to a threhsold of **1** count.
+Note that the detailed count of cells per group was reported
+[here](03_sample_QC.html#cellSelection).
+
+First, let us obtain---for each feature---the proportion of cells within each
 experimental group of cells that display an expression level above **10** CPM:
 
 ```{r propOver10byGroup}
@@ -325,25 +284,28 @@ propOver10byGroup <- reshape2::melt(
   propOver10byGroup, varnames = c("Group", "Feature"), value.name = "Proportion")
 ```
 
-Following the above observations, let us retain for further analysis:
+Let us now retain for further analysis:
 
 * endogenous features detected above **10** CPM in at least **25%** of at least
   **1** experimental group of cells
 * ERCC spike-in features detected at an average level greater than **1** count
   across all cells:
 
-```{r}
+```{r detectedFeatures}
 detectedFeatures <- names(which(tapply(
   propOver10byGroup$Proportion, propOver10byGroup$Feature,
   function(x){sum(x > 0.25) > 0})))
 ```
 
-```{r detectedFeatures}
+```{r keep}
 keepEndogenous <- (featureNames(sce.pass) %in% detectedFeatures) &
   (!isSpike(sce.pass))
 keepSpike <- (rowMeans(counts(sce.pass)) > 1) & (isSpike(sce.pass))
 table(keepEndogenous); table(keepSpike)
 ```
+
+Finally, we may extract detected features
+(endogenous and ERCC spike-in molecules) into a new `SCESet`:
 
 ```{r sce.filtered}
 sce.filtered <- sce.pass[keepEndogenous | keepSpike,]
