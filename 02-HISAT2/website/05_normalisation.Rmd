@@ -21,105 +21,154 @@ Having identified the cells of good quality and the features robustly
 detected across those cells, we may now normalise expression levels between
 cells using an approach suitable for single cell data sets.
 
-Considering the multifactorial experimental design of this data set, and the
-expected differential expression in `exposed` and `infected` cells,
-let us cluster similar cells together prior to normalising the cells in each
-cluster using the deconvolution method implemented in the
-[scran](http://bioconductor.org/packages/scran) package.
+## Unsupervised clusters
+
+Considering the multifactorial experimental design of this data set,
+and the considerable transcriptional changes expected over time, and in
+response to bacterial stimuli,
+let us first identify clusters of transcriptionally similar cells;
+those unsupervised clusters will subsequently be used to apply a
+stratified normalisation procedure within each cluster, concluded by
+a scaling of size factors for comparison between clusters,
+as implemented in the [scran](http://bioconductor.org/packages/scran) package.
 
 Importantly, let us define the *smallest cluster* size to the minimum number
 of cells in any experimental group (*i.e.*, `r min(table(sce.filtered$Group))`
-in group `r names(which.min(table(sce.filtered$Group)))`).
+in group `r names(which.min(table(sce.filtered$Group)))`; see this
+[earlier section](04_feature_QC.html#selectFeatures)) for the count of cells
+per group.
 
-Importantly, the default behaviour of the `quickCluster` function is to
+**Note:**
+The default behaviour of the `quickCluster` function is to
 only use *endogenous features* (`get.spikes=FALSE`),
 as ERCC spike-in features should be present in equal amounts in all samples:
 
 ```{r quickCluster}
 clusters <- quickCluster(sce.filtered, min.size=min(table(sce.filtered$Group)))
-summary(clusters)
+sce.filtered$Cluster <- clusters
 ```
 
-In this case, four clusters were identified. As expected, the largest cluster
+```{r, clusters_table, echo=FALSE}
+clusters_table <- data.frame(table(clusters))
+colnames(clusters_table) <- c("Cluster", "Cells")
+pander::pandoc.table(clusters_table)
+```
+
+In this case, four clusters were identified.
+Let us examine the distribution of experimental groups across the
+identified clusters:
+
+```{r longCluster, warning=FALSE}
+longCluster <- reshape2::melt(
+  pData(sce.filtered)[,c("Cluster","Time","Infection","Status")],
+  measure.vars = c("Time","Infection","Status"),
+  variable.name = "Factor", value.name = "Level"
+)
+longCluster$Level <- with(
+  pData(sce.filtered),
+  factor(longCluster$Level, c(levels(Time), levels(Infection), levels(Status)))
+)
+```
+
+```{r longCluster_plot, echo=FALSE}
+ggplot(longCluster) +
+  geom_bar(aes(x = interaction(Factor, Level), colour = Factor)) + labs(y = "Cells") +
+  facet_grid( ~ Cluster, labeller = label_both) +
+  theme_minimal() + theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0))
+```
+
+As expected, the figure above demonstrates that the largest cluster
 (`r max(table(clusters))` cells) contains most `2h` cells and `4h:uninfected`
 cells (which cannot be found in any other facet).
 Clusters 2 and 3 contain uniquely `4h` and `6h` stimulated cells, respectively.
 Finally, the smallest cluster (4) contains mostly `6h:uninfected`, with
 a handful of other cells.
 
-```{r longCluster, warning=FALSE}
-sce.filtered$quickCluster <- clusters
-longCluster <- reshape2::melt(
-  pData(sce.filtered)[,c("quickCluster","Time","Infection","Status")],
-  measure.vars = c("Time","Infection","Status"),
-  variable.name = "Factor", value.name = "Level")
-longCluster$Level = factor(longCluster$Level, c(
-  "2h","4h","6h","uninfected","exposed","infected","Mock","LT2","D23580"
-))
-ggplot(longCluster) +
-  geom_bar(aes(x = Level, colour = Factor)) +
-  facet_grid(Factor ~ quickCluster, labeller = label_both) +
-  theme(axis.text.x = element_text(angle = 90, vjust = 0.5))
-```
+## Compute size factors
 
 Let us apply the normalisation procedure, deconvolving size factors clusters:
 
 ```{r computeSumFactors}
 sce.filtered <- computeSumFactors(
-  sce.filtered, sizes = c(10, 15), clusters = clusters)
+  sce.filtered, sizes = c(10, 15), clusters = sce.filtered$Cluster)
 summary(sizeFactors(sce.filtered))
 ```
 
-In the figure below, the size factors are somewhat correlated with library size,
+## Relation to library size {.tabset}
+
+In the absence of biological effect, size factors are expected to correlate
+with library size. Let us visualise the two values in a scatter plot:
+
+### Scatter: Status
+
+```{r librarySize_Status, echo=FALSE}
+ggplot(
+  pData(sce.filtered), aes(total_counts / 1E6, size_factor)) +
+  stat_smooth(
+    aes(colour = Time, linetype = Status),
+    method = "lm", se = TRUE, size = 0.5, alpha = 0.1
+  ) + geom_point(aes(colour = Time, shape = Status)) +
+  labs(x = "Library size (millions)", y = "Size factor") +
+  theme_minimal()
+```
+
+In the figure above, the size factors are somewhat correlated with library size,
 while significant scatter is visible around the trend;
 augmenting the figure with experimental phenotype information emphasises
 how the effect of library size on the size factor of individual cells is
 subject to factors related to the experimental design of the experiment.
 
-In particular, the figure below emphasises how the effect of library size is
+In particular, the figure emphasises how the effect of library size is
 more important in `uninfected` cells, and at the earliest time point
 (*i.e.*, `2h`), when the biological effect of infection may not have fully
 affect the transcriptome of most cells yet.
 
 In contrast, at later time points (*i.e.*, `4h` and `6h`), trends indicate a
 markedly weaker effect of library size on size factor.
+
 This suggest that other sources of systematic differences between cells
 arose (*i.e.*, `Status`, `Infection`),
 and that differential expression is to be expected
-between experimental groups at those time points:
+between experimental groups at those time points
 
-```{r sizeFactor_librarySize}
+### Scatter: Infection
+
+```{r librarySize_Infection, echo=FALSE}
 ggplot(
   pData(sce.filtered), aes(total_counts / 1E6, size_factor)) +
-  geom_point(aes(colour = Time, shape = Status)) +
-  labs(x = "Library size (millions)", y = "Size factor") +
   stat_smooth(
-    aes(colour = Time, linetype = Status),
+    aes(colour = Time, linetype = Infection),
     method = "lm", se = TRUE, size = 0.5, alpha = 0.1
-  )
+  ) + geom_point(aes(colour = Time, shape = Infection)) +
+  labs(x = "Library size (millions)", y = "Size factor") +
+  theme_minimal()
 ```
+
+## Relation to experimental groups
 
 The same effect to experimental covariates on the distribution of size factors
 within each experimental group may also be summarised in box plots as
 shown below:
 
-```{r sizeFactor_expFactors}
+```{r sizeFactor_expFactors, echo=FALSE}
 ggplot(
   pData(sce.filtered),
   aes(interaction(Infection, Status, sep = " - "), size_factor)
   ) +
   geom_boxplot(aes(fill = Infection, linetype = Status)) +
   coord_flip() + labs(y = "Size factor", x = "") +
-  theme(panel.grid.major.y = element_blank()) +
-  facet_grid(Time ~ .)
+  theme_minimal() + theme(panel.grid.major.y = element_blank()) +
+  facet_grid(Time ~ .) + scale_y_continuous(limits = c(0,2))
 ```
 
 In a different perspective, the above figure emphasises again how
 size factors are affected by experimental factors in this data set;
-in particular at the later time points, size factors for cells infected by
-or exposed to bacteria display markedly distinct size factors,
-irrespective of library size.
-This suggests that `Infection`, and `Status` drive more important
+in particular at the later time points,
+size factors for cells  stimulated with bacteria
+display markedly distinct size factors, irrespective of library size.
+
+Overall, size factors suggest that experimental factors drive more important
 systematic differences between cells than library size at those time points,
 having likely reshaped the transcriptional profile of stimulated cells.
 
@@ -130,7 +179,6 @@ of size factors for the spike-in set. This assumes
 that none of the spike-in transcripts are differentially expressed.
 
 ```{r computeSpikeFactors}
-setSpike(sce.filtered) <- "ERCC"
 sce.filtered <- computeSpikeFactors(
   sce.filtered, type = "ERCC", general.use = FALSE
 )
@@ -138,17 +186,17 @@ sce.filtered <- computeSpikeFactors(
 
 We may then examine the spike factors calculated:
 
-```{r spikeFactors_ggplot}
+```{r spikeFactors_ggplot, echo=FALSE}
 ggplot(pData(sce.filtered), aes(total_counts / 1E6, size_factor_ERCC)) +
-  geom_point(aes(colour = Time, shape = Status)) +
-  stat_smooth(method = "lm") +
-  labs(x = "Library size", y = "Spike factor")
+  stat_smooth(method = "lm") + geom_point(aes(colour = Time, shape = Status)) +
+  theme_minimal() + labs(x = "Library size (millions)", y = "Size factor")
 ```
 
-In contrast to size factors calculated using endogenous features, spike factors
-calculated using ERCC spike-in display a much weaker correlation with
-library size, and no trend with experimental factors.
-This reinforces the absence of extreme outliers after the removal
+In contrast to the earlier size factors calculated using endogenous features,
+spike factors calculated using ERCC spike-in display a much weaker correlation
+with library size, and no trend with experimental factors.
+
+Furthermore, this reinforces the absence of extreme outliers after the removal
 of cells with abnormal ERCC content in an [earlier section](#ERCCoutliers);
 moreover, it suggests that counts assigned to individual ERCC spike-in features
 are similar across all the cells retained after quality control.
