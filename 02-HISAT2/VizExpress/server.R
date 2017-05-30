@@ -7,11 +7,12 @@
 #    http://shiny.rstudio.com/
 #
 
-sce.norm <- readRDS("data/sce.norm.tSNE.rds")
-exprs_range <- range(norm_exprs(sce.norm))
-
 library(shiny)
 library(ggplot2)
+library(scater)
+
+sce.norm <- readRDS("data/sce.norm.tSNE.rds")
+exprs_range <- range(norm_exprs(sce.norm))
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
