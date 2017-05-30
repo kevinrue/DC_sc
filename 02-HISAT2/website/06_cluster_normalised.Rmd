@@ -96,7 +96,7 @@ ggplot(plateDesign, aes(Column, Row, fill = Time, colour = Infection, alpha = St
   )
 ```
 
-## Plate design (Passed QC)
+## Plate design (Cells passed QC)
 
 ```{r plateDesign_pass, echo=FALSE}
 plateDesign <-
@@ -356,10 +356,10 @@ half the average size of an experimental group of single cells
 [earlier section](04_feature_QC.html#selectFeatures) for the count of cells
 per group).
 
-**Note**: In t-SNE, the perplexity may be viewed as a knob that sets the number
+**Note**: "In t-SNE, the perplexity may be viewed as a knob that sets the number
 of effective nearest neighbors. It is comparable with the number of nearest
-neighbors k that is employed in many manifold learners
-(see the GitHub website
+neighbors $k$ that is employed in many manifold learners
+(see the GitHub website"
 [Laurens van der Maaten](https://lvdmaaten.github.io/tsne/)).
 As a consequence, an appropriate value of perplexity is necessary to
 allow data points (here, single cells) to form clusters with a reasonable
@@ -441,7 +441,7 @@ We may also overlay the clusters identify during
 [normalisation](05_normalisation.html) onto the t-SNE:
 
 ```{r plotTSNE_quickCluster}
-plotReducedDim.SCESet(sce.norm,2,colour_by="quickCluster",shape_by="Time") + PCAtheme
+plotReducedDim.SCESet(sce.norm,2,colour_by="Cluster",shape_by="Time") + PCAtheme
 ```
 
 ### Genes {.tabset}
