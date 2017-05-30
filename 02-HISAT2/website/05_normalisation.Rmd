@@ -35,8 +35,8 @@ as implemented in the [scran](http://bioconductor.org/packages/scran) package.
 Importantly, let us define the *smallest cluster* size to the minimum number
 of cells in any experimental group (*i.e.*, `r min(table(sce.filtered$Group))`
 in group `r names(which.min(table(sce.filtered$Group)))`; see this
-[earlier section](04_feature_QC.html#selectFeatures)) for the count of cells
-per group.
+[earlier section](04_feature_QC.html#selectFeatures) for the count of cells
+per group).
 
 **Note:**
 The default behaviour of the `quickCluster` function is to
@@ -48,7 +48,7 @@ clusters <- quickCluster(sce.filtered, min.size=min(table(sce.filtered$Group)))
 sce.filtered$Cluster <- clusters
 ```
 
-```{r, clusters_table, echo=FALSE}
+```{r, clusters_table, echo=FALSE, results='asis'}
 clusters_table <- data.frame(table(clusters))
 colnames(clusters_table) <- c("Cluster", "Cells")
 pander::pandoc.table(clusters_table)
@@ -66,20 +66,21 @@ longCluster <- reshape2::melt(
 )
 longCluster$Level <- with(
   pData(sce.filtered),
-  factor(longCluster$Level, c(levels(Time), levels(Infection), levels(Status)))
+  factor(longCluster$Level, rev(c(levels(Time), levels(Infection), levels(Status))))
 )
 ```
 
-```{r longCluster_plot, echo=FALSE}
+```{r longCluster_plot, echo=FALSE, fig.height=6}
 ggplot(longCluster) +
-  geom_bar(aes(x = interaction(Factor, Level), colour = Factor)) + labs(y = "Cells") +
-  facet_grid( ~ Cluster, labeller = label_both) +
-  theme_minimal() + theme(
-    axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 0))
+  geom_bar(aes(x = interaction(Factor, Level, sep = ": "), fill = Factor)) +
+  facet_grid(Cluster ~ ., labeller = label_both) +
+  theme_minimal() + coord_flip() + labs(x = "") + theme(
+    axis.text.y = element_text(hjust = 0))
 ```
 
 As expected, the figure above demonstrates that the largest cluster
-(`r max(table(clusters))` cells) contains most `2h` cells and `4h:uninfected`
+(cluster `r names(which.max(table(clusters)))`: `r max(table(clusters))` cells)
+contains most `2h` cells and `4h:uninfected`
 cells (which cannot be found in any other facet).
 Clusters 2 and 3 contain uniquely `4h` and `6h` stimulated cells, respectively.
 Finally, the smallest cluster (4) contains mostly `6h:uninfected`, with
