@@ -1170,9 +1170,11 @@ colorMap <- circlize::colorRamp2(
 geneNames <- c(
   "IL10","STAT3","MARCH1","SOCS1","SOCS2","SOCS3","CD86","CD83",
   "DNAJC13","BLOC1S3")
-geneIds<-subset(fData(sce.ifm.6h), gene_name %in% geneNames, "gene_id", drop = TRUE)
-stopifnot(length(geneIds) == length(geneNames))
-norm.mat <- norm_exprs(sce.ifm.6h)[geneIds,]
+geneIds<-
+  subset(fData(sce.ifm.6h), gene_name %in% geneNames, c("gene_id","gene_name"))
+geneIds <- geneIds[match(geneNames, geneIds$gene_name),]
+stopifnot(nrow(geneIds) == length(geneNames))
+norm.mat <-norm_exprs(sce.ifm.6h)[geneIds$gene_id,]
 norm.d23exp <- norm.mat[,sce.ifm.6h$Treatment == "D23580_exposed"]
 norm.d23inf <- norm.mat[,sce.ifm.6h$Treatment == "D23580_infected"]
 norm.lt2exp <- norm.mat[,sce.ifm.6h$Treatment == "LT2_exposed"]
@@ -1197,7 +1199,6 @@ ha.lt2.inf <- HeatmapAnnotation(
   show_legend = FALSE
 )
 rownames(norm.d23exp) <- geneNames
-hm.split <- c(rep(" ",6), rep("  ",2))
 ht_list <-
   Heatmap(
     norm.d23exp, colorMap, "Normalised\nexpression", row_names_side = "left",
@@ -1220,6 +1221,111 @@ ht_list <-
     column_title_gp = gpar(fontsize = 10), column_title = "STM-LT2\ninfected",
     top_annotation = ha.lt2.inf, show_heatmap_legend = FALSE)
 pdf("out_13/heatmap_2.pdf", height = 5, width = 7)
+draw(ht_list)
+dev.off()
+```
+
+```{r heatmap_3, echo=FALSE, include=FALSE}
+exprsRange <- range(norm_exprs(sce.ifm.6h))
+colorMap <- circlize::colorRamp2(
+  c(min(exprsRange), median(exprsRange), max(exprsRange)),
+  c("blue","white","red"))
+geneNames <- c(
+  "IL6","IL6R","IL6ST","IL10","IL10RA","IL10RB","TYK2",
+  "JAK1","JAK3","STAT3","MARCH1")
+geneIds<-
+  subset(fData(sce.ifm.6h), gene_name %in% geneNames, c("gene_id","gene_name"))
+geneIds <- geneIds[match(geneNames, geneIds$gene_name),]
+stopifnot(nrow(geneIds) == length(geneNames))
+norm.mat <-norm_exprs(sce.ifm.6h)[geneIds$gene_id,]
+norm.d23exp <- norm.mat[,sce.ifm.6h$Treatment == "D23580_exposed"]
+norm.d23inf <- norm.mat[,sce.ifm.6h$Treatment == "D23580_infected"]
+norm.lt2exp <- norm.mat[,sce.ifm.6h$Treatment == "LT2_exposed"]
+norm.lt2inf <- norm.mat[,sce.ifm.6h$Treatment == "LT2_infected"]
+ha.d23.exp <- HeatmapAnnotation(
+  df = pData(sce.ifm.6h)[colnames(norm.d23exp), "quickCluster", drop = FALSE],
+  col = list(quickCluster = col.cluster)
+)
+ha.d23.inf <- HeatmapAnnotation(
+  df = pData(sce.ifm.6h)[colnames(norm.d23inf), "quickCluster", drop = FALSE],
+  col = list(quickCluster = col.cluster),
+  show_legend = FALSE
+)
+ha.lt2.exp <- HeatmapAnnotation(
+  df = pData(sce.ifm.6h)[colnames(norm.lt2exp), "quickCluster", drop = FALSE],
+  col = list(quickCluster = col.cluster),
+  show_legend = FALSE
+)
+ha.lt2.inf <- HeatmapAnnotation(
+  df = pData(sce.ifm.6h)[colnames(norm.lt2inf), "quickCluster", drop = FALSE],
+  col = list(quickCluster = col.cluster),
+  show_legend = FALSE
+)
+rownames(norm.d23exp) <- geneNames
+ht_list <-
+  Heatmap(
+    norm.d23exp, colorMap, "Normalised\nexpression", row_names_side = "left",
+    cluster_rows=FALSE,show_column_names=FALSE,show_column_dend=FALSE,
+    column_title_gp = gpar(fontsize = 10), top_annotation = ha.d23.exp,
+    column_title = "STM-D23580\nexposed") +
+  Heatmap(
+    norm.d23inf, colorMap, "hm2", show_row_names = FALSE,
+    cluster_rows=FALSE,show_column_names=FALSE,show_column_dend=FALSE,
+    column_title_gp = gpar(fontsize = 10), column_title = "STM-D23580\ninfected",
+    top_annotation = ha.d23.inf, show_heatmap_legend = FALSE) + 
+  Heatmap(
+    norm.lt2exp, colorMap, "hm3", show_row_names = FALSE,
+    cluster_rows=FALSE,show_column_names=FALSE,show_column_dend=FALSE,
+    column_title_gp = gpar(fontsize = 10), column_title = "STM-LT2\nexposed",
+    top_annotation = ha.lt2.inf, show_heatmap_legend = FALSE) + 
+  Heatmap(
+    norm.lt2inf, colorMap, "hm4", show_row_names = FALSE,
+    cluster_rows=FALSE,show_column_names=FALSE,show_column_dend=FALSE,
+    column_title_gp = gpar(fontsize = 10), column_title = "STM-LT2\ninfected",
+    top_annotation = ha.lt2.inf, show_heatmap_legend = FALSE)
+pdf("out_13/heatmap_3.pdf", height = 5, width = 8)
+draw(ht_list)
+dev.off()
+```
+
+```{r heatmap_4, echo=FALSE, include=FALSE}
+exprsRange <- range(norm_exprs(sce.ifm.6h))
+colorMap <- circlize::colorRamp2(
+  c(min(exprsRange), median(exprsRange), max(exprsRange)),
+  c("blue","white","red"))
+geneNames <- c(
+  "IL6","IL6R","IL6ST","IL10","IL10RA","IL10RB","TYK2",
+  "JAK1","JAK3","STAT3","MARCH1")
+geneIds<-
+  subset(fData(sce.ifm.6h), gene_name %in% geneNames, c("gene_id","gene_name"))
+geneIds <- geneIds[match(geneNames, geneIds$gene_name),]
+stopifnot(nrow(geneIds) == length(geneNames))
+norm.mat <-norm_exprs(sce.ifm.6h)[geneIds$gene_id,]
+norm.d23 <- norm.mat[,sce.ifm.6h$Infection == "D23580"]
+norm.lt2 <- norm.mat[,sce.ifm.6h$Infection == "LT2"]
+ha.d23 <- HeatmapAnnotation(
+  df = pData(sce.ifm.6h)[colnames(norm.d23), "Status", drop = FALSE],
+  col = list(Status = col.status)
+)
+ha.lt2 <- HeatmapAnnotation(
+  df = pData(sce.ifm.6h)[colnames(norm.lt2), "Status", drop = FALSE],
+  col = list(Status = col.status),
+  show_legend = FALSE
+)
+rownames(norm.d23) <- geneNames
+ht_list <-
+  Heatmap(
+    norm.d23, colorMap, "Normalised\nexpression", row_names_side = "left",
+    cluster_rows=FALSE,show_column_names=FALSE,#show_column_dend=FALSE,
+    column_title_gp = gpar(fontsize = 10), top_annotation = ha.d23,
+    column_title = "STM-D23580"
+  ) +
+  Heatmap(
+    norm.lt2, colorMap, "hm4", show_row_names = FALSE,
+    cluster_rows=FALSE,show_column_names=FALSE,#show_column_dend=FALSE,
+    column_title_gp = gpar(fontsize = 10), column_title = "STM-LT2",
+    top_annotation = ha.lt2, show_heatmap_legend = FALSE)
+pdf("out_13/heatmap_4.pdf", height = 4, width = 8)
 draw(ht_list)
 dev.off()
 ```
