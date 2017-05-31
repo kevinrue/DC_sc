@@ -39,6 +39,37 @@ shinyUI(navbarPage(
       ),
       id = "genePlots"
     )
+  ),
+
+  tabPanel(
+    title = "Pairs",
+
+    wellPanel(
+      fluidRow(
+        shiny::column(1, uiOutput("ignoreGeneNamePairs")),
+        shiny::column(6, uiOutput("geneNamePairs"))
+      )
+    ),
+    wellPanel(
+      fluidRow(
+        shiny::column(6, uiOutput("geneIdPairs"), offset = 1)
+      )
+    ),
+    tabsetPanel(
+      tabPanel(
+        title = "Pairs",
+        wellPanel(
+          plotOutput("pairs")
+        )
+      ),
+      tabPanel(
+        title = "Table",
+        wellPanel(
+          tableOutput("geneIdPairsTable")
+        )
+      ),
+      id = "genePairs"
+    )
   )
 
 ))
