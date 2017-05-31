@@ -11,13 +11,7 @@ library(shiny)
 library(ggplot2)
 library(scater)
 library(GGally)
-
-sce.norm <- readRDS("data/sce.norm.tSNE.rds")
-
-exprs_range <- range(norm_exprs(sce.norm))
-
-geneNames <- sort(fData(sce.norm)[,"gene_name"])
-geneNames <- geneNames[!is.na(geneNames)]
+library(RColorBrewer)
 
 # Define server logic required to draw a histogram
 shinyServer(function(input, output) {
@@ -127,14 +121,13 @@ shinyServer(function(input, output) {
     selectInput(
       "geneNamePairs", "Gene name for pairs",
       choices = geneNames,
-      selected = c("TNF", "IL1A", "IL1B", "IFNB1", "CTSL"),
+      selected = c("TNF","IL1B", "CTSL"),
       multiple = TRUE
     )
   })
 
   geneIdPairs <- reactive({
     geneNames <- input$geneNamePairs
-    print(geneNames)
     ignoreGeneNames <- input$ignoreGeneNamePairs
 
     validate(need(is.character(geneNames), "Loading..."))
@@ -179,26 +172,66 @@ shinyServer(function(input, output) {
     geneNames <- input$geneNamePairs
     geneIdPairs <- geneIdPairs()
 
-    validate(need(length(geneIds) > 1, "At least 2 genes required"))
+    time <- input$pairsSubsetTime
+    infection <- input$pairsSubsetInfection
+    status <- input$pairsSubsetStatus
+
+    colour_by <- input$pairsColour
+    shape_by <- input$pairsShape
+    paletteName <- input$pairsPalette
 
     validate(need(geneIds, "Loading..."))
     validate(need(is.logical(ignoreGeneNamePairs), "Loading..."))
     validate(need(is.character(geneNames), "Loading..."))
+    validate(need(is.character(geneIds), "Loading..."))
     validate(need(geneIdPairs, "Loading..."))
+
+    validate(need(colour_by, "Loading..."))
+    validate(need(shape_by, "Loading..."))
+    validate(need(paletteName, "Loading..."))
+
+    validate(need(length(geneIds) > 1, "At least 2 genes required"))
+    validate(need(time, "At least 1 time level required"))
+    validate(need(infection, "At least 1 infection level required"))
+    validate(need(status, "At least 1 status level required"))
 
     gg <- data.frame(
       exprs = t(norm_exprs(sce.norm)[geneIds,]),
       pData(sce.norm)[,c("Time","Infection","Status")]
     )
 
-    colnames(gg)[1:length(geneIds)] <- as.character(
-      geneIdPairs[match(geneIds, geneIdPairs[,"gene_id"]), "gene_name"]
-    )
+    if (length(time)){
+      gg <- subset(gg, Time %in% time)
+    }
+    if (length(infection)){
+      gg <- subset(gg, Infection %in% infection)
+    }
+    if (length(status)){
+      gg <- subset(gg, Status %in% status)
+    }
+
+    geneIdPairs <- geneIdPairs[match(geneIds, geneIdPairs[,"gene_id"]),]
+
+    colour_map <-
+      brewer.pal(nlevels(pData(sce.norm)[,colour_by]), paletteName)
+    names(colour_map) <- levels(pData(sce.norm)[,colour_by])
 
     ggpairs(
       gg,
       columns = 1:length(geneIds),
-      lower = list(continuous = my_ggpairs)) +
+      lower = list(
+        continuous = wrap(
+          pairs_point, colour_map = colour_map,
+          colour_by = colour_by, shape_by = shape_by, alpha = 0.5)
+      ),
+      diag = list(
+        continuous = wrap(
+          pairs_density, colour_map = colour_map,
+          fill_by = colour_by, alpha = 0.5)
+      ),
+      columnLabels = with(geneIdPairs, paste(gene_name, gene_id, sep = "\n")),
+      legend = c(2,1)
+    ) +
       theme_minimal()
 
   })

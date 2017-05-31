@@ -8,6 +8,9 @@
 #
 
 library(shiny)
+library(RColorBrewer)
+
+paletteNames <- rownames(brewer.pal.info)
 
 # Define UI for application that draws a histogram
 shinyUI(navbarPage(
@@ -69,6 +72,39 @@ shinyUI(navbarPage(
         )
       ),
       id = "genePairs"
+    ),
+    wellPanel(
+      fluidRow(
+        shiny::column(4, selectInput(
+          "pairsSubsetTime", "Time",
+          levels(sce.norm$Time), levels(sce.norm$Time),
+          multiple = TRUE
+        )),
+        shiny::column(4, selectInput(
+          "pairsSubsetInfection", "Infection",
+          levels(sce.norm$Infection), levels(sce.norm$Infection),
+          multiple = TRUE
+        )),
+        shiny::column(4, selectInput(
+          "pairsSubsetStatus", "Status",
+          levels(sce.norm$Status), levels(sce.norm$Status),
+          multiple = TRUE
+        ))
+      ),
+      fluidRow(
+        shiny::column(4, selectInput(
+          "pairsColour", "Colour",
+          choices = c("Time", "Infection", "Status"), selected = "Time"
+        )),
+        shiny::column(4, selectInput(
+          "pairsShape", "Shape",
+          choices = c("Time", "Infection", "Status"), "Infection"
+        )),
+        shiny::column(4, selectInput(
+          "pairsPalette", "Colour palette",
+          choices = paletteNames, selected = "Set1"
+        ))
+      )
     )
   )
 
