@@ -11,18 +11,31 @@ library(scater)
 library(scran)
 library(ggplot2)
 library(SummarizedExperiment)
+library(RColorBrewer)
 sce.norm <- readRDS("rds/sce.norm.rds")
 sce.all <- readRDS("rds/sce.all.rds")
 ```
 
 # Plotting themes
 
-First of all, let us define theme elements used throughout various figures
-in the following sections:
+Let us first define:
+
+* a set of colours used to indicate *cluster membership*,
+  *Infection* and *Status* phenotypes consistently in the upcoming sections:
+
+```{r col.sets}
+col.set3 <- brewer.pal(12, "Set3")
+col.cluster <- col.set3[c(1,12,3,4,9)]; names(col.cluster) <- c(1:3,0,"NA")
+col.status<-col.set3[c(3,5:6)];names(col.status)<-levels(sce.norm$Status)
+col.infection<-col.set3[c(3,8,10)];names(col.infection)<-levels(sce.norm$Infection)
+col.time<-col.set3[c(2,7:8)];names(col.time)<-levels(sce.norm$Time)
+```
+
+* define theme elements used throughout various figures in the following
+sections:
 
 ```{r PCAtheme}
-PCAtheme <- theme(
-    panel.grid = element_blank(),
+PCAtheme <- theme_bw() + theme(
     legend.position = "bottom", legend.box = "vertical"
   )
 ```
@@ -158,10 +171,15 @@ sce.norm <- plotPCASCESet(
 
 #### Principal components 1 and 2 {.tabset}
 
-##### Group
+##### Treatment
 
-```{r plotPCASCESet_Group, fig.height=6}
-plotReducedDim.SCESet(sce.norm, 2, colour_by = "Group", shape_by = "Time") +
+```{r plotPCASCESet_Group, fig.height=6, echo=FALSE}
+ggPCA <- cbind(
+  reducedDimension(sce.norm)[,paste0("PC", 1:2)],
+  pData(sce.norm)[,c("Group","Time","Infection","Status","Treatment","Plate")]
+)
+ggplot(ggPCA, aes(PC1, PC2)) +
+  geom_point(aes(colour = Treatment, shape = Time)) + geom_rug() +
   PCAtheme + theme(legend.text = element_text(size = 6))
 ```
 
@@ -182,23 +200,41 @@ taken by cells in response to experimental stimuli.
 
 ##### Time
 
-```{r plotPCASCESet_Time, fig.height=5}
-plotReducedDim.SCESet(sce.norm, 2, "Time", "Plate") +
-  PCAtheme
+```{r plotPCASCESet_Time, fig.height=6, echo=FALSE}
+ggPCA <- cbind(
+  reducedDimension(sce.norm)[,paste0("PC", 1:2)],
+  pData(sce.norm)[,c("Group","Time","Infection","Status","Treatment","Plate")]
+)
+ggplot(ggPCA, aes(PC1, PC2)) +
+  geom_point(aes(colour = Time, shape = Infection)) +
+  scale_color_manual(values = col.time) + geom_rug() +
+  PCAtheme + theme(legend.text = element_text(size = 6))
 ```
 
 ##### Infection
 
-```{r plotPCASCESet_Infection, fig.height=5}
-plotReducedDim.SCESet(sce.norm, 2, "Infection", "Time") +
-  PCAtheme
+```{r plotPCASCESet_Infection, fig.height=6, echo=FALSE}
+ggPCA <- cbind(
+  reducedDimension(sce.norm)[,paste0("PC", 1:2)],
+  pData(sce.norm)[,c("Group","Time","Infection","Status","Treatment","Plate")]
+)
+ggplot(ggPCA, aes(PC1, PC2)) +
+  geom_point(aes(colour = Infection, shape = Time)) +
+  scale_color_manual(values = col.infection) + geom_rug() +
+  PCAtheme + theme(legend.text = element_text(size = 6))
 ```
 
 ##### Status
 
-```{r plotPCASCESet_Status, fig.height=5}
-plotReducedDim.SCESet(sce.norm, 2, "Status", "Time") +
-  PCAtheme
+```{r plotPCASCESet_Status, fig.height=6, echo=FALSE}
+ggPCA <- cbind(
+  reducedDimension(sce.norm)[,paste0("PC", 1:2)],
+  pData(sce.norm)[,c("Group","Time","Infection","Status","Treatment","Plate")]
+)
+ggplot(ggPCA, aes(PC1, PC2)) +
+  geom_point(aes(colour = Status, shape = Time)) +
+  scale_color_manual(values = col.status) + geom_rug() +
+  PCAtheme + theme(legend.text = element_text(size = 6))
 ```
 
 #### Additional principal components {.tabset}
@@ -223,30 +259,30 @@ ggplot(
 
 ##### Treatment
 
-```{r plotPCASCESet_PC1to3_Treatment}
+```{r plotPCASCESet_PC1to3_Treatment, echo=FALSE}
 plotReducedDim.SCESet(sce.norm, 3, colour_by = "Treatment", shape_by = "Time") +
   PCAtheme + theme(legend.text = element_text(size = 6))
 ```
 
 ##### Time
 
-```{r plotPCASCESet_PC1to3_Time}
+```{r plotPCASCESet_PC1to3_Time, echo=FALSE, warning=FALSE}
 plotReducedDim.SCESet(sce.norm, 3, colour_by = "Time", shape_by = "Plate") +
-  PCAtheme
+  PCAtheme + scale_color_manual(values = col.time)
 ```
 
 ##### Status
 
-```{r plotPCASCESet_PC1to3_Status}
+```{r plotPCASCESet_PC1to3_Status, echo=FALSE, warning=FALSE}
 plotReducedDim.SCESet(sce.norm, 3, colour_by = "Status", shape_by = "Time") +
-  PCAtheme
+  PCAtheme + scale_color_manual(values = col.status)
 ```
 
 ##### Infection
 
-```{r plotPCASCESet_PC1to3_Infection}
+```{r plotPCASCESet_PC1to3_Infection, echo=FALSE, warning=FALSE}
 plotReducedDim.SCESet(sce.norm, 3, colour_by = "Infection", shape_by = "Time") +
-  PCAtheme
+  PCAtheme + scale_color_manual(values = col.infection)
 ```
 
 ### PCA analyses within time points {.tabset}
@@ -282,43 +318,52 @@ used to *shape* each data point.
 
 ##### Infection
 
-```{r 2h-Infection, echo=FALSE, fig.height=6}
+```{r 2h-Infection, fig.height=6, echo=FALSE, warning=FALSE}
 plotReducedDim.SCESet(
-  time.sce[["2h"]], 3, colour_by = "Infection", shape_by = "Status") + PCAtheme
+  time.sce[["2h"]], 3, colour_by = "Infection", shape_by = "Status") +
+  PCAtheme + scale_color_manual(values = col.infection) +
+  guides(colour = guide_legend(title = "Infection"))
 ```
 
 ##### Status
 
-```{r 2h-Status, echo=FALSE, fig.height=6}
+```{r 2h-Status, fig.height=6, echo=FALSE, warning=FALSE}
 plotReducedDim.SCESet(
-  time.sce[["2h"]], 3, colour_by = "Status", shape_by = "Infection") + PCAtheme
+  time.sce[["2h"]], 3, colour_by = "Status", shape_by = "Infection") +
+  PCAtheme + scale_color_manual(values = col.status) +
+  guides(colour = guide_legend(title = "Status"))
 ```
 
 ##### Treatment
 
-```{r 2h-Treatment, echo=FALSE, fig.height=6}
-plotReducedDim.SCESet(time.sce[["2h"]], 3, colour_by = "Treatment") + PCAtheme
+```{r 2h-Treatment, fig.height=6, echo=FALSE}
+plotReducedDim.SCESet(time.sce[["2h"]], 3, colour_by = "Treatment") +
+  PCAtheme
 ```
 
 #### 4h {.tabset}
 
 ##### Infection
 
-```{r 4h-Infection, echo=FALSE, fig.height=6}
+```{r 4h-Infection, fig.height=6, echo=FALSE, warning=FALSE}
 plotReducedDim.SCESet(
-  time.sce[["4h"]], 3, colour_by = "Infection", shape_by = "Status") + PCAtheme
+  time.sce[["4h"]], 3, colour_by = "Infection", shape_by = "Status") +
+  PCAtheme + scale_color_manual(values = col.infection) +
+  guides(colour = guide_legend(title = "Infection"))
 ```
 
 ##### Status
 
-```{r 4h-Status, echo=FALSE, fig.height=6}
+```{r 4h-Status, fig.height=6, echo=FALSE, warning=FALSE}
 plotReducedDim.SCESet(
-  time.sce[["4h"]], 3, colour_by = "Status", shape_by = "Infection") + PCAtheme
+  time.sce[["4h"]], 3, colour_by = "Status", shape_by = "Infection") +
+  PCAtheme + scale_color_manual(values = col.status) +
+  guides(colour = guide_legend(title = "Status"))
 ```
 
 ##### Treatment
 
-```{r 4h-Treatment, echo=FALSE, fig.height=6}
+```{r 4h-Treatment, fig.height=6, echo=FALSE}
 plotReducedDim.SCESet(time.sce[["4h"]], 3, colour_by = "Treatment") + PCAtheme
 ```
 
@@ -326,21 +371,25 @@ plotReducedDim.SCESet(time.sce[["4h"]], 3, colour_by = "Treatment") + PCAtheme
 
 ##### Infection
 
-```{r 6h-Infection, echo=FALSE, fig.height=6}
+```{r 6h-Infection, fig.height=6, echo=FALSE, warning=FALSE}
 plotReducedDim.SCESet(
-  time.sce[["6h"]], 3, colour_by = "Infection", shape_by = "Status") + PCAtheme
+  time.sce[["6h"]], 3, colour_by = "Infection", shape_by = "Status") +
+  PCAtheme + scale_color_manual(values = col.infection) +
+  guides(colour = guide_legend(title = "Infection"))
 ```
 
 ##### Status
 
-```{r 6h-Status, echo=FALSE, fig.height=6}
+```{r 6h-Status, fig.height=6, echo=FALSE, warning=FALSE}
 plotReducedDim.SCESet(
-  time.sce[["6h"]], 3, colour_by = "Status", shape_by = "Infection") + PCAtheme
+  time.sce[["6h"]], 3, colour_by = "Status", shape_by = "Infection") +
+  PCAtheme + scale_color_manual(values = col.status) +
+  guides(colour = guide_legend(title = "Status"))
 ```
 
 ##### Treatment
 
-```{r 6h-Treatment, echo=FALSE, fig.height=6}
+```{r 6h-Treatment, fig.height=6, echo=FALSE}
 plotReducedDim.SCESet(time.sce[["6h"]], 3, colour_by = "Treatment") + PCAtheme
 ```
 
@@ -388,7 +437,7 @@ colnames(posterPCA) <- paste("Dimension", 1:2)
 posterSamples <- rownames(posterPCA)
 posterPCA <- cbind(posterPCA, pData(sce.norm)[
   posterSamples,c("Status","Infection","Time")])
-lc <- RColorBrewer::brewer.pal(3, "Set1")[c(1,3,2)] # RGB
+lc <- brewer.pal(3, "Set1")[c(1,3,2)] # RGB
 posterLabels <- data.frame(
   x = c(-20, -2.5, -5, 10, 15),
   y = c(-12.5, -5, 10, -2.5, 10),
@@ -398,7 +447,8 @@ posterLabels <- data.frame(
 posterPCA <- ggplot(
   posterPCA,
   aes_string("`Dimension 1`","`Dimension 2`")) +
-  geom_point(aes(colour=Status,shape=Infection)) + 
+  geom_point(aes(colour = Status, shape = Infection)) + 
+  scale_color_manual(values = col.status) +
   geom_label(aes(x, y, label = label), posterLabels, inherit.aes = FALSE) +
   theme_light()
 posterPCA
@@ -454,7 +504,7 @@ the lowest to the highest expression values observed in the data set:
 
 ```{r exprScale}
 exprScale <- range(exprs(sce.norm))
-colourScale <- rev(RColorBrewer::brewer.pal(9, "YlGnBu"))
+colourScale <- rev(brewer.pal(9, "YlGnBu"))
 ```
 
 
