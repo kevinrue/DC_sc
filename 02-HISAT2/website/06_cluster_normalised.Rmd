@@ -693,7 +693,7 @@ plotReducedDim.SCESet(
   sce.norm, ncomponents = 2, shape_by = "Time",
   colour_by = rownames(subset(fData(sce.norm),gene_name=="IL10"))) + PCAtheme +
   scale_colour_gradientn(name="IL10",limits=exprScale,colours=colourScale) +
-  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+  guides(colour = guide_colourbar(order = 1), shape = guide_legend(order = 2))
 ```
 
 ```{r tSNE_IL10_pdf, include=FALSE}
