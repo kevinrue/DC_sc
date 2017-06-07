@@ -382,11 +382,15 @@ ggsave("out_13/cluster_count_2h.pdf", width = 9, height = 4)
 tmpGG <- data.frame(
   reducedDimension(sce.endo),
   Cluster = sce.endo$quickCluster.4h,
-  Treatment = gsub("_", " ", sce.endo$Treatment)
+  Treatment = gsub("_", " ", sce.endo$Treatment),
+  label = ifelse(
+    sce.endo$Treatment == "LT2_exposed" & sce.endo$quickCluster.4h == 1, 1, 2
+  )
 )
 ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
   geom_point() + theme_bw() + labs(x="Dimension 1",y="Dimension 2",title="4h") +
-  scale_color_manual(values = col.cluster, na.value = col.cluster["NA"])
+  scale_color_manual(values = col.cluster, na.value = col.cluster["NA"]) #+
+  #geom_point(aes(colour = "red", size = as.numeric(label)), colour = "red", alpha = 0.25)
 ```
 
 Cross-tabulated counts of cells by cluster and experimental treatment:
