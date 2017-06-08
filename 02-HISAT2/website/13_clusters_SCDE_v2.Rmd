@@ -384,7 +384,7 @@ tmpGG <- data.frame(
   Cluster = sce.endo$quickCluster.4h,
   Treatment = gsub("_", " ", sce.endo$Treatment),
   label = ifelse(
-    sce.endo$Treatment == "LT2_exposed" & sce.endo$quickCluster.4h == 1, 1, 2
+    sce.endo$Treatment == "LT2_infected" & sce.endo$quickCluster.4h == 2, 2, NA
   )
 )
 ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
