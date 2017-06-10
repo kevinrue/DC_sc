@@ -1,0 +1,175 @@
+---
+title: "Two-way ANOVA and k-means clustering"
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+library(scater)
+library(broom)
+library(ggplot2)
+library(RColorBrewer)
+library(ComplexHeatmap)
+sce.norm <- readRDS("rds/sce.norm.rds")
+sce.all <- readRDS("rds/sce.all.rds")
+```
+
+# Environment
+
+Let us first define:
+
+* a set of colours used to indicate *cluster membership*,
+  *Infection* and *Status* phenotypes consistently in the upcoming sections:
+
+```{r col.sets}
+col.set3 <- brewer.pal(12, "Set3")
+col.cluster <- col.set3[c(1,12,3,4,9)]; names(col.cluster) <- c(1:3,0,"NA")
+col.status<-col.set3[c(3,5:6)];names(col.status)<-levels(sce.norm$Status)
+col.infection<-col.set3[c(3,8,10)];names(col.infection)<-levels(sce.norm$Infection)
+col.time<-col.set3[c(2,7:8)];names(col.time)<-levels(sce.norm$Time)
+```
+
+# Example gene
+
+```{r}
+subset(fData(sce.norm), gene_name == "MARCH1", "gene_id")
+anova(lm(
+  norm_exprs(sce.norm)["ENSG00000145416",] ~ sce.norm$Time * sce.norm$Treatment
+))
+```
+
+```{r}
+ggData <- data.frame(
+  norm_exprs = norm_exprs(sce.norm)["ENSG00000145416",],
+  Time = sce.norm$Time,
+  Treatment = sce.norm$Treatment
+)
+ggplot(ggData, aes(Time, norm_exprs)) +
+  geom_violin(aes(fill = Time), draw_quantiles = c(0.25,0.5,0.75)) +
+  theme_minimal() + facet_grid(Treatment ~ .) + ggtitle("MARCH1")
+```
+
+# Two-way ANOVA (Time * Infection)
+
+## All cells (including uninfected controls)
+
+```{r}
+aov2.res <- do.call("rbind", apply(
+  norm_exprs(sce.norm), 1, function(ne){
+    tidy(anova(lm(ne ~ sce.norm$Time * sce.norm$Treatment)))[3,2:6]
+  }
+))
+rownames(aov2.res) <- featureNames(sce.norm)
+aov2.res$gene_name <- fData(sce.norm)[,"gene_name"]
+```
+
+```{r}
+ggplot(aov2.res) + geom_density(aes(-log10(p.value))) + theme_bw()
+head(aov2.res[order(aov2.res$p.value),])
+```
+
+```{r}
+ggData <- data.frame(
+  norm_exprs = norm_exprs(sce.norm)["ENSG00000172183",],
+  Time = sce.norm$Time,
+  Treatment = sce.norm$Treatment
+)
+ggplot(ggData, aes(Time, norm_exprs)) +
+  geom_violin(aes(fill = Time), draw_quantiles = c(0.25,0.5,0.75)) +
+  theme_minimal() + facet_grid(Treatment ~ .) + ggtitle("ISG20")
+```
+
+```{r}
+aov2.res$BH <- p.adjust(aov2.res$p.value, "BH")
+sce.aov2 <- sce.norm[aov2.res$BH < 0.01,]
+table(aov2.res$BH < 0.01)
+```
+
+```{r}
+cellOrder <- with(pData(sce.aov2), order(Time, Infection, Status))
+ha <- HeatmapAnnotation(
+  df = pData(sce.aov2)[cellOrder, c("Time","Infection","Status")],
+  col = list(
+    Time = col.time,
+    Status = col.status,
+    Infection = col.infection
+  )
+)
+hm <- Heatmap(
+  norm_exprs(sce.aov2)[,cellOrder],
+  name = "norm_exprs", column_title = "norm_exprs", cluster_columns = FALSE,
+  top_annotation = ha, show_row_names = FALSE, show_column_names = FALSE
+)
+draw(hm)
+```
+
+## Without uninfected controls
+
+```{r}
+sce.stim <- sce.norm[,sce.norm$Infection != "Mock"]
+dim(sce.stim)
+```
+
+```{r}
+aov2.stim <- do.call("rbind", apply(
+  norm_exprs(sce.stim), 1, function(ne){
+    tidy(anova(lm(ne ~ sce.stim$Time * sce.stim$Treatment)))[3,2:6]
+  }
+))
+rownames(aov2.stim) <- featureNames(sce.stim)
+aov2.stim$gene_name <- fData(sce.stim)[,"gene_name"]
+```
+
+```{r}
+ggplot(aov2.stim) + geom_density(aes(-log10(p.value))) + theme_bw()
+head(aov2.stim[order(aov2.stim$p.value),])
+```
+
+```{r}
+ggData <- data.frame(
+  norm_exprs = norm_exprs(sce.stim)["ENSG00000251562",],
+  Time = sce.stim$Time,
+  Treatment = sce.stim$Treatment
+)
+ggplot(ggData, aes(Time, norm_exprs)) +
+  geom_violin(aes(fill = Time), draw_quantiles = c(0.25,0.5,0.75)) +
+  theme_bw() + facet_grid(~Treatment) + ggtitle("ISG20")
+```
+
+```{r}
+aov2.stim$BH <- p.adjust(aov2.stim$p.value, "BH")
+sce.aov2.stim <- sce.stim[aov2.stim$BH < 0.05,]
+table(aov2.stim$BH < 0.05)
+```
+
+```{r}
+cellOrder <- with(pData(sce.aov2.stim), order(Infection, Status, Time))
+ha <- HeatmapAnnotation(
+  df = pData(sce.aov2.stim)[cellOrder, c("Infection","Status","Time")],
+  col = list(
+    Infection = col.infection,
+    Status = col.status,
+    Time = col.time
+  )
+)
+hm <- Heatmap(
+  norm_exprs(sce.aov2.stim)[,cellOrder],
+  name = "norm_exprs", column_title = "norm_exprs", cluster_columns = FALSE,
+  top_annotation = ha, show_row_names = FALSE, show_column_names = FALSE
+)
+draw(hm)
+```
+
+```{r}
+ggData <- data.frame(
+  norm_exprs = norm_exprs(sce.stim)["ENSG00000113302",],
+  Time = sce.stim$Time,
+  Treatment = sce.stim$Treatment
+)
+ggplot(ggData, aes(Time, norm_exprs)) +
+  geom_violin(aes(fill = Time), draw_quantiles = c(0.25,0.5,0.75)) +
+  theme_bw() + facet_grid(~Treatment) + ggtitle("IL12B")
+```
+
