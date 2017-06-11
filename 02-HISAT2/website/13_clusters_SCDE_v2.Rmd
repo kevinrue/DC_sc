@@ -608,9 +608,7 @@ for (contrastName in names(scde.res)){
 
 # Volcano plots {.tabset}
 
-## Setup
-
-Let us identify the extreme values of maximum likelihood estimate of
+Let us first identify the extreme values of maximum likelihood estimate of
 fold-change to scale subsequent plot for comparability:
 
 ```{r mleRange}
@@ -630,6 +628,45 @@ ggplot(v.data) +
     aes(yintercept = -log10(P), linetype = level), data = volcano.sig
   ) + scale_x_continuous(limits = mleRange) + theme_bw() +
   ggtitle("4h: cluster 2 - cluster 1")
+```
+
+```{r fig1_volcano_4h_2v1, echo=FALSE, eval=FALSE}
+geneData <- subset(
+  mutate(v.data,gene_name = fData(sce.ifm.4h)[rownames(v.data),"gene_name"]),
+  gene_name %in% c(
+    "NFKB1","IRF8","STAT5A","CEBPA","CD1A","CD1C","CD1E","CLECL1", # 8
+    "IL1B","IL1A","EBI3","CD40","CD83", # 5
+    "CTSS","CTSD","CTSL","GRN","APOE","APOC1","ACOT2", # 7
+    "S100A9","STAB1","LRP1","PSAP") # 4
+)
+ggplot(v.data) +
+  geom_point(aes(Z, -log10(p.value), colour = p.value < 0.01), size = 0.5) +
+  geom_hline(yintercept = -log10(0.01), linetype = "dashed", alpha = 0.25) +
+  geom_text_repel(
+    aes(Z, -log10(p.value), label = gene_name), geneData,
+    size = 2, min.segment.length = unit(0, "mm"), alpha = 0.75,
+    nudge_x = ifelse(geneData$Z > 0, 1, -1), nudge_y = 0, segment.size = 0.2,
+    fontface = "bold"
+  ) +
+  scale_x_continuous(limits = mleRange) + theme_bw() +
+  ggtitle("4h: cluster 2 - cluster 1")
+ggsave("out_13/4h_volcano_Vogel.pdf", height = 5, width = 6.5)
+```
+
+```{r fig2_volcano_4h_2v1, echo=FALSE, eval=FALSE}
+ggplot(v.data) +
+  geom_point(
+    aes(mle, -log10(p.value), colour = p.value < 0.01),
+    size = 0.5, alpha = 0.25
+  ) +
+  geom_hline(yintercept = -log10(0.01), linetype = "dashed") +
+  geom_text_repel(
+    aes(mle, -log10(p.value), label = gene_name),
+    geneData, size = 2, min.segment.length = unit(0, "mm"), fontface = "bold"
+  ) +
+  scale_x_continuous(limits = mleRange) + theme_bw() +
+  ggtitle("4h: cluster 2 - cluster 1")
+ggsave("out_13/4h_volcano_Shalek.pdf", height = 5, width = 6.5)
 ```
 
 ## 6h (2 vs 1)
@@ -919,14 +956,10 @@ scde.genes <- subset(scde.table, GENEID %in% c(
   "ENSG00000163220", # S100A9
   "ENSG00000135047", # CTSL
   "ENSG00000117984", # CTSD
-  "ENSG00000010327", # STAB1
-  "ENSG00000163131", # CTSS
   # Cluster 2
   "ENSG00000173757", # STAT5B
   "ENSG00000108702", # CCL1
   "ENSG00000101017", # CD40
-  "ENSG00000115008", # IL1A
-  "ENSG00000125538", # IL1B
   "ENSG00000100906" # NFKBIA
 ))
 ggplot(scde.table,aes(-mle.cluster,mle.group))+
@@ -936,6 +969,7 @@ ggplot(scde.table,aes(-mle.cluster,mle.group))+
   geom_text_repel(
     aes(label = GENENAME),data=scde.genes,min.segment.length=unit(0,"mm")) +
   labs(y="MLE infected / exposed",x="MLE cluster 1 / cluster 2",title="4h")
+ggsave("out_13/4h_correlation_cluster.pdf", width = 6.5, height = 5)
 ```
 
 ```{r 4h_MLE_cluster_group_csv, echo=FALSE, eval=FALSE}
