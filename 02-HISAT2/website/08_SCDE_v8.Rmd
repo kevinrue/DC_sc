@@ -500,6 +500,14 @@ for (contrastName in names(scde.res)){
 
 # Volcano plots {.tabset}
 
+Let us first identify the extreme values of maximum likelihood estimate of
+fold-change to scale subsequent plot for comparability and symmetry of axes:
+
+```{r mleRange}
+mleRange <-
+  max(abs(do.call("c", lapply(scde.res, function(x){return(x$mle)}))))*c(-1,1)
+```
+
 ## Uninfected
 
 ```{r volcano_uninfected, echo=FALSE, fig.height=9}
@@ -523,10 +531,10 @@ v.data <- do.call(
 )
 ggplot(v.data) +
   geom_point(aes(mle, -log10(p.value), colour = (cZ != 0)), size = 0.5) +
-  facet_grid(Contrast ~ Time) +
+  facet_grid(Contrast ~ Time) + scale_x_continuous(limits = mleRange) +
   geom_hline(
     aes(yintercept = -log10(P), linetype = level), data = volcano.sig
-  )
+  ) + theme_minimal()
 ```
 
 ## Direct
@@ -547,15 +555,102 @@ v.data <- do.call(
         Time = timepoint
       )
       x <- convert.z.score(x)
+      x
     }
   )
 )
 ggplot(v.data) +
   geom_point(aes(mle, -log10(p.value), colour = (cZ != 0)), size = 0.5) +
-  facet_grid(Contrast ~ Time) +
+  facet_grid(Contrast ~ Time) + scale_x_continuous(limits = mleRange) +
   geom_hline(
     aes(yintercept = -log10(P), linetype = level), data = volcano.sig
+  ) + theme_minimal()
+```
+
+```{r fig1_volcano_4h_D23_InfExp, echo=FALSE, eval=FALSE}
+sub.data <- subset(
+  v.data,
+  Contrast == "D23580 infected-D23580 exposed" & Time == "4h"
+)
+geneData <- subset(mutate(
+  sub.data,
+  gene_name = fData(sce.ifm.4h)[as.character(sub.data$Gene),"gene_name"]),
+  gene_name %in% c(
+    "CD40","CD83","EBI3","CD1A","PLAT", # 5
+    "MS4A4A","NIT1","CTSD","APOC1","APOE","S100A9","CTSL" # 7
   )
+)
+ggplot(sub.data) +
+  geom_point(aes(Z, -log10(p.value), colour = p.value < 0.01), size = 0.5) +
+  geom_hline(yintercept = -log10(0.01), linetype = "dashed", alpha = 0.25) +
+  geom_text_repel(
+    aes(Z, -log10(p.value), label = gene_name), geneData,
+    size = 2, min.segment.length = unit(0, "mm"), alpha = 0.75,
+    nudge_x = ifelse(geneData$Z > 0, 1, -1), nudge_y = 0, segment.size = 0.2,
+    fontface = "bold"
+  ) +
+  scale_x_continuous(limits = mleRange) + theme_bw() +
+  labs(title = "4h STM-D23580", subtitle = "infected - exposed")
+ggsave("08_out/4h_volcano_D23580_Vogel.pdf", height = 5, width = 6.5)
+```
+
+```{r fig2_volcano_4h_D23_InfExp, echo=FALSE, eval=FALSE}
+ggplot(sub.data) +
+  geom_point(
+    aes(mle, -log10(p.value), colour = p.value < 0.01),
+    size = 0.5, alpha = 0.25
+  ) +
+  geom_hline(yintercept = -log10(0.01), linetype = "dashed") +
+  geom_text_repel(
+    aes(mle, -log10(p.value), label = gene_name), geneData,
+    size = 2, min.segment.length = unit(0, "mm"), fontface = "bold"
+  ) +
+  scale_x_continuous(limits = mleRange) + theme_bw() +
+  labs(title = "4h STM-D23580", subtitle = "infected - exposed")
+ggsave("08_out/4h_volcano_D23580_Shalek.pdf", height = 5, width = 6.5)
+```
+
+```{r fig1_volcano_4h_LT2_InfExp, echo=FALSE, eval=FALSE}
+sub.data <- subset(
+  v.data,
+  Contrast == "LT2 infected-LT2 exposed" & Time == "4h"
+)
+geneData <- subset(mutate(
+  sub.data,
+  gene_name = fData(sce.ifm.4h)[as.character(sub.data$Gene),"gene_name"]),
+  gene_name %in% c(
+    "PLAT","VPS25","FAM3A",
+    "MS4A4A","CCL26","STAB1","CTSL","SNX1","CTSD"
+  )
+)
+ggplot(sub.data) +
+  geom_point(aes(Z, -log10(p.value), colour = p.value < 0.01), size = 0.5) +
+  geom_hline(yintercept = -log10(0.01), linetype = "dashed", alpha = 0.25) +
+  geom_text_repel(
+    aes(Z, -log10(p.value), label = gene_name), geneData,
+    size = 2, min.segment.length = unit(0, "mm"), alpha = 0.75,
+    nudge_x = ifelse(geneData$Z > 0, 1, -1), nudge_y = 0, segment.size = 0.2,
+    fontface = "bold"
+  ) +
+  scale_x_continuous(limits = mleRange) + theme_bw() +
+  labs(title = "4h STM-LT2", subtitle = "infected - exposed")
+ggsave("08_out/4h_volcano_LT2_Vogel.pdf", height = 5, width = 6.5)
+```
+
+```{r fig2_volcano_4h_LT2_InfExp, echo=FALSE, eval=FALSE}
+ggplot(sub.data) +
+  geom_point(
+    aes(mle, -log10(p.value), colour = p.value < 0.01),
+    size = 0.5, alpha = 0.25
+  ) +
+  geom_hline(yintercept = -log10(0.01), linetype = "dashed") +
+  geom_text_repel(
+    aes(mle, -log10(p.value), label = gene_name), geneData,
+    size = 2, min.segment.length = unit(0, "mm"), fontface = "bold"
+  ) +
+  scale_x_continuous(limits = mleRange) + theme_bw() +
+  labs(title = "4h STM-LT2", subtitle = "infected - exposed")
+ggsave("08_out/4h_volcano_LT2_Shalek.pdf", height = 5, width = 6.5)
 ```
 
 # Count DE genes at various cut-offs {.tabset}
@@ -1166,17 +1261,6 @@ addOpposite <- function(x, cutoff = 0.01){
 }
 ```
 
-Let us define:
-
-* the maximal range of expression fold changes observed across contrasts;
-  used to scale figures for symmetry of axes
-  and comparabison between time points:
-
-```{r mleRange}
-mleRange <-
-  max(abs(do.call("c", lapply(scde.res, function(x){return(x$mle)}))))*c(-1,1)
-```
-
 ### List
 
 ```{r contrasts.contrasts.time}
@@ -1227,7 +1311,8 @@ ggplot(v.data) +
   geom_point(aes(mle.x, mle.y, colour = p.01, alpha = alpha), size = 0.5) +
   facet_wrap(~ Contrast) +
   scale_x_continuous(limits=mleRange)+scale_y_continuous(limits=mleRange) +
-  ggtitle("2h") + scale_alpha_continuous(guide = FALSE) + labs(x="",y="")
+  ggtitle("2h") + scale_alpha_continuous(guide = FALSE) + labs(x="",y="") +
+  theme_minimal()
 ```
 
 ```{r compare.2h_csv, echo=FALSE, eval=FALSE}
@@ -1271,7 +1356,8 @@ ggplot(v.data) +
   geom_point(aes(mle.x, mle.y, colour = p.01, alpha = alpha), size = 0.5) +
   facet_wrap(~ Contrast) +
   scale_x_continuous(limits=mleRange)+scale_y_continuous(limits=mleRange) +
-  ggtitle("4h") + scale_alpha_continuous(guide = FALSE) + labs(x="",y="")
+  ggtitle("4h") + scale_alpha_continuous(guide = FALSE) + labs(x="",y="") +
+  theme_minimal()
 ```
 
 ```{r compare.4h_csv, echo=FALSE, eval=FALSE}
@@ -1315,7 +1401,8 @@ ggplot(v.data) +
   geom_point(aes(mle.x, mle.y, colour = p.01, alpha = alpha), size = 0.5) +
   facet_wrap(~ Contrast) +
   scale_x_continuous(limits=mleRange)+scale_y_continuous(limits=mleRange) +
-  ggtitle("6h") + scale_alpha_continuous(guide = FALSE) + labs(x="",y="")
+  ggtitle("6h") + scale_alpha_continuous(guide = FALSE) + labs(x="",y="") +
+  theme_minimal()
 ```
 
 ```{r compare.6h_csv, echo=FALSE, eval=FALSE}
