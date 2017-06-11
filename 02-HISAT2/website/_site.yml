@@ -46,6 +46,8 @@ navbar:
         href: 08_SCDE_v8.html
       - text: "Clusters"
         href: 13_clusters_SCDE_v2.html
+      - text: "ANOVA & k-means"
+        href: 14_anova_kmeans.html
     - text: "About"
       href: about.html
 output:
@@ -61,4 +63,4 @@ output:
 exclude: [
   "rds", "counts", "expdata", "*.R", "*.pdf", "GO", "GOexpress", "*.log",
   "t-test", "SCDE", "SCDE_v*", "SCDE_cluster_v*", "wilcox.test",
-  "BASiCS", "HVGs", "poster", "NGS-SIG", "out_*", "2017*"]
+  "BASiCS", "HVGs", "poster", "NGS-SIG", "out_*", "2017*","*_out"]
