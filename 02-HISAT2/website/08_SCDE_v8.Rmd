@@ -343,7 +343,7 @@ normExprsById <- function(geneId){
   ggplot(gdata, aes(Infection, norm_exprs)) + 
     geom_violin() + geom_jitter(width = 0.1) +
     facet_grid(Time ~ Status) +
-    ggtitle(sprintf("%s - %s", geneId, geneName))
+    ggtitle(sprintf("%s - %s", geneId, geneName)) + theme_minimal()
 }
 ```
 
@@ -1214,15 +1214,13 @@ normExprsById("ENSG00000117280")
 
 ### *scde*
 
-```{r}
+```{r single.scde.6h_RAB29}
 single.scde.6h("ENSG00000117280", "D23580_infected", "LT2_infected")
 ```
 
 # Comparison of fold-change estimates
 
 ## Contrasts {.tabset}
-
-### Setup
 
 Let us define:
 
@@ -1251,7 +1249,7 @@ add.sig.XY <- function(x, cutoff = 0.01){
   whether it is significantly differentially expressed in opposite direction
   in the pair of contrasts compared:
 
-```{r}
+```{r addOpposite}
 addOpposite <- function(x, cutoff = 0.01){
   x$opposite <- NA_character_
   x.sig.idx <- (x$p.value.x < cutoff & x$p.value.y < cutoff)
@@ -1261,7 +1259,7 @@ addOpposite <- function(x, cutoff = 0.01){
 }
 ```
 
-### List
+* the list of contrasts to contrast:
 
 ```{r contrasts.contrasts.time}
 contrasts.contrasts.2h <- list(
