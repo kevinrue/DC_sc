@@ -62,5 +62,5 @@ output:
       smooth_scroll: true
 exclude: [
   "rds", "counts", "expdata", "*.R", "*.pdf", "GO", "GOexpress", "*.log",
-  "t-test", "SCDE", "SCDE_v*", "SCDE_cluster_v*", "wilcox.test",
+  "t-test", "SCDE", "SCDE_v*", "scde_v*", "SCDE_cluster_v*", "wilcox.test",
   "BASiCS", "HVGs", "poster", "NGS-SIG", "out_*", "2017*","*_out"]
