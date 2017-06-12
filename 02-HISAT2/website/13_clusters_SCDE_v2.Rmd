@@ -682,6 +682,45 @@ ggplot(v.data) +
   ggtitle("6h: cluster 2 - cluster 1")
 ```
 
+```{r fig1_volcano_6h_2v1, echo=FALSE, eval=FALSE}
+geneData <- subset(
+  mutate(v.data,gene_name = fData(sce.ifm.4h)[rownames(v.data),"gene_name"]),
+  gene_name %in% c(
+    "CTSB","CTSC","CTSD","CTSL", # 4
+    "DEFB1","DUOX","ATF3", # 3
+    "IL12B","IL23A","IL1A","EBI3","IL6", # 5
+    "MAFF","CREBFR","NFKB1","NFKB2") # 4
+)
+ggplot(v.data) +
+  geom_point(aes(Z, -log10(p.value), colour = p.value < 0.01), size = 0.5) +
+  geom_hline(yintercept = -log10(0.01), linetype = "dashed", alpha = 0.25) +
+  geom_text_repel(
+    aes(Z, -log10(p.value), label = gene_name), geneData,
+    size = 2, min.segment.length = unit(0, "mm"), alpha = 0.75,
+    nudge_x = ifelse(geneData$Z > 0, 1, -1), nudge_y = 0, segment.size = 0.2,
+    fontface = "bold"
+  ) +
+  scale_x_continuous(limits = mleRange) + theme_bw() +
+  ggtitle("6h: cluster 2 - cluster 1")
+ggsave("out_13/6h_volcano_Vogel.pdf", height = 5, width = 6.5)
+```
+
+```{r fig2_volcano_6h_2v1, echo=FALSE, eval=FALSE}
+ggplot(v.data) +
+  geom_point(
+    aes(mle, -log10(p.value), colour = p.value < 0.01),
+    size = 0.5, alpha = 0.25
+  ) +
+  geom_hline(yintercept = -log10(0.01), linetype = "dashed") +
+  geom_text_repel(
+    aes(mle, -log10(p.value), label = gene_name),
+    geneData, size = 2, min.segment.length = unit(0, "mm"), fontface = "bold"
+  ) +
+  scale_x_continuous(limits = mleRange) + theme_bw() +
+  ggtitle("6h: cluster 2 - cluster 1")
+ggsave("out_13/6h_volcano_Shalek.pdf", height = 5, width = 6.5)
+```
+
 # Count DE genes at various cut-offs {.tabset}
 
 ## 4h (2 vs 1)
