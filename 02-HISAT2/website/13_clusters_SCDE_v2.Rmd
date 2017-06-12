@@ -837,7 +837,7 @@ showTopGO(goseq.res[[2]], "under")
 Let us first define:
 
 * functions that displays as violins the expression level of a given
-  gene in each group at 4h and 6h, respectively (only one shown)
+  gene in each group at 4h and 6h, respectively (only 4h shown)
 
 ```{r normExprsByName.4h}
 normExprsByName.4h <- function(geneId){
@@ -1051,6 +1051,63 @@ normExprsByName.4h("ENSG00000125538")
 
 ```{r NFKBIA_normExprsByName.4h, echo=FALSE, warning=FALSE, fig.height=5}
 normExprsByName.4h("ENSG00000100906")
+```
+
+```{r fig.violin.4h.D23580.EBI3, echo=FALSE, eval=FALSE}
+geneName <- "EBI3"
+geneId<-subset(fData(sce.ifm.4h),gene_name==geneName,"gene_id",drop=TRUE)
+sampleIdx <- with(pData(sce.ifm.4h), Infection == "D23580" & Time == "4h")
+gdata <- data.frame(
+  norm_exprs = norm_exprs(sce.ifm.4h)[geneId, sampleIdx],
+  pData(sce.ifm.4h)[sampleIdx,c("Infection","Status","quickCluster")],
+  row.names = sampleNames(sce.ifm.4h)[sampleIdx]
+)
+gdata$Infection <- paste("STM", gdata$Infection)
+ggplot(gdata, aes(Status, norm_exprs, fill = Status)) + 
+  geom_violin(alpha = 0.25) +
+  geom_jitter(aes(colour = quickCluster), width = 0.25, size = 3) +
+  facet_grid(~Infection) + ggtitle(sprintf("%s - %s", geneName, geneId)) +
+  scale_y_continuous(limits=range(norm_exprs(sce.ifm.4h))) +
+  scale_colour_manual(values = col.cluster) + theme_minimal()
+ggsave(sprintf("out_13/violin_4h_D23580_%s.pdf", geneName),height=4,width=5)
+```
+
+```{r fig.violin.4h.D23580.NIT1, echo=FALSE, eval=FALSE}
+geneName <- "NIT1"
+geneId<-subset(fData(sce.ifm.4h),gene_name==geneName,"gene_id",drop=TRUE)
+sampleIdx <- with(pData(sce.ifm.4h), Infection == "D23580" & Time == "4h")
+gdata <- data.frame(
+  norm_exprs = norm_exprs(sce.ifm.4h)[geneId, sampleIdx],
+  pData(sce.ifm.4h)[sampleIdx,c("Infection","Status","quickCluster")],
+  row.names = sampleNames(sce.ifm.4h)[sampleIdx]
+)
+gdata$Infection <- paste("STM", gdata$Infection)
+ggplot(gdata, aes(Status, norm_exprs, fill = Status)) + 
+  geom_violin(alpha = 0.25) +
+  geom_jitter(aes(colour = quickCluster), width = 0.25, size = 3) +
+  facet_grid(~Infection) + ggtitle(sprintf("%s - %s", geneName, geneId)) +
+  scale_y_continuous(limits=range(norm_exprs(sce.ifm.4h))) +
+  scale_colour_manual(values = col.cluster) + theme_minimal()
+ggsave(sprintf("out_13/violin_4h_D23580_%s.pdf", geneName),height=4,width=5)
+```
+
+```{r fig.violin.4h.LT2.VPS25, echo=FALSE, eval=FALSE}
+geneName <- "VPS25"
+geneId<-subset(fData(sce.ifm.4h),gene_name==geneName,"gene_id",drop=TRUE)
+sampleIdx <- with(pData(sce.ifm.4h), Infection == "LT2" & Time == "4h")
+gdata <- data.frame(
+  norm_exprs = norm_exprs(sce.ifm.4h)[geneId, sampleIdx],
+  pData(sce.ifm.4h)[sampleIdx,c("Infection","Status","quickCluster")],
+  row.names = sampleNames(sce.ifm.4h)[sampleIdx]
+)
+gdata$Infection <- paste("STM", gdata$Infection)
+ggplot(gdata, aes(Status, norm_exprs, fill = Status)) + 
+  geom_violin(alpha = 0.25) +
+  geom_jitter(aes(colour = quickCluster), width = 0.25, size = 3) +
+  facet_grid(~Infection) + ggtitle(sprintf("%s - %s", geneName, geneId)) +
+  scale_y_continuous(limits=range(norm_exprs(sce.ifm.4h))) +
+  scale_colour_manual(values = col.cluster) + theme_minimal()
+ggsave(sprintf("out_13/violin_4h_LT2_%s.pdf", geneName),height=4,width=5)
 ```
 
 ## 6h {.tabset}
