@@ -102,13 +102,18 @@ Let us visualise outliers, along with blank and bulk samples for reference:
 
 ```{r plot.GC, echo=FALSE, fig.height=4}
 plot.GC <- ggplot(pData(sce.all), aes(Sample, FastQC_percent_gc)) +
-  geom_point(aes(colour = Status, shape = Infection)) +
+  geom_point(aes(colour = Status, shape = Infection), alpha = 0.5) +
   geom_text_repel(
-    aes(label = Time), pData(sce.sc)[outliers$GC,], alpha = 0.4) +
-  geom_hline(yintercept = GC.M + 3 * c(1,-1) * GC.MAD, colour = "red") +
-  geom_hline(yintercept = GC.M) + labs(y = "% GC (FastQC)") +
+    aes(label = Time), pData(sce.sc)[outliers$GC,], alpha = 0.6) +
+  geom_hline(yintercept = GC.M + 3 * c(1,-1) * GC.MAD, colour="red",alpha=0.5) +
+  geom_hline(yintercept = GC.M, alpha=0.5) +
+  labs(y = "% GC (FastQC)", x = "Samples") +
   scale_y_continuous(limits = c(0,100)) + sampleQCtheme
 plot.GC
+ggsave(
+  "03_out/GC.pdf",
+  plot.GC + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
 ```
 
 For reference:
@@ -129,7 +134,7 @@ a library size comparable to the majority of samples.
 For those reasons reasons,
 let us identify as outliers single cells with an alignment rate
 excessively *lower* than the median of *single cell* samples,
-here beyond **3** MADs::
+here beyond **3** MADs:
 
 ```{r AlignedPercent}
 metric <- sce.sc$Bowtie.2_overall_alignment_rate
@@ -144,14 +149,20 @@ Let us visualise outliers, along with blank and bulk samples for reference:
 ```{r plot.aligned, echo=FALSE, fig.height=4}
 plot.aligned <-
   ggplot(pData(sce.all), aes(Sample, Bowtie.2_overall_alignment_rate)) +
-  geom_point(aes(colour = Status, shape = Infection)) +
+  geom_point(aes(colour = Status, shape = Infection), alpha = 0.5) +
   geom_text_repel(
-    aes(label = Time), pData(sce.sc)[outliers$AlignedPercent,], alpha = 0.4 ) +
-  scale_y_continuous(limits = c(0,100)) + geom_hline(yintercept = align.M) +
+    aes(label = Time), pData(sce.sc)[outliers$AlignedPercent,], alpha = 0.6) +
+  scale_y_continuous(limits = c(0,100)) +
+  geom_hline(yintercept = align.M, alpha = 0.5) +
   geom_hline(
-    yintercept = align.M + 3*c(1,-1)*align.MAD, colour="red", linetype=2:1) +
-  labs(y = "Overall alignment rate (HISAT2)") + sampleQCtheme
+    yintercept = align.M + 3*c(1,-1)*align.MAD, colour="red", linetype=2:1,
+    alpha = 0.5) +
+  labs(y = "Overall alignment rate (HISAT2)", x = "Samples") + sampleQCtheme
 plot.aligned
+ggsave(
+  "03_out/alignment_rate.pdf",
+  plot.aligned + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
 ```
 
 For reference:
@@ -164,7 +175,7 @@ For reference:
 ```{r posterAligned, include=FALSE}
 posterAligned <-
   ggplot(pData(sce.all), aes(Sample, Bowtie.2_overall_alignment_rate)) +
-  geom_point(aes(colour = Status, shape = Infection)) +
+  geom_point(aes(colour = Status, shape = Infection), alpha = 0.5) +
   geom_text_repel(
     aes(label = Time), pData(sce.sc)[outliers$Aligned,], alpha = 0.4) +
   geom_hline(
@@ -203,14 +214,19 @@ Let us visualise outliers, along with blank and bulk samples, for reference:
 ```{r plot.cAssigned, echo=FALSE, fig.height=4}
 plot.cAssigned <-
   ggplot(pData(sce.all), aes(Sample, featureCounts_Assigned)) +
-  geom_point(aes(colour = Status, shape = Infection)) +
+  geom_point(aes(colour = Status, shape = Infection), alpha = 0.5) +
   geom_text_repel(
-    aes(label = Time), pData(sce.sc)[outliers$AssignedCount,], alpha = 0.4
+    aes(label = Time), pData(sce.sc)[outliers$AssignedCount,], alpha = 0.6
   ) + geom_hline(
     yintercept = 10^(cAssigned.M + 3*c(1,-1)*cAssigned.MAD),
-    colour = "red") + geom_hline(yintercept = 10^(cAssigned.M)) +
-  labs(y = "Count assigned (featureCounts)") + sampleQCtheme
+    colour = "red", alpha = 0.5) +
+  geom_hline(yintercept = 10^(cAssigned.M), alpha = 0.5) +
+  labs(y = "Count assigned (featureCounts)", x = "Samples") + sampleQCtheme
 plot.cAssigned
+ggsave(
+  "03_out/assigned_count.pdf",
+  plot.cAssigned + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
 ```
 
 For reference:
@@ -247,14 +263,20 @@ Let us visualise outliers, along with blank and bulk samples, for reference:
 ```{r plot.pAssigned, echo=FALSE, fig.height=4}
 plot.pAssigned <-
   ggplot(pData(sce.all), aes(Sample, featureCounts_percent_assigned)) +
-  geom_point(aes(colour = Status, shape = Infection)) +
+  geom_point(aes(colour = Status, shape = Infection), alpha = 0.5) +
   geom_text_repel(
-    aes(label = Time), pData(sce.sc)[outliers$AssignedPercent,], alpha = 0.4
-  ) + scale_y_continuous(limits = c(0,100)) + geom_hline(
+    aes(label = Time), pData(sce.sc)[outliers$AssignedPercent,], alpha = 0.6
+  ) + scale_y_continuous(limits = c(0,100)) +
+  geom_hline(
     yintercept = (pAssigned.M + 3*c(1,-1)*pAssigned.MAD), colour = "red",
-    linetype = 2:1) + geom_hline(yintercept = pAssigned.M) +
-  labs(y = "% assigned (featureCounts)") + sampleQCtheme
+    linetype = 2:1, alpha = 0.5) +
+  geom_hline(yintercept = pAssigned.M, alpha = 0.5) +
+  labs(y = "% assigned (featureCounts)", x = "Samples") + sampleQCtheme
 plot.pAssigned
+ggsave(
+  "03_out/assigned_rate.pdf",
+  plot.pAssigned + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
 ```
 
 For reference:
@@ -411,7 +433,7 @@ account for an excessive proportion of sequenced reads,
 expression levels for the vast majority of other genes may not be
 estimated with sufficient accuracy.
 
-## Identification {.tabset}
+### Identification {.tabset}
 
 Let us identify as outliers single cells
 in which the `50`, `100`, and `200` most abundant features account for a
@@ -419,7 +441,7 @@ proportion of library size
 excessively *higher* than the median of *single cell* samples,
 here beyond **3** MADs:
 
-### Top 50
+#### Top 50
 
 ```{r scater_outliers_top50}
 metric <- sce.sc$pct_counts_top_50_features
@@ -429,7 +451,7 @@ outliers$top50 <- (metric > top50.M + 3 * top50.MAD)
 table(outliers$top50)
 ```
 
-### Top 100
+#### Top 100
 
 ```{r scater_outliers_top100}
 metric <- sce.sc$pct_counts_top_100_features
@@ -439,7 +461,7 @@ outliers$top100 <- (metric > top100.M + 3 * top100.MAD)
 table(outliers$top100)
 ```
 
-### Top 200
+#### Top 200
 
 ```{r scater_outliers_top200}
 metric <- sce.sc$pct_counts_top_200_features
@@ -449,22 +471,28 @@ outliers$top200 <- (metric > top200.M + 3 * top200.MAD)
 table(outliers$top200)
 ```
 
-## Visualisation {.tabset}
+### Visualisation {.tabset}
 
 Let us visualise outliers, along with blank and bulk samples, for reference:
 
-### 50
+#### 50
 
 ```{r plot.top50, echo=FALSE, fig.height=4}
 plot.top50 <-
   ggplot(pData(sce.all), aes(Sample, pct_counts_top_50_features)) +
-  geom_point(aes(colour = Status, shape = Infection)) +
+  geom_point(aes(colour = Status, shape = Infection), alpha = 0.5) +
   geom_text_repel(
-    aes(label = Time), pData(sce.sc)[outliers$top50,], alpha=0.4) +
-  scale_y_continuous(limits = c(0,100)) + geom_hline(
-    yintercept = top50.M + 3*c(-1,1)*top50.MAD, colour="red", linetype=2:1) + labs(y = "% counts (top 50 features)") +
-  geom_hline(yintercept = top50.M) + sampleQCtheme
+    aes(label = Time), pData(sce.sc)[outliers$top50,], alpha=0.6) +
+  scale_y_continuous(limits = c(0,100)) +
+  geom_hline(
+    yintercept = top50.M + 3*c(-1,1)*top50.MAD, colour="red", linetype=2:1,
+    alpha = 0.5) + labs(y = "% counts (top 50 features)", x = "Samples") +
+  geom_hline(yintercept = top50.M, alpha = 0.5) + sampleQCtheme
 plot.top50
+ggsave(
+  "03_out/complexity_50.pdf",
+  plot.top50 + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
 ```
 
 For reference:
@@ -474,19 +502,24 @@ For reference:
 * cut-off
     - upper bound: `r sprintf("%.0f%%", top50.M+top50.MAD*3)`
 
-### 100
+#### 100
 
 ```{r plot.top100, echo=FALSE, fig.height=4}
 plot.top100 <-
   ggplot(pData(sce.all), aes(Sample, pct_counts_top_100_features)) +
-  geom_point(aes(colour = Status, shape = Infection)) +
+  geom_point(aes(colour = Status, shape = Infection), alpha=0.5) +
   geom_text_repel(
-    aes(label = Time), pData(sce.sc)[outliers$top100,], alpha=0.4) +
+    aes(label = Time), pData(sce.sc)[outliers$top100,], alpha=0.6) +
   scale_y_continuous(limits = c(0,100)) + geom_hline(
     yintercept = top100.M + 3*c(-1,1)*top100.MAD,
-    colour = "red", linetype = 2:1) + labs(y = "% counts (top 100 features)") +
-  geom_hline(yintercept = top100.M) + sampleQCtheme
+    colour = "red", linetype = 2:1, alpha=0.4) +
+  labs(y = "% counts (top 100 features)", x = "Samples") +
+  geom_hline(yintercept = top100.M, alpha=0.4) + sampleQCtheme
 plot.top100
+ggsave(
+  "03_out/complexity_100.pdf",
+  plot.top100 + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
 ```
 
 For reference:
@@ -502,19 +535,24 @@ threshold.
 This observation can be related to the overall library complexity figure
 shown [earlier](#libraryComplexity).
 
-### 200
+#### 200
 
 ```{r scater_ggplot_top200, echo=FALSE, fig.height=4}
 plot.top200 <-
   ggplot(pData(sce.all), aes(Sample, pct_counts_top_200_features)) +
-  geom_point(aes(colour = Status, shape = Infection)) +
+  geom_point(aes(colour = Status, shape = Infection), alpha=0.5) +
   geom_text_repel(
-    aes(label = Time), pData(sce.sc)[outliers$top200,], alpha=0.4) +
+    aes(label = Time), pData(sce.sc)[outliers$top200,], alpha=0.6) +
   scale_y_continuous(limits = c(0,100)) + geom_hline(
     yintercept = top200.M + 3*c(-1,1)*top200.MAD,
-    colour = "red", linetype = 2:1) + labs(y = "% counts (top 100 features)") +
-  geom_hline(yintercept = top200.M) + sampleQCtheme
+    colour = "red", linetype = 2:1, alpha=0.4) +
+  labs(y = "% counts (top 100 features)", x = "Samples") +
+  geom_hline(yintercept = top200.M, alpha=0.4) + sampleQCtheme
 plot.top200
+ggsave(
+  "03_out/complexity_200.pdf",
+  plot.top200 + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
 ```
 
 For reference:
@@ -561,14 +599,20 @@ Let us visualise outliers, along with blank and bulk samples, for reference:
 ```{r plot.features, echo=FALSE, fig.height=4}
 plot.features <-
   ggplot(pData(sce.all), aes(Sample, total_features)) +
-  geom_point(aes(colour = Status, shape = Infection)) +
-  geom_hline(yintercept = features.M) + geom_hline(
+  geom_point(aes(colour = Status, shape = Infection), alpha = 0.5) +
+  geom_hline(yintercept = features.M, alpha = 0.5) +
+  geom_hline(
     yintercept = features.M + 2 * c(-1,1) * features.MAD, colour = "red",
-    linetype = 1:2) +
-  scale_y_continuous(limits=c(0,max(sce.all$total_features))) + geom_text_repel(
-    aes(label = Time), pData(sce.sc)[outliers$FeaturesCount,], alpha = 0.4) +
-  labs(y = "Count of detected features") + sampleQCtheme
+    linetype = 1:2, alpha = 0.5) +
+  scale_y_continuous(limits=c(0,max(sce.all$total_features))) +
+  geom_text_repel(
+    aes(label = Time), pData(sce.sc)[outliers$FeaturesCount,], alpha = 0.6) +
+  labs(y = "Count of detected features", x = "Samples") + sampleQCtheme
 plot.features
+ggsave(
+  "03_out/features_count.pdf",
+  plot.features + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
 ```
 
 For reference:
@@ -611,14 +655,20 @@ for reference:
 ```{r scater_ggplot_ERCC, echo=FALSE, fig.height=4, warning=FALSE}
 plot.ERCC <-
   ggplot(pData(sce.all), aes(Sample, pct_counts_feature_controls_ERCC)) +
-  geom_point(aes(colour = Status, shape = Infection)) +
-  geom_hline(yintercept = ERCC.M) + geom_hline(
-    yintercept = ERCC.M + 5*c(-1,1)*ERCC.MAD, colour="red", linetype=2:1) +
+  geom_point(aes(colour = Status, shape = Infection), alpha = 0.5) +
+  geom_hline(yintercept = ERCC.M, alpha = 0.5) +
+  geom_hline(
+    yintercept = ERCC.M + 5*c(-1,1)*ERCC.MAD, colour="red", linetype=2:1,
+    alpha = 0.5) +
   geom_text_repel(
     aes(label = Time), pData(sce.sc)[outliers$ERCC,], alpha = 0.6) +
   scale_y_continuous(limits = c(0, 100)) + labs(y = "ERCC content (% counts)") +
   sampleQCtheme
 plot.ERCC
+ggsave(
+  "03_out/ERCC.pdf", plot.ERCC + guides(colour = "none", shape = "none"),
+  width = 6, height = 4
+)
 ```
 
 For reference:
@@ -664,14 +714,22 @@ Let us visualise those outliers, along with blank and bulk samples
 for reference:
 
 ```{r scater_ggplot_MT}
-ggplot(pData(sce.all), aes(Sample, pct_counts_feature_controls_MT)) +
+plot.MT <-
+  ggplot(pData(sce.all), aes(Sample, pct_counts_feature_controls_MT)) +
   geom_point(aes(colour = Status, shape = Infection)) +
-  geom_hline(yintercept = MT.M) + geom_text_repel(
-    aes(label = Time), pData(sce.sc)[outliers$MT,], alpha = 0.4) +
-  scale_y_continuous(limits = c(0, 100)) + geom_hline(
+  geom_hline(yintercept = MT.M, alpha = 0.4) +
+  geom_text_repel(
+    aes(label = Time), pData(sce.sc)[outliers$MT,], alpha = 0.6) +
+  scale_y_continuous(limits = c(0, 100)) +
+  geom_hline(
     yintercept = MT.M + 3 * c(-1,1) * MT.MAD, colour = "red",
-    linetype = 2:1
-  ) + labs(y = "MT content (% counts)") + sampleQCtheme
+    linetype = 2:1, alpha = 0.5
+  ) + labs(y = "MT content (% counts)", x = "Samples") + sampleQCtheme
+plot.MT
+ggsave(
+  "03_out/MT.pdf", plot.MT + guides(colour = "none", shape = "none"),
+  width = 6, height = 4
+)
 ```
 
 For reference:
@@ -790,7 +848,7 @@ hm <- Heatmap(
   as(evalSeparately(all.fr, outliers)[cells.order,], "matrix") + 0,
   name = "Filter",
   col = c("0" = "lightblue", "1" = "red"),
-  cluster_rows = FALSE, show_row_names = FALSE,
+  cluster_rows = FALSE, show_row_names = FALSE, cluster_columns = FALSE,
   split = sce.sc$Time[cells.order]
 )
 draw(hm + hm_row)
@@ -880,3 +938,19 @@ ggsave("poster/densityLibrary.pdf", posterDensity, width=8, height = 6)
 
 [^1]: Note that shared theme settings are defined in the
 [Themes](00a_themes.html) panel.
+
+```{r scater_ggplot_ERCC, echo=FALSE, fig.height=4, warning=FALSE}
+plot.ERCC <-
+  ggplot(pData(sce.all), aes(Sample, pct_counts_feature_controls_ERCC)) +
+  geom_point(aes(colour = Status, shape = Infection), alpha = 0.5) +
+  geom_hline(yintercept = ERCC.M, alpha = 0.5) +
+  geom_hline(
+    yintercept = ERCC.M + 5*c(-1,1)*ERCC.MAD, colour="red", linetype=2:1,
+    alpha = 0.5) +
+  geom_text_repel(
+    aes(label = Time), pData(sce.sc)[outliers$ERCC,], alpha = 0.6) +
+  scale_y_continuous(limits = c(0, 100)) + labs(y = "ERCC content (% counts)") +
+  sampleQCtheme
+plot.ERCC
+ggsave("03_out/ERCC_legend.pdf", plot.ERCC, width = 6, height = 4)
+```
