@@ -10,30 +10,86 @@ reimported from disk, and smaller ones quickly recomputed. -->
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(cache = TRUE)
 library(DESeq2)
-sce.norm <- readRDS("rds/sce.norm.rds")
-EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
+sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 ```
 
 ```{r}
 varLabels(sce.norm)[1:10]
 coldata <- pData(sce.norm)[
   ,c("Infection","Status","Time","Lane","Plate","Treatment","Group")]
-
 ```
-
 
 ```{r}
 dds <- DESeqDataSetFromMatrix(
   countData = counts(sce.norm),
   colData = coldata,
-  design= ~ Plate + Group)
+  design = ~ Time + Treatment + Time:Treatment)
 ```
 
 ```{r}
 dds <- DESeq(dds)
+saveRDS(dds, "DESeq2/dds_time.treatment.rds")
+```
+
+Contrast: 
+
+1) Phenotype
+2) Numerator
+3) Denominator
+
+```{r}
+res <- results(dds, contrast=c("Treatment","D23580_infected","LT2_infected"))
 ```
 
 ```{r}
-res <- results(dds, contrast=c("Group","6h_D23580_infected","6h_Mock_uninfected"))
+resAnn <- cbind(
+  as.data.frame(res),
+  gene_name = fData(sce.norm)[rownames(res),"gene_name"]
+)
+write.csv(resAnn, "DESeq2/infected_D23580-LT2.csv", quote = FALSE)
+```
+
+```{r}
+geneId <- "ENSG00000120875"
+resAnn[geneId,]
+ggplot(data.frame(
+  norm_exprs = norm_exprs(sce.norm)[geneId,],
+  pData(sce.norm)[,c("Time","Infection","Status","Treatment")]
+  ),
+  aes(x = Time, y = norm_exprs)
+) +
+  facet_grid(Infection ~ Status) +
+  geom_violin(aes(colour = Infection), draw_quantiles = c(0.25,0.5,0.75)) +
+  geom_jitter(width = 0.2, alpha = 0.5) + theme_minimal()
+```
+
+Test an interaction term:
+
+```{r}
+res <- results(dds, contrast=list(
+  "Treatment_D23580_infected_vs_Mock_uninfected",
+  "Treatment_LT2_infected_vs_Mock_uninfected"))
+```
+
+```{r}
+resAnn <- cbind(
+  as.data.frame(res),
+  gene_name = fData(sce.norm)[rownames(res),"gene_name"]
+)
+write.csv(resAnn, "DESeq2/infected_D23580-LT2.csv", quote = FALSE)
+```
+
+```{r}
+geneId <- "ENSG00000120875"
+resAnn[geneId,]
+ggplot(data.frame(
+  norm_exprs = norm_exprs(sce.norm)[geneId,],
+  pData(sce.norm)[,c("Time","Infection","Status","Treatment")]
+  ),
+  aes(x = Time, y = norm_exprs)
+) +
+  facet_grid(Infection ~ Status) +
+  geom_violin(aes(colour = Infection), draw_quantiles = c(0.25,0.5,0.75)) +
+  geom_jitter(width = 0.2, alpha = 0.5) + theme_minimal()
 ```
 
