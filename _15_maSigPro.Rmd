@@ -1,0 +1,53 @@
+---
+title: "maSigPro"
+bibliography:
+  bibtex.bib
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+library(scater)
+library(scran)
+library(maSigPro)
+library(reshape2)
+sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
+```
+
+```{r}
+sce.endo <- sce.norm[!isSpike(sce.norm),]; dim(sce.endo)
+```
+
+Compare D23580_infected to LT2_infected over time:
+
+```{r}
+sce.test <- sce.endo[,with(pData(sce.endo), Treatment %in% c("D23580_infected", "LT2_infected"))]
+edesign <- data.frame(
+  Time = as.numeric(gsub("h", "", sce.test$Time)),
+  Replicate = as.numeric(droplevels(sce.test$Group)),
+  D23580_infected = (sce.test$Treatment == "D23580_infected") + 0,
+  LT2_infected = (sce.test$Treatment == "LT2_infected") + 0
+)
+rownames(edesign) <- sampleNames(sce.test)
+```
+
+
+```{r}
+tc.test <- maSigPro(norm_exprs(sce.test), edesign, degree = 2, vars = "groups", main = "Test")
+```
+
+```{r}
+tc.test$g
+tc.test$summary
+tc.test$sig.genes$LT2_infectedvsD23580_infected$sig.pvalues
+```
+
+```{r}
+PlotProfiles(
+  norm_exprs(sce.test), sampleNames(sce.test), main = NULL, cex.xaxis = 0.5, ylim = NULL,
+  edesign$Replicate, sub = NULL, color.mode = "rainbow") 
+```
+
+
