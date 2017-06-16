@@ -373,7 +373,7 @@ tmpGG <- ggplot(pData(sce.ifm.2h)) +
   theme_minimal() + theme(
     axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
   ) + labs(y = "Cells", fill = "Cluster")
-ggsave("out_13/cluster_count_2h.pdf", width = 9, height = 4)
+ggsave("13_out/cluster_count_2h.pdf", width = 9, height = 4)
 ```
 
 ## 4h
@@ -409,7 +409,7 @@ tmpGG <- ggplot(pData(sce.ifm.4h)) +
   theme_minimal() + theme(
     axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
   ) + labs(y = "Cells", fill = "Cluster")
-ggsave("out_13/cluster_count_4h.pdf", width = 9, height = 4)
+ggsave("13_out/cluster_count_4h.pdf", width = 9, height = 4)
 ```
 
 ## 6h
@@ -441,7 +441,7 @@ tmpGG <- ggplot(pData(sce.ifm.6h)) +
   theme_minimal() + theme(
     axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
   ) + labs(y = "Cells", fill = "Cluster")
-ggsave("out_13/cluster_count_6h.pdf", width = 9, height = 4)
+ggsave("13_out/cluster_count_6h.pdf", width = 9, height = 4)
 ```
 
 # Differential expression {#DE}
@@ -650,7 +650,7 @@ ggplot(v.data) +
   ) +
   scale_x_continuous(limits = mleRange) + theme_bw() +
   ggtitle("4h: cluster 2 - cluster 1")
-ggsave("out_13/4h_volcano_Vogel.pdf", height = 5, width = 6.5)
+ggsave("13_out/4h_volcano_Vogel.pdf", height = 5, width = 6.5)
 ```
 
 ```{r fig2_volcano_4h_2v1, echo=FALSE, eval=FALSE}
@@ -666,7 +666,7 @@ ggplot(v.data) +
   ) +
   scale_x_continuous(limits = mleRange) + theme_bw() +
   ggtitle("4h: cluster 2 - cluster 1")
-ggsave("out_13/4h_volcano_Shalek.pdf", height = 5, width = 6.5)
+ggsave("13_out/4h_volcano_Shalek.pdf", height = 5, width = 6.5)
 ```
 
 ## 6h (2 vs 1)
@@ -702,7 +702,7 @@ ggplot(v.data) +
   ) +
   scale_x_continuous(limits = mleRange) + theme_bw() +
   ggtitle("6h: cluster 2 - cluster 1")
-ggsave("out_13/6h_volcano_Vogel.pdf", height = 5, width = 6.5)
+ggsave("13_out/6h_volcano_Vogel.pdf", height = 5, width = 6.5)
 ```
 
 ```{r fig2_volcano_6h_2v1, echo=FALSE, eval=FALSE}
@@ -718,7 +718,7 @@ ggplot(v.data) +
   ) +
   scale_x_continuous(limits = mleRange) + theme_bw() +
   ggtitle("6h: cluster 2 - cluster 1")
-ggsave("out_13/6h_volcano_Shalek.pdf", height = 5, width = 6.5)
+ggsave("13_out/6h_volcano_Shalek.pdf", height = 5, width = 6.5)
 ```
 
 # Count DE genes at various cut-offs {.tabset}
@@ -1008,7 +1008,7 @@ ggplot(scde.table,aes(-mle.cluster,mle.group))+
   geom_text_repel(
     aes(label = GENENAME),data=scde.genes,min.segment.length=unit(0,"mm")) +
   labs(y="MLE infected / exposed",x="MLE cluster 1 / cluster 2",title="4h")
-ggsave("out_13/4h_correlation_cluster.pdf", width = 6.5, height = 5)
+ggsave("13_out/4h_correlation_cluster.pdf", width = 6.5, height = 5)
 ```
 
 ```{r 4h_MLE_cluster_group_csv, echo=FALSE, eval=FALSE}
@@ -1108,7 +1108,7 @@ ggplot(gdata, aes(Status, norm_exprs, fill = Status)) +
   facet_grid(~Infection) + ggtitle(sprintf("%s - %s", geneName, geneId)) +
   scale_y_continuous(limits=range(norm_exprs(sce.ifm.4h))) +
   scale_colour_manual(values = col.cluster) + theme_minimal()
-ggsave(sprintf("out_13/violin_4h_D23580_%s.pdf", geneName),height=4,width=5)
+ggsave(sprintf("13_out/violin_4h_D23580_%s.pdf", geneName),height=4,width=5)
 ```
 
 ```{r fig.violin.4h.D23580.NIT1, echo=FALSE, eval=FALSE}
@@ -1127,7 +1127,7 @@ ggplot(gdata, aes(Status, norm_exprs, fill = Status)) +
   facet_grid(~Infection) + ggtitle(sprintf("%s - %s", geneName, geneId)) +
   scale_y_continuous(limits=range(norm_exprs(sce.ifm.4h))) +
   scale_colour_manual(values = col.cluster) + theme_minimal()
-ggsave(sprintf("out_13/violin_4h_D23580_%s.pdf", geneName),height=4,width=5)
+ggsave(sprintf("13_out/violin_4h_D23580_%s.pdf", geneName),height=4,width=5)
 ```
 
 ```{r fig.violin.4h.LT2.VPS25, echo=FALSE, eval=FALSE}
@@ -1146,7 +1146,7 @@ ggplot(gdata, aes(Status, norm_exprs, fill = Status)) +
   facet_grid(~Infection) + ggtitle(sprintf("%s - %s", geneName, geneId)) +
   scale_y_continuous(limits=range(norm_exprs(sce.ifm.4h))) +
   scale_colour_manual(values = col.cluster) + theme_minimal()
-ggsave(sprintf("out_13/violin_4h_LT2_%s.pdf", geneName),height=4,width=5)
+ggsave(sprintf("13_out/violin_4h_LT2_%s.pdf", geneName),height=4,width=5)
 ```
 
 ## 6h {.tabset}
@@ -1354,7 +1354,7 @@ ht_list <-
     cluster_rows=FALSE,show_column_names=FALSE,show_column_dend=FALSE,
     column_title_gp = gpar(fontsize = 10), column_title = "STM-LT2\ninfected",
     top_annotation = ha.lt2.inf, show_heatmap_legend = FALSE)
-pdf("out_13/heatmap_2.pdf", height = 5, width = 7)
+pdf("13_out/heatmap_2.pdf", height = 5, width = 7)
 draw(ht_list)
 dev.off()
 ```
@@ -1417,7 +1417,7 @@ ht_list <-
     cluster_rows=FALSE,show_column_names=FALSE,show_column_dend=FALSE,
     column_title_gp = gpar(fontsize = 10), column_title = "STM-LT2\ninfected",
     top_annotation = ha.lt2.inf, show_heatmap_legend = FALSE)
-pdf("out_13/heatmap_3.pdf", height = 5, width = 8)
+pdf("13_out/heatmap_3.pdf", height = 5, width = 8)
 draw(ht_list)
 dev.off()
 ```
@@ -1459,7 +1459,7 @@ ht_list <-
     cluster_rows=FALSE,show_column_names=FALSE,#show_column_dend=FALSE,
     column_title_gp = gpar(fontsize = 10), column_title = "STM-LT2",
     top_annotation = ha.lt2, show_heatmap_legend = FALSE)
-pdf("out_13/heatmap_4.pdf", height = 4, width = 8)
+pdf("13_out/heatmap_4.pdf", height = 4, width = 8)
 draw(ht_list)
 dev.off()
 ```
