@@ -13,7 +13,7 @@ library(ggplot2)
 library(RColorBrewer)
 library(ComplexHeatmap)
 library(reshape2)
-sce.norm <- readRDS("rds/sce.norm.rds")
+sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 ```
 
 # Preprocessing
