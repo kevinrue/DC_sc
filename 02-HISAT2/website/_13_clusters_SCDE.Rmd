@@ -479,19 +479,19 @@ saveRDS(scde.res, "rds/13_scde.clusters.rds")
 for (contrastName in names(scde.res)){
   scde.raw <- scde.res[[contrastName]]$results
   scde.raw <- convert.z.score(addGENENAME(orderResults(scde.raw)))
-  csv.raw <- sprintf("out_13/raw.%s.csv", contrastName)
+  csv.raw <- sprintf("13_out/raw.%s.csv", contrastName)
   write.csv(scde.raw, csv.raw)
 }
 for (contrastName in names(scde.res)){
   scde.adjusted <- scde.res[[contrastName]]$batch.adjusted
   scde.adjusted <- convert.z.score(addGENENAME(orderResults(scde.adjusted)))
-  csv.raw <- sprintf("out_13/adjusted.%s.csv", contrastName)
+  csv.raw <- sprintf("13_out/adjusted.%s.csv", contrastName)
   write.csv(scde.adjusted, csv.raw)
 }
 for (contrastName in names(scde.res)){
   scde.batch <- scde.res[[contrastName]]$batch.effect
   scde.batch <- convert.z.score(addGENENAME(orderResults(scde.batch)))
-  csv.raw <- sprintf("out_13/batch.%s.csv", contrastName)
+  csv.raw <- sprintf("13_out/batch.%s.csv", contrastName)
   write.csv(scde.batch, csv.raw)
 }
 ```
