@@ -37,9 +37,10 @@ identifier derived from the count file name for each sample:
 
 ```{r editPheno}
 pheno$File <- as.character(pheno$File)
-pheno$Infection <- factor(pheno$Infection, c("Mock","D23580","LT2","Blank"))
+pheno$Infection <-
+  factor(pheno$Infection, c("Mock","STM-D23580","STM-LT2","Blank"))
 pheno$Status <-
-  factor(pheno$Status, c("uninfected","exposed","infected","Blank","BULK"))
+  factor(pheno$Status, c("Uninfected","Exposed","Violet +","Blank","Bulk"))
 pheno$Lane <- as.factor(pheno$Lane)
 pheno$Sample <- gsub("WTCHG_[[:digit:]]+_", "", pheno$File) # character
 pheno$sampleAnnotated <-
@@ -52,7 +53,7 @@ pheno$Group <-
 
 ## Table
 
-```{r pheno_DT, echo=FALSE}
+```{r pheno_DT, echo=FALSE, results='asis'}
 DT::datatable(
   pheno,
   options = list(pageLength = 10, searching = TRUE), filter = "top",
@@ -146,7 +147,7 @@ gtf.genes <- subset(gtfData, type == "gene"); length(gtf.genes)
 
 Similarly, records associated with ERCC spike-in molecules:
 
-```{r}
+```{r gtf.ERCC}
 gtf.ERCC <- subset(gtfData, source == "ERCC"); length(gtf.ERCC)
 ```
 
@@ -154,7 +155,7 @@ Finally, let us combine the two types of feature annotations,
 and reorder them to ensure that they match the order of features imported
 [above](#Counts):
 
-```{r}
+```{r gtf.final}
 gtf.final <- c(gtf.genes, gtf.ERCC)
 stopifnot(all(rownames(RG) %in% gtf.final$gene_id))
 gtf.order <- match(rownames(RG), gtf.final$gene_id)
@@ -215,7 +216,7 @@ dim(sce.blank)
 ## Bulks
 
 ```{r sce.bulk}
-idx.bulk<- pheno$Status == "BULK"
+idx.bulk<- pheno$Status == "Bulk"
 pd.bulk <- AnnotatedDataFrame(droplevels(pheno[idx.bulk,]))
 sce.bulk <- newSCESet(
   countData = RG$counts[,idx.bulk], phenoData = pd.bulk, featureData = fdata)
@@ -225,7 +226,7 @@ dim(sce.bulk)
 ## Single cells
 
 ```{r sce.sc}
-idx.sc <- pheno$Status %in% c("exposed","infected","uninfected")
+idx.sc <- pheno$Status %in% c("Exposed", "Violet +", "Uninfected")
 pd.sc <- AnnotatedDataFrame(droplevels(pheno[idx.sc,]))
 sce.sc <- newSCESet(
   countData = RG$counts[,idx.sc], phenoData = pd.sc, featureData = fdata)
@@ -245,12 +246,24 @@ saveRDS(gtfData, "rds/gtfData.rds")
 
 <!-- Comparison with Kallisto -->
 
-```{r loadKallisto, include=FALSE}
+```{r loadKallisto, echo=FALSE}
 kallisto_all <- readRDS("../../01-kallisto/rds/all_EnsDb.rds")
 ```
 
+```{r kallisto_all_fix}
+# Quick fix: update phenodata in Kallisto to match current ones
+kallisto_all$Infection <- factor(
+  kallisto_all$Infection,
+  levels = c("Blank", "D23580", "LT2", "Mock"),
+  labels = c("Blank", "STM-D23580", "STM-LT2", "Mock"))
+kallisto_all$Status <- factor(
+  kallisto_all$Status,
+  levels = c("Blank", "BULK", "exposed", "infected", "uninfected"),
+  labels = c("Blank", "Bulk", "Exposed", "Violet +", "Uninfected"))
+```
+
+
 ```{r overlapKallistoAligned, include=FALSE}
-fData(kallisto_all)[,"feature_id"]
 features.overlap <-
   intersect(fData(kallisto_all)[,"feature_id"], featureNames(sce.all))
 # Reorder Kallisto to match SCESet
@@ -266,7 +279,6 @@ ercc <- grepl("^ERCC-", features.overlap)
 table(ercc)
 ```
 
-
 ```{r prepareBulkPlot, include=FALSE}
 comp.bulks <- data.frame(
   Time = character(),
@@ -276,19 +288,19 @@ comp.bulks <- data.frame(
   ERCC = logical()
 )
 for (time in c("2h", "4h", "6h")){
-  for (infection in c("Mock", "D23580", "LT2")){
+  for (infection in c("Mock", "STM-D23580", "STM-LT2")){
     message(sprintf("%s - %s", time, infection))
     kallisto <- counts(kallisto.overlap[
       ,
       kallisto.overlap$Time == time &
         kallisto.overlap$Infection == infection &
-        kallisto.overlap$Status == "BULK"
+        kallisto.overlap$Status == "Bulk"
     ])[,1]
     hf = counts(sce.overlap)[
       ,
       sce.overlap$Time == time &
         sce.overlap$Infection == infection &
-        sce.overlap$Status == "BULK"
+        sce.overlap$Status == "Bulk"
     ]
     new.df <- data.frame(
       Time = time,
@@ -306,14 +318,18 @@ rm(kallisto, hf, time, infection, new.df)
 ```{r bulkPlot, include=FALSE}
 ggplot(comp.bulks, aes(log10(Kallisto + 1), log10(HF + 1))) +
   geom_hex() +
+  geom_abline(
+    slope=1, intercept=0, alpha=0.5, colour="green", linetype="dashed") +
+  coord_fixed(ratio = 1) +
   facet_grid(Infection ~ Time) +
   geom_point(
     aes(log10(Kallisto + 1), log10(HF + 1)),
     subset(comp.bulks, ERCC),
     colour = "red", size = 0.5) +
-  labs(y = "HISAT2 & featureCounts", x = "Kallisto", main = "log10(counts + 1)") +
-  scale_fill_continuous(name = "Density")
-ggsave("NGS-SIG/Kallisto-HISAT2_bulk.pdf", width = 6, height = 4)
+  labs(y="HISAT2 & featureCounts", x="Kallisto", main="log10(counts + 1)") +
+  guides(fill = "none") + theme_minimal()
+ggsave("NGS-SIG/Kallisto-HISAT2_bulk.pdf", width = 5, height = 4)
+ggsave("02_out/Kallisto-HISAT2_bulk.pdf", width = 5, height = 4)
 ```
 
 ```{r prepareSCplot, include=FALSE}
@@ -332,11 +348,11 @@ cells.df <- data.frame(
   Infection  = character()
 )
 for (time in c("2h", "4h", "6h")){
-   for (infection in c("Mock", "D23580", "LT2")){
+   for (infection in c("Mock", "STM-D23580", "STM-LT2")){
      message(sprintf("%s - %s", time, infection))
     sname <- as.character(sample(subset(
       pData(kallisto.overlap),
-      Time == time & Infection == infection & Status != 'BULK',
+      Time == time & Infection == infection & Status != 'Bulk',
       select = sample,
       drop = TRUE), 1))
     kallisto <- counts(kallisto.overlap[,sname])[,1]
@@ -367,6 +383,8 @@ cells.df$Y = 5
 cells.df$X = 0
 ggplot(comp.sc, aes(log10(Kallisto + 1), log10(HF + 1))) +
   geom_hex(aes(colour = Status)) +
+  geom_abline(
+    slope=1, intercept=0, alpha=0.75, linetype="dashed") +
   facet_grid(Infection ~ Time) +
   geom_point(
     aes(log10(Kallisto + 1), log10(HF + 1)),
@@ -375,7 +393,9 @@ ggplot(comp.sc, aes(log10(Kallisto + 1), log10(HF + 1))) +
   ggrepel::geom_label_repel(
     aes(X, Y, label = Cell), cells.df, min.segment.length = unit(3, "lines"),
     size = 2, alpha = 0.5) +
-  labs(y = "HISAT2 & featureCounts", x = "Kallisto", main = "log10(counts + 1)") +
-  scale_fill_continuous(name = "Density")
+  labs(y="HISAT2 & featureCounts", x="Kallisto", main="log10(counts + 1)") +
+  scale_fill_continuous(name = "Density") +
+  guides(fill = "none") + theme_minimal()
 ggsave("NGS-SIG/Kallisto-HISAT2_SC9.pdf", width = 6, height = 4)
+ggsave("02_out/Kallisto-HISAT2_SC9.pdf", width = 6, height = 4)
 ```
