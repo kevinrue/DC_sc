@@ -52,17 +52,19 @@ for (x_group in levels(sce.pass$Group)){
   infection <- gsub(".*_(.*)_.*", "\\1", x_group)
   status <- gsub(".*_.*_(.*)", "\\1", x_group)
   treatment <- gsub(".*_(.*_.*)", "\\1", x_group)
-  cellIndex <- which(sce.pass$Group == x_group)
-  cellAvg <- rowMeans(exprs(sce.pass[,cellIndex]))
-  bulkExpr <- exprs(sce.bulk)[,which(
-    sce.bulk$Time == time & sce.bulk$Infection == infection
-    )]
+  cellIndex <- (sce.pass$Group == x_group)
+  featureIndex <- (rowSums(counts(sce.pass)) > 0 | rowSums(counts(sce.bulk)) > 0)
+  cellAvg <- rowMeans(exprs(sce.pass[featureIndex, cellIndex]))
+  bulkExpr <- exprs(sce.bulk)[
+    featureIndex,
+    which(sce.bulk$Time == time & sce.bulk$Infection == infection)
+  ]
   geneNames <- names(cellAvg)
   bulkSCdata <- rbind(
     bulkSCdata,
     data.frame(
       Cells = cellAvg,
-      Bulk = bulkExpr[geneNames],
+      Bulk = bulkExpr[geneNames], # ensure order identical to single cells
       Gene = geneNames,
       Group = x_group, Treatment = treatment,
       Time = time, Infection = infection, Status = status
@@ -74,15 +76,27 @@ for (x_group in levels(sce.pass$Group)){
 Importantly, stimulated bulk samples are expected to be a mixture of
 `infected` (minority; < 5%) and `exposed` cells (vast majority; > 95%).
 We may therefore compare the average expression
-in each subset of cells against the bulk average,
+in each subset of cells against the bulk average, both in log2(CPM),
 to identify potential differences.
 For reference, let us also indicate the identity line $y = x$ in grey:
 
 ```{r bulkSCdata_plot, fig.height=8}
-ggplot(bulkSCdata) + geom_abline(slope = 1, intercept = 0, colour = "grey") +
-  stat_bin2d(aes(Bulk, Cells), bins = 150) + coord_fixed(ratio = 1) +
-  labs(y="Cell average", title="exprs: log2(CPM + offset)") +
-  guides(fill = FALSE) + facet_grid(Infection + Status ~ Time) + theme_minimal()
+bulkSCdata$ERCC <- grepl("^ERCC-", bulkSCdata$Gene)
+ggplot(bulkSCdata) +
+  geom_abline(slope = 1, intercept = 0, colour = "grey") +
+  # stat_bin2d(aes(Bulk, Cells, colour = ERCC), bins = 100) +
+  geom_hex(aes(Bulk, Cells), subset(bulkSCdata, !ERCC)) +
+  geom_point(aes(Bulk, Cells), subset(bulkSCdata, ERCC),size=0.1,colour="red") +
+  coord_fixed(ratio = 1) + labs(y="Cell average") + guides(fill = FALSE) +
+  facet_grid(Infection + Status ~ Time) +
+  theme_minimal() + theme(
+    axis.text.x = element_text(size = rel(0.5)),
+    axis.text.y = element_text(size = rel(0.5))
+  ) + guides(fill = "none")
+```
+
+```{r bulkSCdata_pdf, echo=FALSE}
+ggsave(file.path("04_out/correlation_cells_bulk.pdf"), width = 4, height = 8)
 ```
 
 The figure above displays higher detection levels in bulk samples for a large
@@ -151,17 +165,23 @@ relationship $y = x$ as a solid black line:
 
 ```{r ERCCcorrelation, warning=FALSE, fig.height=6}
 mixC$avgCount <- rowMeans(counts(sce.pass)[mixC$ID,])
-ggplot(mixC) + geom_point(aes(ERCCmolecules, avgCount)) +
-  geom_abline(slope = 1, intercept = 0) +
+ggplot(mixC) +
+  geom_point(aes(ERCCmolecules, avgCount)) +
+  geom_abline(slope = 1, intercept = 0, linetype = "dashed", colour = "red") +
   labs(
     x = "Expected ERCC molecules injected",
-    y = "Average observed read count in cells passed QC") +
+    y = "Average observed fragment count in cells passed QC") +
   scale_x_log10() + scale_y_log10() + coord_fixed(ratio = 1) + theme_minimal()
 ```
 
+```{r ERCCcorrelation_pdf}
+ggsave("04_out/correlation_ERCC_expected.pdf", width = 5, height = 5)
+```
+
+
 # Definition of detected features
 
-## Count of genes by mean expression level
+## Count of genes by mean expression level {.tabset}
 
 Let us examine the distribution of log-mean CPM across all genes,
 while indicating an average value of **1** CPM by a vertical blue dashed line:
@@ -204,8 +224,10 @@ Let us first calculate the average CPM for each gene within each experimental
 group:
 
 ```{r avgCPMbyGroup}
-avgCPMbyGroup <- apply(scater::cpm(sce.pass), 1, function(x){
-  tapply(x, sce.pass$Group, mean)})
+avgCPMbyGroup <- apply(
+  scater::cpm(sce.pass)[!isSpike(sce.pass)],
+  1,
+  function(x){tapply(x, sce.pass$Group, mean)})
 avgCPMbyGroup <- reshape2::melt(
   avgCPMbyGroup, varnames = c("Group", "Feature"), value.name = "AvgCPM")
 avgCPMbyGroup[,c("Time","Infection","Status")] <-
@@ -216,10 +238,29 @@ The following figure displays the resulting distribution of
 average log~10~(CPM) within each experimental group of single cells
 (after removal of zero-count genes):
 
-```{r density_avgCPM, echo=FALSE, fig.height=8}
-ggplot(avgCPMbyGroup) + geom_density(aes(log10(AvgCPM))) +
-  facet_grid(Infection + Status ~ Time) +
+```{r histogram_avgCPM, echo=FALSE, fig.height=8}
+detectedCPM <- data.frame(
+  Group = levels(avgCPMbyGroup$Group),
+  Zero = with(avgCPMbyGroup, tapply(AvgCPM, Group, function(x){sum(x==0)})),
+  LessOne = with(avgCPMbyGroup, tapply(AvgCPM, Group, function(x){
+    sum(x<1 & x!= 0)})),
+  MoreOne = with(avgCPMbyGroup, tapply(AvgCPM, Group, function(x){sum(x>1)}))
+)
+detectedCPM <- merge(
+  detectedCPM,
+  unique(pData(sce.pass)[,c("Group","Time","Infection","Status")]))
+ggplot() +
+  geom_histogram(aes(log10(AvgCPM)), avgCPMbyGroup, binwidth = 0.1) +
+  geom_vline(xintercept = 0, colour = "red", linetype = "dashed") +
+  geom_label(aes(label = Zero), detectedCPM, x=0, y=75, size=2, alpha=0.5) +
+  geom_label(aes(label = LessOne), detectedCPM, x=-1, y=700, size=2, alpha=0.5) +
+  geom_label(aes(label = MoreOne), detectedCPM, x=4, y=700, size=2, alpha=0.5) +
+  facet_grid(Infection + Status ~ Time) + labs(y = "Features") +
   labs(x = "log10(Average CPM)") + theme_minimal()
+```
+
+```{r histogram_avgCPM_pdf}
+ggsave("04_out/countFeaturesByAvgLogCPM.pdf", height = 8, width = 6)
 ```
 
 ### Violin
@@ -274,14 +315,68 @@ Note that the detailed count of cells per group was reported
 [here](03_sample_QC.html#cellSelection).
 
 First, let us obtain---for each feature---the proportion of cells within each
-experimental group of cells that display an expression level above **10** CPM:
+experimental group of cells that display an expression level above **20** CPM:
 
 ```{r propOver10byGroup}
-propOver10byGroup <- apply(scater::cpm(sce.pass), 1, function(x){
+propOver10byGroup <- apply(
+  scater::cpm(sce.pass)[!isSpike(sce.pass),],
+  1,
+  function(x){
   tapply(x, sce.pass$Group, function(x){sum(x > 10) / length(x)})
 })
 propOver10byGroup <- reshape2::melt(
   propOver10byGroup, varnames = c("Group", "Feature"), value.name = "Proportion")
+```
+
+Let us now define whether each feature is detected in at least **25%** of
+each group:
+
+```{r PropOver25pct}
+propOver10byGroup$PropOver25pct <- (propOver10byGroup$Proportion > 0.50)
+```
+
+Let us then define the count of groups in which each gene is detected
+above **10** CPM in over **50%** of the group:
+
+```{r groupsOver50pct}
+groupsOver50pct <- as.data.frame(with(
+    propOver10byGroup,
+    tapply(PropOver50pct, Feature, function(x){sum(x)}))
+)
+colnames(groupsOver50pct) <- "Groups"
+groupsOver50pct$Feature <- rownames(groupsOver50pct)
+```
+
+We may now merge this information with the features detected
+above **10** CPM in at least **1** group:
+
+```{r detected_CPMandProportion}
+detectedCPMandProp <- merge(
+  subset(propOver10byGroup, Proportion > 0.50), groupsOver50pct, by = "Feature"
+)
+detectedCPMandProp <- merge(
+  detectedCPMandProp,
+  unique(pData(sce.pass)[,c("Group","Time","Treatment")]),
+  by = "Group"
+)
+```
+
+And visualise the count of feature detected above **10** CPM
+of at least **50%** of cells in each group, while indicating
+the count of groups in which each feature passed the above detection cut-offs:
+
+```{r detectedCPMandProp_bar, echo=FALSE}
+ggplot(detectedCPMandProp) +
+  geom_bar(aes(Treatment, fill = as.factor(Groups))) +
+  facet_grid(~ Time) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 90)) +
+  labs(y = "Features") + scale_y_continuous(limits = c(0, 6E3)) +
+  guides(fill = guide_legend(title = "50% group\n>10 CPM"))
+```
+
+```{r detectedCPMandProp_pdf, echo=FALSE}
+ggsave("04_out/countFeatures_10CPM_50percent_byGroup.pdf", width = 6, height = 6)
 ```
 
 Let us now retain for further analysis:
