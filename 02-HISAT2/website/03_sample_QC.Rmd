@@ -740,7 +740,7 @@ for reference:
 ```{r scater_ggplot_MT, echo=FALSE, fig.height=4, warning=FALSE}
 plot.MT <-
   ggplot(pData(sce.all), aes(Sample, pct_counts_feature_controls_MT)) +
-  geom_point(aes(colour = Status, shape = Infection, alpha = 0.75)) +
+  geom_point(aes(colour = Status, shape = Infection), alpha = 0.75) +
   geom_hline(yintercept = MT.M, alpha = 0.4) +
   geom_text_repel(
     aes(label = Time), pData(sce.sc)[outliers$MT,], alpha = 0.6,
