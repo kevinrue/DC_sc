@@ -71,7 +71,7 @@ basePlot.1 <-
   scale_colour_manual(values = colours.infection) +
   labs(y = "pg/mL") + theme_bw()
 
-ggsave("TheUglyIL10Cytokine.pdf", basePlot.1, width = 8, height = 4)
+ggsave("TheUglyIL10Cytokine.pdf", basePlot.1, width = 8, height = 2)
 
 
 basePlot.2 <-
@@ -88,6 +88,6 @@ basePlot.2 <-
   theme(axis.text.x = element_text(angle = 90)) +
   scale_fill_manual(values = colours.infection) +
   scale_colour_manual(values = colours.infection) +
-  labs(y = "pg/mL") + theme_bw()
+  labs(y = "pg/mL") + theme_bw() + theme(legend.position = "bottom")
 
-ggsave("TheOtherCuteCytokines.pdf", basePlot.2, width = 8, height = 8)
+ggsave("TheOtherCuteCytokines.pdf", basePlot.2, width = 8, height = 6)
