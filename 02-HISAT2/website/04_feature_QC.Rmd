@@ -225,7 +225,7 @@ group:
 
 ```{r avgCPMbyGroup}
 avgCPMbyGroup <- apply(
-  scater::cpm(sce.pass)[!isSpike(sce.pass)],
+  scater::cpm(sce.pass)[!isSpike(sce.pass),],
   1,
   function(x){tapply(x, sce.pass$Group, mean)})
 avgCPMbyGroup <- reshape2::melt(
@@ -332,19 +332,19 @@ Let us now define whether each feature is detected in at least **25%** of
 each group:
 
 ```{r PropOver25pct}
-propOver10byGroup$PropOver25pct <- (propOver10byGroup$Proportion > 0.50)
+propOver10byGroup$PropOver25pct <- (propOver10byGroup$Proportion > 0.25)
 ```
 
 Let us then define the count of groups in which each gene is detected
-above **10** CPM in over **50%** of the group:
+above **10** CPM in over **25%** of the group:
 
-```{r groupsOver50pct}
-groupsOver50pct <- as.data.frame(with(
+```{r groupsOver25pct}
+groupsOver25pct <- as.data.frame(with(
     propOver10byGroup,
-    tapply(PropOver50pct, Feature, function(x){sum(x)}))
+    tapply(PropOver25pct, Feature, function(x){sum(x)}))
 )
-colnames(groupsOver50pct) <- "Groups"
-groupsOver50pct$Feature <- rownames(groupsOver50pct)
+colnames(groupsOver25pct) <- "Groups"
+groupsOver25pct$Feature <- rownames(groupsOver25pct)
 ```
 
 We may now merge this information with the features detected
@@ -352,7 +352,7 @@ above **10** CPM in at least **1** group:
 
 ```{r detected_CPMandProportion}
 detectedCPMandProp <- merge(
-  subset(propOver10byGroup, Proportion > 0.50), groupsOver50pct, by = "Feature"
+  subset(propOver10byGroup, Proportion > 0.25), groupsOver25pct, by = "Feature"
 )
 detectedCPMandProp <- merge(
   detectedCPMandProp,
@@ -362,7 +362,7 @@ detectedCPMandProp <- merge(
 ```
 
 And visualise the count of feature detected above **10** CPM
-of at least **50%** of cells in each group, while indicating
+of at least **25%** of cells in each group, while indicating
 the count of groups in which each feature passed the above detection cut-offs:
 
 ```{r detectedCPMandProp_bar, echo=FALSE}
@@ -370,13 +370,13 @@ ggplot(detectedCPMandProp) +
   geom_bar(aes(Treatment, fill = as.factor(Groups))) +
   facet_grid(~ Time) +
   theme_minimal() +
-  theme(axis.text.x = element_text(angle = 90)) +
+  theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
   labs(y = "Features") + scale_y_continuous(limits = c(0, 6E3)) +
-  guides(fill = guide_legend(title = "50% group\n>10 CPM"))
+  guides(fill = guide_legend(title = "25% group\n>10 CPM"))
 ```
 
 ```{r detectedCPMandProp_pdf, echo=FALSE}
-ggsave("04_out/countFeatures_10CPM_50percent_byGroup.pdf", width = 6, height = 6)
+ggsave("04_out/countFeatures_10CPM_25percent_byGroup.pdf", width = 6, height = 6)
 ```
 
 Let us now retain for further analysis:
