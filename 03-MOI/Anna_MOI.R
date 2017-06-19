@@ -1,5 +1,5 @@
 library(readxl)
-MOI <- read_excel("~/Desktop/Laboratorio Oxford/R/MOI/MOI.xlsx")
+MOI <- read_excel("MOI_complete.xlsx")
 View(MOI)
 
 library(RColorBrewer)
@@ -19,7 +19,7 @@ basePlot <- ggplot(MOI) +
     breaks = seq(0, max(MOI$Value), 10E3),
     labels = c(0, sprintf("%i,000", seq(10E3, max(MOI$Value), 10E3)/1E3)))
 
-cutePlotWithAnnasColours <- basePlot + theme_bw() 
+cutePlotWithAnnasColours <- basePlot + theme_bw()
 # basePlot + theme_minimal() + labs(title = "minimal")
 
 ggsave("MyLittleMOIplot.pdf", cutePlotWithAnnasColours, width = 8, height = 2)
