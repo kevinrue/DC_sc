@@ -237,6 +237,20 @@ ggplot(ggPCA, aes(PC1, PC2)) +
   PCAtheme + theme(legend.text = element_text(size = 6))
 ```
 
+```{r plotPCASCESet_Status_pdf, include=FALSE}
+ggPCA <- cbind(
+  reducedDimension(sce.norm)[,paste0("PC", 1:2)],
+  pData(sce.norm)[,c("Group","Time","Infection","Status","Treatment","Plate")]
+)
+ggplot(ggPCA, aes(PC1, PC2)) +
+  geom_point(aes(colour = Status, shape = Time)) +
+  scale_color_manual(values = col.status) + geom_rug() +
+  PCAtheme + theme(
+    legend.text = element_text(size = 6),
+    legend.position = "right")
+ggsave("06_out/PCA_status.pdf", height = 5, width = 7)
+```
+
 #### Additional principal components {.tabset}
 
 The analysis may be extended to more principal components; however, by
@@ -256,6 +270,11 @@ ggplot(
 ) + labs(x = "Principal component", y = "Percentage variance explained") +
   geom_col(aes(PC, PercentVariance)) + theme_minimal()
 ```
+
+```{r PercentVariance_pdf}
+ggsave("06_out/PCA_variance_explained.pdf", height = 5, width = 7)
+```
+
 
 ##### Treatment
 
@@ -452,7 +471,7 @@ posterPCA <- ggplot(
   geom_label(aes(x, y, label = label), posterLabels, inherit.aes = FALSE) +
   theme_light()
 posterPCA
-ggsave("poster/tSNE_right.pdf", posterPCA, width = 7, height = 6)
+ggsave("poster/tSNE_right.pdf", posterPCA, width = 7, height = 5)
 ggsave(
   "poster/tSNE_bottom.pdf",
   posterPCA + theme(
