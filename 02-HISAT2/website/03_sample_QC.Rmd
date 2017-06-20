@@ -964,7 +964,7 @@ ggsave("poster/densityLibrary.pdf", posterDensity, width=8, height = 6)
 [^1]: Note that shared theme settings are defined in the
 [Themes](00a_themes.html) panel.
 
-```{r ggplot_ERCC_label_legend, echo=FALSE, fig.height=4, warning=FALSE}
+```{r ggplot_ERCC_label_legend, include=FALSE, fig.height=4, warning=FALSE}
 plot.ERCC <-
   ggplot(pData(sce.all), aes(Sample, pct_counts_feature_controls_ERCC)) +
   geom_point(aes(colour = Status, shape = Infection), alpha = 0.75) +
