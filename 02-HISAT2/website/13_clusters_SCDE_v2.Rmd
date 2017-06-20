@@ -843,18 +843,24 @@ showTopGO <- function(x, direction = "over", cutoff = 0.05, min = 10){
 }
 ```
 
-### Over-represented {.tabset}
-
-#### `r names(goseq.res)[1]`
-
-```{r goseq.over_1, echo=FALSE}
-showTopGO(goseq.res[[1]])
+```{r, echo=FALSE}
+write.csv(goseq.res[[1]], "13_out/4h_cluster2-1.csv")
+write.csv(goseq.res[[2]], "13_out/6h_cluster2-1.csv")
 ```
 
-#### `r names(goseq.res)[2]`
+
+### Over-represented {.tabset}
+
+#### 4h_cluster2-cluster1
+
+```{r goseq.over_1, echo=FALSE}
+showTopGO(goseq.res[["4h_cluster2-cluster1"]])
+```
+
+#### 6h_cluster2-cluster1
 
 ```{r goseq.over_2, echo=FALSE}
-showTopGO(goseq.res[[2]])
+showTopGO(goseq.res[["6h_cluster2-cluster1"]])
 ```
 
 ### Under-represented {.tabset}
