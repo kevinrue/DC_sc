@@ -3,7 +3,7 @@ library(broom)
 library(RColorBrewer)
 library(ggplot2)
 
-cfuml <- read_excel("~/git/DC_sc/05_bacterial_growth/DC_bacterial_growth.xlsx")
+cfuml <- read_excel("DC_bacterial_growth.xlsx")
 
 repNames <- paste("Replicate", 1:3)
 
