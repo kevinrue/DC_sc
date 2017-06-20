@@ -53,6 +53,7 @@ gg <- ggplot(
     aes(ymin = MeanMinusSEM, ymax = MeanPlusSEM),
     width = 0.15, size = 0.5
   ) +
+  scale_y_continuous(limits = c(0, 100)) +
   geom_col(aes(group = Infection)) +
   scale_fill_manual(values = colours.infection) +
   scale_colour_manual(values = colours.infection) +
