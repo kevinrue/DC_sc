@@ -3,10 +3,7 @@ library(broom)
 library(RColorBrewer)
 library(ggplot2)
 
-survival <- read_excel(
-  "~/git/DC_sc/05_bacterial_growth/DC_bacterial_growth.xlsx",
-  sheet = "Survival"
-)
+survival <- read_excel("DC_bacterial_growth.xlsx",sheet = "Survival")
 
 repNames <- paste("Replicate", 1:3)
 
@@ -69,3 +66,23 @@ gg <- ggplot(
   )
 
 ggsave("survival_bars.pdf", gg, height = 5, width = 6)
+
+gg <- ggplot(
+  as.data.frame(survival),
+  aes(Time, Mean, fill = Infection, colour = Infection)
+) +
+  geom_errorbar(
+    aes(ymin = MeanMinusSEM, ymax = MeanPlusSEM),
+    position = position_dodge(width = 0.9), width = 0.25, size = 0.5
+  ) +
+  geom_col(aes(group = Infection), position = "dodge") +
+  scale_fill_manual(values = colours.infection) +
+  scale_colour_manual(values = colours.infection) +
+  theme_minimal() + labs(y = "% survival") +
+  theme(
+    axis.title = element_text(face = "bold"),
+    axis.text = element_text(face = "bold"),
+    legend.position = "bottom"
+  )
+
+ggsave("survival_bars_legendBottom.pdf", gg, height = 5, width = 6)
