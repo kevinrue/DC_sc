@@ -12,6 +12,8 @@ library(scran)
 library(ggplot2)
 library(SummarizedExperiment)
 library(RColorBrewer)
+library(circlize)
+library(ComplexHeatmap)
 sce.norm <- readRDS("rds/sce.norm.rds")
 sce.all <- readRDS("rds/sce.all.rds")
 ```
@@ -730,4 +732,164 @@ plotDiffusionMapSCESet(
   colour_by = "Status", shape_by = "Time",
   feature_set = !isSpike(sce.norm),
   rand_seed = 1794) + PCAtheme
+```
+
+# Pairwise distance beween samples in tSNE
+
+## Subset time points {.tabset}
+
+### 2h
+
+```{r sce.2h}
+sce.2h <- sce.norm[,sce.norm$Time == '2h']
+dim(sce.2h)
+```
+
+### 4h
+
+```{r sce.4h}
+sce.4h <- sce.norm[,sce.norm$Time == '4h']
+dim(sce.4h)
+```
+
+### 6h
+
+```{r sce.6h}
+sce.6h <- sce.norm[,sce.norm$Time == '6h']
+dim(sce.6h)
+```
+
+## Estimate pairwise Euclidian distance in tSNE {.tabset}
+
+### 2h
+
+```{r d.e_2h}
+d.e.2h <- dist(reducedDimension(sce.2h), diag = TRUE, upper = TRUE)
+mat.e.2h <- as.matrix(d.e.2h)
+h.e.2h <- hclust(d.e.2h)
+ord.mat.2h <- mat.e.2h[h.e.2h$order, h.e.2h$order]
+rm(d.e.2h)
+```
+
+### 4h
+
+```{r d.e_4h}
+d.e.4h <- dist(reducedDimension(sce.4h), diag = TRUE, upper = TRUE)
+mat.e.4h <- as.matrix(d.e.4h)
+h.e.4h <- hclust(d.e.4h)
+ord.mat.4h <- mat.e.4h[h.e.4h$order, h.e.4h$order]
+rm(d.e.4h)
+```
+
+### 6h
+
+```{r d.e_6h}
+d.e.6h <- dist(reducedDimension(sce.6h), diag = TRUE, upper = TRUE)
+mat.e.6h <- as.matrix(d.e.6h)
+h.e.6h <- hclust(d.e.6h)
+ord.mat.6h <- mat.e.6h[h.e.6h$order, h.e.6h$order]
+rm(d.e.6h)
+```
+
+## Prepare heatmaps {.tabset}
+
+Let us first define a colour gradient common to all three time-points:
+
+```{r distRange}
+distRange <- range(c(mat.e.2h, mat.e.4h, mat.e.6h))
+colorMap <- colorRamp2(
+  c(min(distRange), median(distRange), max(distRange)),
+  c("blue","white","red"))
+```
+
+### 2h
+
+```{r ht_column_2h}
+ht_column <- HeatmapAnnotation(
+  df = pData(sce.2h)[,c("Time", "Status", "Infection")],
+  col = list(Time = col.time, Status = col.status, Infection = col.infection)
+)
+ht.2h <- Heatmap(
+  mat.e.2h, colorMap, name = "2h", column_title = "2h",
+  top_annotation = ht_column,
+  row_dend_reorder=rev(nrow(mat.e.2h):1),
+  column_dend_reorder=rev(ncol(mat.e.2h):1),
+  show_row_dend = FALSE, show_row_names = FALSE, show_column_names = FALSE
+)
+```
+
+### 4h
+
+```{r ht_column_4h}
+ht_column <- HeatmapAnnotation(
+  df = pData(sce.4h)[,c("Time", "Status", "Infection")],
+  col = list(Time = col.time, Status = col.status, Infection = col.infection)
+)
+ht.4h <- Heatmap(
+  mat.e.4h, colorMap, name = "4h", column_title = "4h",
+  top_annotation = ht_column,
+  row_dend_reorder=rev(nrow(mat.e.4h):1),
+  column_dend_reorder=rev(ncol(mat.e.4h):1),
+  show_row_dend = FALSE, show_row_names = FALSE, show_column_names = FALSE
+)
+```
+
+### 6h
+
+```{r ht_column_6h}
+ht_column <- HeatmapAnnotation(
+  df = pData(sce.6h)[,c("Time", "Status", "Infection")],
+  col = list(Time = col.time, Status = col.status, Infection = col.infection)
+)
+ht.6h <- Heatmap(
+  mat.e.6h, colorMap, name = "6h", column_title = "6h",
+  top_annotation = ht_column,
+  row_dend_reorder=rev(nrow(mat.e.6h):1),
+  column_dend_reorder=rev(ncol(mat.e.6h):1),
+  show_row_dend = FALSE, show_row_names = FALSE, show_column_names = FALSE
+)
+```
+
+## Heat maps {.tabset}
+
+### 2h
+
+```{r heatmap.2h, echo=FALSE}
+draw(ht.2h)
+```
+
+```{r heatmap.2h_pdf, include=FALSE}
+pdf("06_out/heatmap_pairwise_2h.pdf", height = 5, width = 5)
+draw(ht.2h, show_heatmap_legend = FALSE)
+dev.off()
+```
+
+### 4h
+
+```{r heatmap.4h, echo=FALSE}
+draw(ht.4h)
+```
+
+```{r heatmap.4h_pdf, include=FALSE}
+pdf("06_out/heatmap_pairwise_4h.pdf", height = 5, width = 5)
+draw(ht.4h, show_heatmap_legend = FALSE)
+dev.off()
+```
+
+### 6h
+
+```{r heatmap.6h, echo=FALSE}
+draw(ht.6h)
+```
+
+```{r heatmap.6h_pdf, include=FALSE}
+pdf("06_out/heatmap_pairwise_6h.pdf", height = 5, width = 5)
+draw(ht.6h, show_heatmap_legend = FALSE)
+dev.off()
+```
+
+```{r heatmap.6h_pdf, include=FALSE}
+pdf("06_out/heatmap_pairwise_6h_legend.pdf", height = 4, width = 6)
+draw(ht.6h)
+dev.off()
 ```
