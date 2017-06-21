@@ -880,6 +880,13 @@ hm <- Heatmap(
 draw(hm + hm_row)
 ```
 
+```{r QC_heatmap_pdf, include=FALSE}
+pdf("03_out/Heatmap_QC.pdf", height = 6, width = 4)
+draw(hm + hm_row)
+dev.off()
+```
+
+
 ## Interactive tables {.tabset}
 
 We may also display the full list of outliers samples as a table,
