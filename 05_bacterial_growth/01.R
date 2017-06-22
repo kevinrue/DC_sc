@@ -71,4 +71,4 @@ gg <- ggplot(
     axis.text = element_text(face = "bold")
   )
 
-ggsave("CFUml_bars.pdf", gg, height = 5, width = 6)
+ggsave("CFUml_bars.pdf", gg, height = 5, width = 7)
