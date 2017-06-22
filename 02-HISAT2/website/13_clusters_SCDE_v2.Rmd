@@ -897,9 +897,11 @@ normExprsByName.4h <- function(geneId){
   ggplot(gdata, aes(Status, norm_exprs, fill = Status)) + 
     geom_violin(alpha = 0.25) +
     geom_jitter(aes(colour = quickCluster), width = 0.25, size = 3) +
-    facet_grid(~Infection) + ggtitle(sprintf("%s - %s", geneName, geneId)) +
+    facet_grid(~Infection) +
+    ggtitle(sprintf("%s - %s", geneName, geneId)) +
     scale_y_continuous(limits=range(norm_exprs(sc))) +
-    scale_colour_manual(values = col.cluster) + theme_minimal()
+    scale_colour_manual(values = col.cluster) +
+    theme_minimal()
 }
 ```
 
