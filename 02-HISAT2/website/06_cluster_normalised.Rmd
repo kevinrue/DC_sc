@@ -797,7 +797,7 @@ Let us first define a colour gradient common to all three time-points:
 
 ```{r distRange}
 distRange <- range(c(mat.e.2h, mat.e.4h, mat.e.6h))
-colorMap <- colorRamp2(
+colorMap.eucl <- colorRamp2(
   c(min(distRange), median(distRange), max(distRange)),
   c("blue","white","red"))
 ```
@@ -810,7 +810,7 @@ ht_column <- HeatmapAnnotation(
   col = list(Time = col.time, Status = col.status, Infection = col.infection)
 )
 ht.2h <- Heatmap(
-  mat.e.2h, colorMap, name = "2h", column_title = "2h",
+  mat.e.2h, colorMap.eucl, name = "2h", column_title = "2h",
   top_annotation = ht_column,
   row_dend_reorder=rev(nrow(mat.e.2h):1),
   column_dend_reorder=rev(ncol(mat.e.2h):1),
@@ -826,7 +826,7 @@ ht_column <- HeatmapAnnotation(
   col = list(Time = col.time, Status = col.status, Infection = col.infection)
 )
 ht.4h <- Heatmap(
-  mat.e.4h, colorMap, name = "4h", column_title = "4h",
+  mat.e.4h, colorMap.eucl, name = "4h", column_title = "4h",
   top_annotation = ht_column,
   row_dend_reorder=rev(nrow(mat.e.4h):1),
   column_dend_reorder=rev(ncol(mat.e.4h):1),
@@ -842,7 +842,7 @@ ht_column <- HeatmapAnnotation(
   col = list(Time = col.time, Status = col.status, Infection = col.infection)
 )
 ht.6h <- Heatmap(
-  mat.e.6h, colorMap, name = "6h", column_title = "6h",
+  mat.e.6h, colorMap.eucl, name = "6h", column_title = "6h",
   top_annotation = ht_column,
   row_dend_reorder=rev(nrow(mat.e.6h):1),
   column_dend_reorder=rev(ncol(mat.e.6h):1),
@@ -893,3 +893,166 @@ pdf("06_out/heatmap_pairwise_6h_legend.pdf", height = 4, width = 6)
 draw(ht.6h)
 dev.off()
 ```
+
+# Heat maps of selected marker genes
+
+Let us first define:
+
+* the relevant gene identifiers:
+
+```{r geneIds.ht}
+geneNames.ht <- list(
+  "1. Trans. reprog."=c("DUSP1","DUSP2","SOCS3","IER3","NFKBIZ"),
+  "2. Interm."=c("IL1B","IL1A","IFNB1","CCL7","TNF"),
+  "3. Late"=c("IL6","IL10","IL12B","IL27")
+)
+geneIds.ht <- with(
+  fData(sce.norm),
+  gene_id[match(unlist(geneNames.ht), gene_name)]
+)
+```
+
+* a colour scale of expression levels common to the individual heat maps:
+
+```{r exprsRange}
+exprsRange <- range(norm_exprs(sce.norm))
+colorMap.exprs <- colorRamp2(
+  c(min(exprsRange), median(exprsRange), max(exprsRange)),
+  c("blue","white","red"))
+```
+
+## Prepare heat maps
+
+### 2h
+
+```{r heatmap_gene_2h}
+ht_column <- HeatmapAnnotation(
+  df = pData(sce.2h)[,c("Time", "Status", "Infection")],
+  col = list(Time = col.time, Status = col.status, Infection = col.infection)
+)
+exprs.2h <- norm_exprs(sce.2h)[geneIds.ht,]
+rownames(exprs.2h) <- unlist(geneNames.ht)
+ht_gene_2h <- Heatmap(
+  exprs.2h, colorMap.exprs, name = "2h", column_title = "2h",
+  top_annotation = ht_column, row_names_side = "left",
+  cluster_rows = FALSE, cluster_columns = h.e.2h,
+  show_row_dend = FALSE, show_column_names = FALSE,
+  split = rep(names(geneNames.ht), times = lengths(geneNames.ht))
+)
+```
+
+### 4h
+
+```{r heatmap_gene_4h}
+ht_column <- HeatmapAnnotation(
+  df = pData(sce.4h)[,c("Time", "Status", "Infection")],
+  col = list(Time = col.time, Status = col.status, Infection = col.infection)
+)
+exprs.4h <- norm_exprs(sce.4h)[geneIds.ht,]
+rownames(exprs.4h) <- unlist(geneNames.ht)
+ht_gene_4h <- Heatmap(
+  exprs.4h, colorMap.exprs, name = "4h", column_title = "4h",
+  top_annotation = ht_column, row_names_side = "left",
+  cluster_rows = FALSE, cluster_columns = h.e.4h,
+  show_row_dend = FALSE, show_column_names = FALSE,
+  split = rep(names(geneNames.ht), times = lengths(geneNames.ht))
+)
+```
+
+### 6h
+
+```{r heatmap_gene_6h}
+ht_column <- HeatmapAnnotation(
+  df = pData(sce.6h)[,c("Time", "Status", "Infection")],
+  col = list(Time = col.time, Status = col.status, Infection = col.infection)
+)
+exprs.6h <- norm_exprs(sce.6h)[geneIds.ht,]
+rownames(exprs.6h) <- unlist(geneNames.ht)
+ht_gene_6h <- Heatmap(
+  exprs.6h, colorMap.exprs, name = "6h", column_title = "6h",
+  top_annotation = ht_column, row_names_side = "left",
+  cluster_rows = FALSE, cluster_columns = h.e.6h,
+  show_row_dend = FALSE, show_column_names = FALSE,
+  split = rep(names(geneNames.ht), times = lengths(geneNames.ht))
+)
+```
+
+## Heat maps {.tabset}
+
+### all
+
+```{r ht_gene_list, echo=FALSE}
+ht_gene_list <-
+  Heatmap(
+    exprs.2h, colorMap.exprs, name = "n.e.", column_title = "2h",
+    top_annotation = HeatmapAnnotation(
+      df = pData(sce.2h)[,c("Time", "Status", "Infection")],
+        col = list(
+          Time = col.time,
+          Status = col.status,
+          Infection = col.infection
+        ),
+      show_legend = FALSE
+    ),
+    row_names_side = "left", row_names_gp = gpar(fontsize = 8),
+    row_title_gp=gpar(fontsize=10), cluster_rows=FALSE,
+    cluster_columns=h.e.2h, show_column_names=FALSE,
+    show_row_dend = FALSE, show_row_names = TRUE, show_heatmap_legend=FALSE,
+    split = rep(names(geneNames.ht), times = lengths(geneNames.ht))
+  ) +
+  Heatmap(
+    exprs.4h, colorMap.exprs, name = "4h", column_title = "4h",
+    top_annotation = HeatmapAnnotation(
+      df = pData(sce.4h)[,c("Time", "Status", "Infection")],
+        col = list(
+          Time = col.time,
+          Status = col.status,
+          Infection = col.infection
+        ),
+      show_legend = FALSE
+    ),
+    cluster_rows=FALSE, cluster_columns=h.e.4h, show_column_names = FALSE,
+    show_row_dend = FALSE, show_row_names = FALSE, show_heatmap_legend = FALSE
+  ) +
+  Heatmap(
+    exprs.6h, colorMap.exprs, name = "6h", column_title = "6h",
+    top_annotation = HeatmapAnnotation(
+      df = pData(sce.6h)[,c("Time", "Status", "Infection")],
+        col = list(
+          Time = col.time,
+          Status = col.status,
+          Infection = col.infection
+        ),
+      show_legend = FALSE
+    ),
+    cluster_rows=FALSE, cluster_columns=h.e.6h, show_column_names = FALSE,
+    show_row_dend = FALSE, show_row_names = FALSE, show_heatmap_legend = FALSE
+  )
+draw(ht_gene_list)
+```
+
+```{r ht_gene_list_pdf}
+pdf("06_out/heatmap_genes_tSNE.pdf", height = 4, width = 8)
+draw(ht_gene_list)
+dev.off()
+```
+
+
+### 2h
+
+```{r ht_gene_2h, echo=FALSE}
+draw(ht_gene_2h)
+```
+
+### 4h
+
+```{r ht_gene_4h, echo=FALSE}
+draw(ht_gene_4h, sho)
+```
+
+### 6h
+
+```{r ht_gene_6h, echo=FALSE}
+draw(ht_gene_6h)
+```
+
