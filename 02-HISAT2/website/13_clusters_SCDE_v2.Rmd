@@ -110,7 +110,7 @@ filtered based on gene and cell requirements.
 
 In this case, *for each time point*,
 let us retain only features detected with at least **10** counts in at least
-**5** cells of any of the five experimental groups,
+**10** cells of any of the five experimental groups,
 use the raw numbers of reads mapped to each endogenous
 feature, recast as `integer` type.
 
