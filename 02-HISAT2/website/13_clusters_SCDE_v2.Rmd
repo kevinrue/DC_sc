@@ -18,7 +18,7 @@ library(ComplexHeatmap)
 library(dplyr)
 library(ggrepel)
 library(RColorBrewer)
-EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
+library(goseq)
 sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 o.ifm.2h <- readRDS("rds/o.ifm.2h_v8.rds")
 o.ifm.4h <- readRDS("rds/o.ifm.4h_v8.rds")
@@ -483,7 +483,7 @@ convert.z.score <- function(x, one.sided = NULL) {
 ```{r addGENENAME}
 addGENENAME <- function(x){
   x <- cbind(
-    GENENAME=mapIds(EnsDb.Hsapiens.v79, rownames(x), 'GENENAME', 'GENEID'),
+    GENENAME = with(fData(sce.endo), gene_name[match(rownames(x), gene_id)]),
     x
   )
   return(x)
@@ -615,7 +615,6 @@ fold-change to scale subsequent plot for comparability:
 mleRange <-
   max(abs(do.call("c", lapply(scde.res, function(x){return(x$mle)}))))*c(-1,1)
 ```
-
 
 ## 4h (2 vs 1)
 
@@ -996,7 +995,7 @@ scde.table <- data.frame(
   stringsAsFactors = FALSE
 )
 scde.table$GENENAME <-
-  mapIds(EnsDb.Hsapiens.v79,scde.table$GENEID,"GENENAME","GENEID")
+  with(fData(sce.endo), gene_name[match(scde.table$GENEID, gene_id)])
 scde.genes <- subset(scde.table, GENEID %in% c(
   # Cluster 1
   "ENSG00000108688", # CCL7
@@ -1103,13 +1102,12 @@ normExprsByName.4h("ENSG00000100906")
 ```{r fig.violin.4h.D23580.EBI3, echo=FALSE, eval=FALSE}
 geneName <- "EBI3"
 geneId<-subset(fData(sce.ifm.4h),gene_name==geneName,"gene_id",drop=TRUE)
-sampleIdx <- with(pData(sce.ifm.4h), Infection == "D23580" & Time == "4h")
+sampleIdx <- with(pData(sce.ifm.4h), Infection == "STM-D23580" & Time == "4h")
 gdata <- data.frame(
   norm_exprs = norm_exprs(sce.ifm.4h)[geneId, sampleIdx],
   pData(sce.ifm.4h)[sampleIdx,c("Infection","Status","quickCluster")],
   row.names = sampleNames(sce.ifm.4h)[sampleIdx]
 )
-gdata$Infection <- paste("STM", gdata$Infection)
 ggplot(gdata, aes(Status, norm_exprs, fill = Status)) + 
   geom_violin(alpha = 0.25) +
   geom_jitter(aes(colour = quickCluster), width = 0.25, size = 3) +
@@ -1122,13 +1120,12 @@ ggsave(sprintf("13_out/violin_4h_D23580_%s.pdf", geneName),height=4,width=5)
 ```{r fig.violin.4h.D23580.NIT1, echo=FALSE, eval=FALSE}
 geneName <- "NIT1"
 geneId<-subset(fData(sce.ifm.4h),gene_name==geneName,"gene_id",drop=TRUE)
-sampleIdx <- with(pData(sce.ifm.4h), Infection == "D23580" & Time == "4h")
+sampleIdx <- with(pData(sce.ifm.4h), Infection == "STM-D23580" & Time == "4h")
 gdata <- data.frame(
   norm_exprs = norm_exprs(sce.ifm.4h)[geneId, sampleIdx],
   pData(sce.ifm.4h)[sampleIdx,c("Infection","Status","quickCluster")],
   row.names = sampleNames(sce.ifm.4h)[sampleIdx]
 )
-gdata$Infection <- paste("STM", gdata$Infection)
 ggplot(gdata, aes(Status, norm_exprs, fill = Status)) + 
   geom_violin(alpha = 0.25) +
   geom_jitter(aes(colour = quickCluster), width = 0.25, size = 3) +
@@ -1141,13 +1138,12 @@ ggsave(sprintf("13_out/violin_4h_D23580_%s.pdf", geneName),height=4,width=5)
 ```{r fig.violin.4h.LT2.VPS25, echo=FALSE, eval=FALSE}
 geneName <- "VPS25"
 geneId<-subset(fData(sce.ifm.4h),gene_name==geneName,"gene_id",drop=TRUE)
-sampleIdx <- with(pData(sce.ifm.4h), Infection == "LT2" & Time == "4h")
+sampleIdx <- with(pData(sce.ifm.4h), Infection == "STM-LT2" & Time == "4h")
 gdata <- data.frame(
   norm_exprs = norm_exprs(sce.ifm.4h)[geneId, sampleIdx],
   pData(sce.ifm.4h)[sampleIdx,c("Infection","Status","quickCluster")],
   row.names = sampleNames(sce.ifm.4h)[sampleIdx]
 )
-gdata$Infection <- paste("STM", gdata$Infection)
 ggplot(gdata, aes(Status, norm_exprs, fill = Status)) + 
   geom_violin(alpha = 0.25) +
   geom_jitter(aes(colour = quickCluster), width = 0.25, size = 3) +
@@ -1175,7 +1171,7 @@ scde.table <- data.frame(
   stringsAsFactors = FALSE
 )
 scde.table$GENENAME <-
-  mapIds(EnsDb.Hsapiens.v79,scde.table$GENEID,"GENENAME","GENEID")
+  with(fData(sce.endo), gene_name[match(scde.table$GENEID, gene_id)])
 scde.genes <- subset(scde.table, GENENAME %in% c(
   "IL23A","STAT5B","EBI3","LAMP3",
   "IL12B","IL36B","IL1A","IL6"
@@ -1252,13 +1248,13 @@ colorMap <- circlize::colorRamp2(
 geneNames <- c(
   "IL12B","IL23A","IL1A","IL1B","IL6","EBI3",
   "DEFB1","CTSL")
-geneIds<-mapIds(EnsDb.Hsapiens.v79,geneNames,"GENEID","GENENAME")
+geneIds <- with(fData(sce.endo), gene_id[match(geneNames, gene_name)])
 stopifnot(length(geneIds) == length(geneNames))
 norm.mat <- norm_exprs(sce.ifm.6h)[geneIds,]
-norm.d23exp <- norm.mat[,sce.ifm.6h$Treatment == "D23580_exposed"]
-norm.d23inf <- norm.mat[,sce.ifm.6h$Treatment == "D23580_infected"]
-norm.lt2exp <- norm.mat[,sce.ifm.6h$Treatment == "LT2_exposed"]
-norm.lt2inf <- norm.mat[,sce.ifm.6h$Treatment == "LT2_infected"]
+norm.d23exp <- norm.mat[,sce.ifm.6h$Treatment == "STM-D23580_Exposed"]
+norm.d23inf <- norm.mat[,sce.ifm.6h$Treatment == "STM-D23580_Violet +"]
+norm.lt2exp <- norm.mat[,sce.ifm.6h$Treatment == "STM-LT2_Exposed"]
+norm.lt2inf <- norm.mat[,sce.ifm.6h$Treatment == "STM-LT2_Violet +"]
 ha.d23.exp <- HeatmapAnnotation(
   df = pData(sce.ifm.6h)[colnames(norm.d23exp), "quickCluster", drop = FALSE],
   col = list(quickCluster = col.cluster)
@@ -1312,15 +1308,13 @@ colorMap <- circlize::colorRamp2(
 geneNames <- c(
   "IL10","STAT3","MARCH1","SOCS1","SOCS2","SOCS3","CD86","CD83",
   "DNAJC13","BLOC1S3")
-geneIds<-
-  subset(fData(sce.ifm.6h), gene_name %in% geneNames, c("gene_id","gene_name"))
-geneIds <- geneIds[match(geneNames, geneIds$gene_name),]
+geneIds <- with(fData(sce.endo), gene_id[match(geneNames, gene_name)])
 stopifnot(nrow(geneIds) == length(geneNames))
 norm.mat <-norm_exprs(sce.ifm.6h)[geneIds$gene_id,]
-norm.d23exp <- norm.mat[,sce.ifm.6h$Treatment == "D23580_exposed"]
-norm.d23inf <- norm.mat[,sce.ifm.6h$Treatment == "D23580_infected"]
-norm.lt2exp <- norm.mat[,sce.ifm.6h$Treatment == "LT2_exposed"]
-norm.lt2inf <- norm.mat[,sce.ifm.6h$Treatment == "LT2_infected"]
+norm.d23exp <- norm.mat[,sce.ifm.6h$Treatment == "STM-D23580_Exposed"]
+norm.d23inf <- norm.mat[,sce.ifm.6h$Treatment == "STM-D23580_Violet +"]
+norm.lt2exp <- norm.mat[,sce.ifm.6h$Treatment == "STM-LT2_Exposed"]
+norm.lt2inf <- norm.mat[,sce.ifm.6h$Treatment == "STM-LT2_Violet +"]
 ha.d23.exp <- HeatmapAnnotation(
   df = pData(sce.ifm.6h)[colnames(norm.d23exp), "quickCluster", drop = FALSE],
   col = list(quickCluster = col.cluster)
@@ -1375,15 +1369,13 @@ colorMap <- circlize::colorRamp2(
 geneNames <- c(
   "IL6","IL6R","IL6ST","IL10","IL10RA","IL10RB","TYK2",
   "JAK1","JAK3","STAT3","MARCH1")
-geneIds<-
-  subset(fData(sce.ifm.6h), gene_name %in% geneNames, c("gene_id","gene_name"))
-geneIds <- geneIds[match(geneNames, geneIds$gene_name),]
+geneIds <- with(fData(sce.endo), gene_id[match(geneNames, gene_name)])
 stopifnot(nrow(geneIds) == length(geneNames))
 norm.mat <-norm_exprs(sce.ifm.6h)[geneIds$gene_id,]
-norm.d23exp <- norm.mat[,sce.ifm.6h$Treatment == "D23580_exposed"]
-norm.d23inf <- norm.mat[,sce.ifm.6h$Treatment == "D23580_infected"]
-norm.lt2exp <- norm.mat[,sce.ifm.6h$Treatment == "LT2_exposed"]
-norm.lt2inf <- norm.mat[,sce.ifm.6h$Treatment == "LT2_infected"]
+norm.d23exp <- norm.mat[,sce.ifm.6h$Treatment == "STM-D23580_Exposed"]
+norm.d23inf <- norm.mat[,sce.ifm.6h$Treatment == "STM-D23580_Violet +"]
+norm.lt2exp <- norm.mat[,sce.ifm.6h$Treatment == "STM-LT2_Exposed"]
+norm.lt2inf <- norm.mat[,sce.ifm.6h$Treatment == "STM-LT2_Violet +"]
 ha.d23.exp <- HeatmapAnnotation(
   df = pData(sce.ifm.6h)[colnames(norm.d23exp), "quickCluster", drop = FALSE],
   col = list(quickCluster = col.cluster)
@@ -1438,13 +1430,11 @@ colorMap <- circlize::colorRamp2(
 geneNames <- c(
   "IL6","IL6R","IL6ST","IL10","IL10RA","IL10RB","TYK2",
   "JAK1","JAK3","STAT3","MARCH1")
-geneIds<-
-  subset(fData(sce.ifm.6h), gene_name %in% geneNames, c("gene_id","gene_name"))
-geneIds <- geneIds[match(geneNames, geneIds$gene_name),]
+geneIds <- with(fData(sce.endo), gene_id[match(geneNames, gene_name)])
 stopifnot(nrow(geneIds) == length(geneNames))
-norm.mat <-norm_exprs(sce.ifm.6h)[geneIds$gene_id,]
-norm.d23 <- norm.mat[,sce.ifm.6h$Infection == "D23580"]
-norm.lt2 <- norm.mat[,sce.ifm.6h$Infection == "LT2"]
+norm.mat <- norm_exprs(sce.ifm.6h)[geneIds,]
+norm.d23 <- norm.mat[,sce.ifm.6h$Infection == "STM-D23580"]
+norm.lt2 <- norm.mat[,sce.ifm.6h$Infection == "STM-LT2"]
 ha.d23 <- HeatmapAnnotation(
   df = pData(sce.ifm.6h)[colnames(norm.d23), "Status", drop = FALSE],
   col = list(Status = col.status)
@@ -1504,8 +1494,8 @@ between clusters are displayed in heat maps.
 # Expression matrix
 scde.table <- convert.z.score(scde.res[["4h_cluster2-cluster1"]])
 scde.genes <- rownames(scde.table)[scde.table$p.value < 0.01]
-scde.cells <-
-  sampleNames(sce.ifm.4h)[order(factor(sce.ifm.4h$quickCluster,1:2),na.last=NA)]
+scde.cells <- sampleNames(sce.ifm.4h)[
+  order(factor(sce.ifm.4h$quickCluster,1:2),na.last=NA)]
 scde.norm <- norm_exprs(sce.ifm.4h)[scde.genes, scde.cells]
 # Sample annotations
 haNames <- c("quickCluster", "Status", "Infection")
@@ -1525,7 +1515,7 @@ anno.names <- c(
   "NFKBIA","IRF8","STAT5A","CEBPA", # transcription factors
   "IL1B","IL1A","EBI3" # pro-inflammatory
 )
-anno.ids <- mapIds(EnsDb.Hsapiens.v79, anno.names, "GENEID", "GENENAME")
+anno.ids <- with(fData(sce.endo), gene_id[match(anno.names, gene_name)])
 stopifnot(length(anno.ids) == length(anno.names))
 gene.idx = match(anno.ids, rownames(scde.norm))
 ra <- rowAnnotation(
@@ -1546,8 +1536,8 @@ draw(hm + ra)
 # Expression matrix
 scde.table <- convert.z.score(scde.res[["6h_cluster2-cluster1"]])
 scde.genes <- rownames(scde.table)[scde.table$p.value < 0.01]
-scde.cells <-
-  sampleNames(sce.ifm.6h)[order(factor(sce.ifm.6h$quickCluster,1:2),na.last=NA)]
+scde.cells <- sampleNames(sce.ifm.6h)[
+  order(factor(sce.ifm.6h$quickCluster,1:2),na.last=NA)]
 scde.norm <- norm_exprs(sce.ifm.6h)[scde.genes, scde.cells]
 # Sample annotations
 haNames <- c("quickCluster", "Status", "Infection")
@@ -1567,7 +1557,7 @@ anno.names <- c(
   "DEFB1","DUOX", # antimicrobial
   "CORO1A" # vesicles
 )
-anno.ids <- mapIds(EnsDb.Hsapiens.v79, anno.names, "GENEID", "GENENAME")
+anno.ids <- with(fData(sce.endo), gene_id[match(anno.names, gene_name)])
 stopifnot(length(anno.ids) == length(anno.names))
 gene.idx = match(anno.ids, rownames(scde.norm))
 ra <- rowAnnotation(
