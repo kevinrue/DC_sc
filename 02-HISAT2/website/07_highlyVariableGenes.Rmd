@@ -18,12 +18,16 @@ library(ComplexHeatmap)
 sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 sce.bulk <- readRDS("rds/sce.bulk.rds")
 library(org.Hs.eg.db)
-library(EnsDb.Hsapiens.v79)
 library(goseq)
 library(DT)
 library(reshape2)
 library(dplyr)
 library(edgeR)
+col.set3 <- brewer.pal(12, "Set3")
+col.cluster <- col.set3[c(1,12,3,4,9)]; names(col.cluster) <- c(1:3,0,"NA")
+col.status<-col.set3[c(3,5:6)];names(col.status)<-levels(sce.norm$Status)
+col.infection<-col.set3[c(3,8,10)];names(col.infection)<-levels(sce.norm$Infection)
+col.time<-col.set3[c(2,7:8)];names(col.time)<-levels(sce.norm$Time)
 ```
 
 # Plotting themes
@@ -348,7 +352,7 @@ particularly at the later time-points.
 
 ```{r LGALS3BP_violin, include=FALSE}
 geneName <- "LGALS3BP"
-geneId <- mapIds(EnsDb.Hsapiens.v79, geneName, "GENEID", "GENENAME")
+geneId <- subset(fData(sce.norm),gene_name == geneName, "gene_id", drop = TRUE)
 top9Id <- head(top.hvg, 4)
 top9Names <- fData(sce.norm[top9Id,])$gene_name
 plotExpressionSCESet(
@@ -370,7 +374,7 @@ The initial step of the
 is to create a named vector that define whether each gene (*i.e.*, `names`)
 is highly variable (*i.e.*, `1`) or not (*i.e.*, `0`):
 
-```{r}
+```{r endoFeatures}
 endoFeatures <- rownames(sce.norm)[!isSpike(sce.norm)]
 hvgs <- as.integer(endoFeatures %in% rownames(hvg.out))
 names(hvgs) <- endoFeatures
@@ -461,7 +465,7 @@ dim(norm.endo.hvg)
 Let us prepare colours to indicate phenotype levels:
 
 ```{r palette9}
-col9 <- RColorBrewer::brewer.pal(10, "Set3")[c(1:8, 10)]
+col9 <- brewer.pal(10, "Set3")[c(1:8, 10)]
 ```
 
 In preparation for the heat map, let us define an annotation panel
@@ -471,9 +475,9 @@ that indicates key phenotype levels for each cell:
 h_column <- HeatmapAnnotation(
   df = pData(sce.endo)[,c("Time", "Status", "Infection")],
   col = list(
-    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
-    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
-    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+    Time = col.time,
+    Status = col.status,
+    Infection = col.infection
   )
 )
 ```
@@ -555,7 +559,7 @@ bulk_column <- HeatmapAnnotation(
   df = pData(sce.bulk)[,c("Time", "Infection")],
   col = list(
     Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
-    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+    Infection = c("Mock" = col9[7], "STM-LT2" = col9[8], "STM-D23580" = col9[9])
   )
 )
 ```
@@ -575,13 +579,13 @@ ht_bulks <- Heatmap(
 
 Alone:
 
-```{r}
+```{r ht_bulks_draw, echo=FALSE}
 draw(ht_bulks)
 ```
 
 Alongside single cells:
 
-```{r}
+```{r ht_semisupervised_draw, echo=FALSE}
 draw(ht_semisupervised + ht_bulks)
 ```
 
@@ -840,7 +844,8 @@ for (group in levels(sce.norm$Group)){
   points(spike.fit$mean, spike.fit$var, col="red", pch=16, cex=0.4)
   #var.out.endo <- var.out.endo[order(var.out.endo$bio, decreasing=TRUE),]
   var.out.endo <- cbind(
-    Symbol = mapIds(EnsDb.Hsapiens.v79, rownames(var.out.endo), "GENENAME", "GENEID"),
+    Symbol = with(
+      fData(sce.endo), gene_name[match(rownames(var.out.endo),gene_id)]),
     var.out.endo
   )
   write.csv(var.out.endo, sprintf("HVGs/%s_full.csv", group))
@@ -886,7 +891,8 @@ hvgsPerGroup <- data.frame(
   Treatment = gsub(".*h_(.*)", "\\1", groupNames),
   Cells = as.numeric(table(sce.norm$Group)[groupNames])
 )
-ggplot(hvgsPerGroup) + geom_col(aes(Treatment, HVGs, alpha = Time, colour = Infection)) +
+ggplot(hvgsPerGroup) +
+  geom_col(aes(Treatment, HVGs, alpha = Time, colour = Infection)) +
   theme(
     axis.text.x = element_text(angle=90, hjust = 1, vjust = 0.5),
     axis.ticks.x = element_blank(), panel.background = element_blank(),
@@ -916,8 +922,8 @@ for (groupName in names(HVGs.group)){
   table(hvgs)
   geneLengths <- read.delim(
     "counts/WTCHG_305264_201201", row.names = 1)[,1, drop = FALSE]
-  pwf <- goseq::nullp(hvgs, bias.data=geneLengths[names(hvgs),], plot.fit=FALSE)
-  GO.out <- goseq::goseq(pwf, "hg38", "ensGene")
+  pwf <- nullp(hvgs, bias.data=geneLengths[names(hvgs),], plot.fit=FALSE)
+  GO.out <- goseq(pwf, "hg38", "ensGene")
   GO.out$ontology <- as.factor(GO.out$ontology)
   write.csv(GO.out, sprintf("GO/HVGs_%s.csv", groupName), row.names = FALSE)
   GO.out.trim <- arrange(
@@ -1076,7 +1082,7 @@ of expression levels displayed in the last tab:
 ### 6h D23580 exposed
 
 ```{r 6h_D23580_exposed_HeHv}
-HeHv_D23_exp <- subset(HVGs.group[["6h_D23580_exposed"]], mean > 10 & bio > 5)
+HeHv_D23_exp <- subset(HVGs.group[["6h_STM-D23580_Exposed"]], mean > 10 & bio > 5)
 ```
 
 ```{r 6h_D23580_exposed_HeHv_datatable, echo=FALSE}
@@ -1084,13 +1090,13 @@ DT::datatable(HeHv_D23_exp)
 ```
 
 ```{r 6h_D23580_exposed_HeHv.csv, include=FALSE}
-write.csv(HeHv_D23_exp, "HVGs/6h_D23580_exposed_HeHv.csv")
+write.csv(HeHv_D23_exp, "HVGs/6h_STM-D23580_Exposed_HeHv.csv")
 ```
 
 ### 6h LT2 exposed
 
 ```{r 6h_LT2_exposed_HeHv}
-HeHv_LT2_exp <- subset(HVGs.group[["6h_LT2_exposed"]], mean > 10 & bio > 5)
+HeHv_LT2_exp <- subset(HVGs.group[["6h_STM-LT2_Exposed"]], mean > 10 & bio > 5)
 ```
 
 ```{r 6h_LT2_exposed_HeHv_datatable, echo=FALSE}
@@ -1098,13 +1104,13 @@ DT::datatable(HeHv_LT2_exp)
 ```
 
 ```{r 6h_LT2_exposed_HeHv.csv, include=FALSE}
-write.csv(HeHv_LT2_exp, "HVGs/6h_LT2_exposed_HeHv.csv")
+write.csv(HeHv_LT2_exp, "HVGs/6h_STM-LT2_Exposed_HeHv.csv")
 ```
 
 ### 6h D23580 infected
 
 ```{r 6h_D23580_infected_HeHv}
-HeHv_D23_inf <- subset(HVGs.group[["6h_D23580_infected"]], mean > 10 & bio > 5)
+HeHv_D23_inf <- subset(HVGs.group[["6h_STM-D23580_Violet +"]], mean > 10 & bio > 5)
 ```
 
 ```{r 6h_D23580_infected_HeHv_datatable, echo=FALSE}
@@ -1112,13 +1118,13 @@ DT::datatable(HeHv_D23_inf)
 ```
 
 ```{r 6h_D23580_infected_HeHv.csv, include=FALSE}
-write.csv(HeHv_LT2_exp, "HVGs/6h_D23580_infected_HeHv.csv")
+write.csv(HeHv_LT2_exp, "HVGs/6h_STM-D23580_Violet +_HeHv.csv")
 ```
 
 ### 6h LT2 infected
 
 ```{r 6h_LT2_infected_HeHv}
-HVG_LT2_inf <- subset(HVGs.group[["6h_LT2_infected"]], mean > 10 & bio > 5)
+HVG_LT2_inf <- subset(HVGs.group[["6h_STM-LT2_Violet +"]], mean > 10 & bio > 5)
 ```
 
 ```{r 6h_LT2_infected_HeHv_datatable, echo=FALSE}
@@ -1126,7 +1132,7 @@ DT::datatable(HVG_LT2_inf)
 ```
 
 ```{r 6h_LT2_infected_HeHv.csv, include=FALSE}
-write.csv(HVG_LT2_inf, "HVGs/6h_LT2_infected_HeHv.csv")
+write.csv(HVG_LT2_inf, "HVGs/6h_STM-LT2_Violet +_HeHv.csv")
 ```
 
 ### Melt
@@ -1167,9 +1173,9 @@ ggplot(subset(normExprsMelt, gene_name == "CCL22")) +
 At 6h, gene *CTSB* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
 highly expressed (`norm_exprs > 10`) in group `D23 exposed`
 
-```{r CTSB}
+```{r CTSB, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "CTSB")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
 ```
 
 ### SAT1
@@ -1177,9 +1183,9 @@ ggplot(subset(normExprsMelt, gene_name == "CTSB")) +
 At 6h, gene *SAT1* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
 highly expressed (`norm_exprs > 10`) in group `D23 exposed`
 
-```{r SAT1}
+```{r SAT1, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "SAT1")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
 ```
 
 ### TNFAIP2
@@ -1187,9 +1193,9 @@ ggplot(subset(normExprsMelt, gene_name == "SAT1")) +
 At 6h, gene *TNFAIP2* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
 highly expressed (`norm_exprs > 10`) in group `D23 exposed`
 
-```{r TNFAIP2}
+```{r TNFAIP2, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "TNFAIP2")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
 ```
 
 ### CD83
@@ -1197,9 +1203,9 @@ ggplot(subset(normExprsMelt, gene_name == "TNFAIP2")) +
 At 6h, gene *CD83* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
 highly expressed (`norm_exprs > 10`) in group `D23 exposed`
 
-```{r CD83}
+```{r CD83, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "CD83")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
 ```
 
 ### ACTG1
@@ -1207,9 +1213,9 @@ ggplot(subset(normExprsMelt, gene_name == "CD83")) +
 At 6h, gene *ACTG1* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
 highly expressed (`norm_exprs > 10`) in group `D23 exposed`
 
-```{r ACTG1}
+```{r ACTG1, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "ACTG1")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
 ```
 
 ### SLAMF7
@@ -1217,9 +1223,9 @@ ggplot(subset(normExprsMelt, gene_name == "ACTG1")) +
 At 6h, gene *SLAMF7* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
 highly expressed (`norm_exprs > 10`) in group `LT2 exposed`
 
-```{r SLAMF7}
+```{r SLAMF7, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "SLAMF7")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
 ```
 
 ### NFKBIA
@@ -1227,9 +1233,9 @@ ggplot(subset(normExprsMelt, gene_name == "SLAMF7")) +
 At 6h, gene *NFKBIA* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
 highly expressed (`norm_exprs > 10`) in group `LT2 exposed`
 
-```{r NFKBIA}
+```{r NFKBIA, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "NFKBIA")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
 ```
 
 ### LDHA
@@ -1237,9 +1243,9 @@ ggplot(subset(normExprsMelt, gene_name == "NFKBIA")) +
 At 6h, gene *LDHA* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
 highly expressed (`norm_exprs > 10`) in group `LT2 exposed`
 
-```{r LDHA}
+```{r LDHA, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "LDHA")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
 ```
 
 ### SLC2A3
@@ -1247,9 +1253,9 @@ ggplot(subset(normExprsMelt, gene_name == "LDHA")) +
 At 6h, gene *SLC2A3* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
 highly expressed (`norm_exprs > 10`) in group `LT2 exposed`
 
-```{r SLC2A3}
+```{r SLC2A3, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "SLC2A3")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
 ```
 
 ### TIMP1
@@ -1257,9 +1263,9 @@ ggplot(subset(normExprsMelt, gene_name == "SLC2A3")) +
 At 6h, gene *TIMP1* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
 highly expressed (`norm_exprs > 10`) in group `D23 infected`
 
-```{r TIMP1}
+```{r TIMP1, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "TIMP1")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
 ```
 
 ### RSAD2
@@ -1267,9 +1273,9 @@ ggplot(subset(normExprsMelt, gene_name == "TIMP1")) +
 At 6h, gene *RSAD2* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
 highly expressed (`norm_exprs > 10`) in group `D23 infected`
 
-```{r RSAD2}
+```{r RSAD2, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "RSAD2")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
 ```
 
 ### SPP1
@@ -1277,9 +1283,9 @@ ggplot(subset(normExprsMelt, gene_name == "RSAD2")) +
 At 6h, gene *SPP1* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
 highly expressed (`norm_exprs > 10`) in group `D23 infected`
 
-```{r SPP1}
+```{r SPP1, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "SPP1")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
 ```
 
 ### ANXA1
@@ -1287,9 +1293,9 @@ ggplot(subset(normExprsMelt, gene_name == "SPP1")) +
 At 6h, gene *ANXA1* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
 highly expressed (`norm_exprs > 10`) in group `LT2 infected`
 
-```{r ANXA1}
+```{r ANXA1, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "ANXA1")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
 ```
 
 ### ATF3
@@ -1297,9 +1303,9 @@ ggplot(subset(normExprsMelt, gene_name == "ANXA1")) +
 At 6h, gene *ATF3* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
 highly expressed (`norm_exprs > 10`) in group `LT2 infected`
 
-```{r ATF3}
+```{r ATF3, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "ATF3")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
 ```
 
 ### PMAIP1
@@ -1307,16 +1313,15 @@ ggplot(subset(normExprsMelt, gene_name == "ATF3")) +
 At 6h, gene *PMAIP1* was identified as HVG (`bio > 0.5`; `FDR < 0.05`) and
 highly expressed (`norm_exprs > 10`) in group `LT2 infected`
 
-```{r PMAIP1}
+```{r PMAIP1, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "PMAIP1")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
 ```
-
 
 ### All
 
-```{r normExprsMelt_All}
-ggplot(normExprsMelt) + facet_wrap(~Treatment) +
+```{r normExprsMelt_All, echo=FALSE}
+ggplot(normExprsMelt) + facet_wrap(~Treatment) + theme_minimal() +
   geom_density(aes(norm_exprs, colour = gene_name), alpha = 0.5)
 ```
 
@@ -1334,7 +1339,7 @@ into a `data.frame` plotted in the next tabs:
 ```{r TNFAIP2normExprsMelt}
 TNFAIP2normExprsMelt <- reshape2::melt(
   norm_exprs(sce.norm)[
-    mapIds(EnsDb.Hsapiens.v79, "TNFAIP2", "GENEID", "GENENAME"),
+    subset(fData(sce.endo), gene_name=="TNFAIP2", "gene_id", drop = TRUE),
     sce.norm$Infection != "Mock", drop=FALSE
   ],
   varnames = c("Feature","Sample"), value.name = "norm_exprs")
@@ -1444,7 +1449,8 @@ lines(var.out.endo.4h$mean[o], var.out.endo.4h$tech[o], col="dodgerblue", lwd=2)
 spike.fit <- trendVar(sce.norm[,idx.4hStim], use.spikes=TRUE)
 points(spike.fit$mean, spike.fit$var, col="red", pch=16)
 var.out.endo.4h <- cbind(
-  Symbol=mapIds(EnsDb.Hsapiens.v79,rownames(var.out.endo.4h),"GENENAME","GENEID"),
+  Symbol=with(
+      fData(sce.endo), gene_name[match(rownames(var.out.endo),gene_id)]),
   var.out.endo.4h
 )
 write.csv(var.out.endo.4h, sprintf("HVGs/4h_stimulated_full.csv", group))
@@ -1462,8 +1468,8 @@ dim(norm.endo.4hStim)
 h_column <- HeatmapAnnotation(
   df = pData(sce.endo.4hStim)[,c("Status", "Infection")],
   col = list(
-    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
-    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+    Status = col.status,
+    Infection = col.infection
   )
 )
 ht_supervised <- Heatmap(
@@ -1487,8 +1493,8 @@ rm(mat.e)
 ht_column <- HeatmapAnnotation(
   df = pData(sce.endo.4hStim)[h.e$order,c("Status", "Infection")],
   col = list(
-    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
-    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+    Status = col.status,
+    Infection = col.infection
   )
 )
 Heatmap(
@@ -1509,8 +1515,8 @@ rm(c.s)
 ht_column <- HeatmapAnnotation(
   df = pData(sce.endo.4hStim)[h.c.s$order,c("Status", "Infection")],
   col = list(
-    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
-    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+    Status = col.status,
+    Infection = col.infection
   )
 )
 Heatmap(
