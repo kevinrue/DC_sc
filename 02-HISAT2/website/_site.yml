@@ -63,8 +63,8 @@ output:
 exclude: [
   "expdata", "counts", "rds", "*.R",
   "*.pdf", "*.csv", "*.log",
-  "GO/", "GOexpress/",
+  "GO", "GOexpress",
   "t-test", "SCDE", "SCDE_v*", "scde_v*", "SCDE_cluster_v*", "wilcox.test",
-  "BASiCS/", "HVGs/", "DESeq2/", "2017*/", "*_out/",
-  "NGS-SIG/", "poster/"
+  "BASiCS", "HVGs", "DESeq2", "2017*", "*_out",
+  "NGS-SIG", "poster", "violin_normExprs"
   ]
