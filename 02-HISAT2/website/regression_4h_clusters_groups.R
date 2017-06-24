@@ -1,5 +1,6 @@
 library(broom)
 library(reshape2)
+library(RColorBrewer)
 
 # Load previous data ----
 
@@ -11,6 +12,11 @@ names(scde.groups)
 
 sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 sce.norm
+
+# Colour code ----
+
+colours.infection <- brewer.pal(3, "Set1")[2:3]
+names(colours.infection) <- c("STM-D23580", "STM-LT2")
 
 # Extract DE tables ----
 
@@ -61,15 +67,45 @@ groups.de.lt2 <- convert.z.score(groups.de.lt2)
 # Prepare MLE data frame for ggplot ----
 
 gg.mle <- data.frame(
-  gene_id = c(rownames(groups.de.d23), rownames(groups.de.lt2)),
-  Group = rep(c("STM-D23580", "STM-LT2"), c(nrow(groups.de.d23), nrow(groups.de.lt2))),
-  MLE.group = c(groups.de.d23$mle, groups.de.lt2$mle),
-  MLE.cluster = clusters.de[c(rownames(groups.de.d23), rownames(groups.de.lt2)), "mle"],
-  P.group = c(groups.de.d23$p.value, groups.de.lt2$p.value),
-  P.cluster = clusters.de[c(rownames(groups.de.d23), rownames(groups.de.lt2)), "p.value"],
+  gene_id = c(
+    rownames(groups.de.d23),
+    rownames(groups.de.lt2)
+  ),
+  Group = rep(
+    c("STM-D23580", "STM-LT2"),
+    c(nrow(groups.de.d23), nrow(groups.de.lt2))
+  ),
+  MLE.group = c(
+    groups.de.d23$mle,
+    groups.de.lt2$mle
+  ),
+  MLE.cluster = clusters.de[
+    c(
+      rownames(groups.de.d23),
+      rownames(groups.de.lt2)
+    ),
+    "mle"
+  ],
+  P.group = c(
+    groups.de.d23$p.value,
+    groups.de.lt2$p.value
+  ),
+  P.cluster = clusters.de[
+    c(
+      rownames(groups.de.d23),
+      rownames(groups.de.lt2)
+    ),
+    "p.value"
+  ],
   gene_name = with(
     fData(sce.norm),
-    gene_name[match(c(rownames(groups.de.d23), rownames(groups.de.lt2)), gene_id)]
+    gene_name[
+      match(c(
+        rownames(groups.de.d23),
+        rownames(groups.de.lt2)
+      ),
+      gene_id)
+    ]
   )
 )
 
@@ -88,12 +124,21 @@ ggplot(gg.mle) +
 
 # Prepare regression data for ggplot ----
 
-d23.reg <- tidy(lm(
-  -groups.de.d23$mle ~ clusters.de[rownames(groups.de.d23), 'mle']
-))
-lt2.reg <- tidy(lm(
-  -groups.de.lt2$mle ~ clusters.de[rownames(groups.de.lt2), 'mle']
-))
+d23.reg <- with(
+  data.frame(
+    D23580 = groups.de.d23$mle,
+    Cluster1v2 = -clusters.de[rownames(groups.de.d23), 'mle']
+  ),
+  tidy(lm(D23580 ~ Cluster1v2))
+)
+
+lt2.reg <- with(
+  data.frame(
+    LT2 = groups.de.lt2$mle,
+    Cluster1v2 = -clusters.de[rownames(groups.de.lt2), 'mle']
+  ),
+  tidy(lm(LT2 ~ Cluster1v2))
+)
 
 all.reg <- rbind(
   cbind(d23.reg, Group = "STM-D23580"),
@@ -133,18 +178,39 @@ ggplot(gg.sig.cluster) +
 genes.sig.cluster <- unique(as.character(gg.sig.cluster$gene_id))
 length(genes.sig.cluster)
 
-d23.reg <- tidy(lm(
-  groups.de.d23[genes.sig.cluster, "mle"] ~ -clusters.de[genes.sig.cluster, "mle"]
-))
-lt2.reg <- tidy(lm(
-  groups.de.lt2[genes.sig.cluster, "mle"] ~ -clusters.de[genes.sig.cluster, "mle"]
-))
+d23.reg <- with(
+  data.frame(
+    D23580 = groups.de.d23[genes.sig.cluster, "mle"],
+    Cluster1v2 = -clusters.de[genes.sig.cluster, "mle"]
+  ),
+  tidy(lm(D23580 ~ Cluster1v2))
+)
 
-cor.test(groups.de.d23[genes.sig.cluster, "mle"], -clusters.de[genes.sig.cluster, "mle"])
-cor.test(groups.de.lt2[genes.sig.cluster, "mle"], -clusters.de[genes.sig.cluster, "mle"])
+lt2.reg <- with(
+  data.frame(
+    LT2 = groups.de.lt2[genes.sig.cluster, "mle"],
+    Cluster1v2 = -clusters.de[genes.sig.cluster, "mle"]
+  ),
+  tidy(lm(LT2 ~ Cluster1v2))
+)
 
-cor.test(groups.de.d23[genes.sig.cluster, "mle"], -clusters.de[genes.sig.cluster, "mle"])$estimate^2
-cor.test(groups.de.lt2[genes.sig.cluster, "mle"], -clusters.de[genes.sig.cluster, "mle"])$estimate^2
+all.reg <- rbind(
+  cbind(d23.reg, Group = "STM-D23580"),
+  cbind(lt2.reg, Group = "STM-LT2")
+)
+all.reg$term <- rep(c("intercept", "slope"), 2)
+
+gg.regression <- dcast(all.reg, Group ~ term, value.var = "estimate")
+gg.regression$x <- 5
+gg.regression$y <- -5:-6
+
+# Correlation (Pearson) on genes DE between clusters ----
+
+# cor.test(groups.de.d23[genes.sig.cluster, "mle"], -clusters.de[genes.sig.cluster, "mle"])
+# cor.test(groups.de.lt2[genes.sig.cluster, "mle"], -clusters.de[genes.sig.cluster, "mle"])
+#
+# cor.test(groups.de.d23[genes.sig.cluster, "mle"], -clusters.de[genes.sig.cluster, "mle"])$estimate^2
+# cor.test(groups.de.lt2[genes.sig.cluster, "mle"], -clusters.de[genes.sig.cluster, "mle"])$estimate^2
 
 cor.d23 <- tidy(cor.test(-groups.de.d23[genes.sig.cluster, "mle"], clusters.de[genes.sig.cluster, "mle"]))
 cor.lt2 <- tidy(cor.test(-groups.de.lt2[genes.sig.cluster, "mle"], clusters.de[genes.sig.cluster, "mle"]))
@@ -162,27 +228,23 @@ range.mle <- range(
 )
 
 gg <- ggplot(gg.sig.cluster) +
-  # stat_density2d(
-  #   aes(MLE.cluster, -MLE.group, fill = ..density..^0.25),
-  #   geom = "tile", contour = FALSE, n = 200) +
-  geom_point(aes(-MLE.cluster, MLE.group, colour = Group), alpha = 0.2) +
+  geom_point(aes(-MLE.cluster, MLE.group, colour = Group), alpha = 0.25) +
   geom_abline(
     aes(slope = slope, intercept = intercept, colour = Group),
     gg.regression
   ) +
-  geom_abline(intercept = 0, slope = 1, linetype = "dashed", alpha = 0.25) +
+  geom_abline(intercept = 0, slope = 1, linetype = "dashed", alpha = 0.5) +
   geom_text(aes(x, y, label = r2, colour = Group), all.cor, parse = TRUE) +
   geom_text(aes(
     x, y,
     label = sprintf("slope: %.2f", slope), colour = Group),
     gg.regression
   ) +
-  # facet_grid(~ Group) +
   scale_fill_continuous(low = "white", high = "dodgerblue4") +
   theme_minimal() +
   scale_x_continuous(limits = range.mle) +
   scale_y_continuous(limits = range.mle) +
-  # theme(panel.grid = element_blank()) +
+  scale_colour_manual(values = colours.infection) +
   labs(y = "MLE\n(Violet + / Exposed)", x = "MLE\n(Cluster 1 / Cluster 2)")
 
 ggsave("figures/regression_4h_clusters_groups.pdf", height = 4, width = 5.5)
