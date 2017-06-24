@@ -15,8 +15,8 @@ library(scde)
 library(ensembldb)
 library(dplyr)
 library(goseq)
+library(ggrepel)
 sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
-EnsDb.Hsapiens.v79 <- EnsDb.Hsapiens.v79::EnsDb.Hsapiens.v79
 scde.res <- readRDS("rds/scde.res_v8.rds")
 o.ifm.2h <- readRDS("rds/o.ifm.2h_v8.rds")
 o.ifm.4h <- readRDS("rds/o.ifm.4h_v8.rds")
@@ -310,7 +310,7 @@ convert.z.score <- function(x, one.sided = NULL) {
 ```{r addGENENAME}
 addGENENAME <- function(x){
   x <- cbind(
-    GENENAME=mapIds(EnsDb.Hsapiens.v79, rownames(x), 'GENENAME', 'GENEID'),
+    GENENAME = with(fData(sce.endo), gene_name[match(rownames(x), gene_id)]),
     x
   )
   return(x)
@@ -413,34 +413,34 @@ volcano.mle <- function(x, sub = NULL){
 
 ```{r contrasts.time}
 contrasts.2h <- list(
-  c("2h_D23580_infected", "2h_Mock_uninfected"), # vs. Mock
-  c("2h_LT2_infected", "2h_Mock_uninfected"),
-  c("2h_D23580_exposed", "2h_Mock_uninfected"),
-  c("2h_LT2_exposed", "2h_Mock_uninfected"),
-  c("2h_D23580_infected", "2h_LT2_infected"), # direct
-  c("2h_D23580_infected", "2h_D23580_exposed"),
-  c("2h_LT2_infected", "2h_LT2_exposed"),
-  c("2h_D23580_exposed", "2h_LT2_exposed")
+  c("2h_STM-D23580_Violet +", "2h_Mock_Violet +"), # vs. Mock
+  c("2h_STM-LT2_Violet +", "2h_Mock_Violet +"),
+  c("2h_STM-D23580_Exposed", "2h_Mock_Violet +"),
+  c("2h_STM-LT2_Exposed", "2h_Mock_Violet +"),
+  c("2h_STM-D23580_Violet +", "2h_STM-LT2_Violet +"), # direct
+  c("2h_STM-D23580_Violet +", "2h_STM-D23580_Exposed"),
+  c("2h_STM-LT2_Violet +", "2h_STM-LT2_Exposed"),
+  c("2h_STM-D23580_Exposed", "2h_STM-LT2_Exposed")
 )
 contrasts.4h <- list(
-  c("4h_D23580_infected", "4h_Mock_uninfected"), # 4h
-  c("4h_LT2_infected", "4h_Mock_uninfected"),
-  c("4h_D23580_exposed", "4h_Mock_uninfected"),
-  c("4h_LT2_exposed", "4h_Mock_uninfected"),
-  c("4h_D23580_infected", "4h_LT2_infected"), # 4h
-  c("4h_D23580_infected", "4h_D23580_exposed"),
-  c("4h_LT2_infected", "4h_LT2_exposed"),
-  c("4h_D23580_exposed", "4h_LT2_exposed")
+  c("4h_STM-D23580_Violet +", "4h_Mock_Violet +"), # 4h
+  c("4h_STM-LT2_Violet +", "4h_Mock_Violet +"),
+  c("4h_STM-D23580_Exposed", "4h_Mock_Violet +"),
+  c("4h_STM-LT2_Exposed", "4h_Mock_Violet +"),
+  c("4h_STM-D23580_Violet +", "4h_STM-LT2_Violet +"), # 4h
+  c("4h_STM-D23580_Violet +", "4h_STM-D23580_Exposed"),
+  c("4h_STM-LT2_Violet +", "4h_STM-LT2_Exposed"),
+  c("4h_STM-D23580_Exposed", "4h_STM-LT2_Exposed")
 )
 contrasts.6h <- list(
-  c("6h_D23580_infected", "6h_Mock_uninfected"), # 6h
-  c("6h_LT2_infected", "6h_Mock_uninfected"),
-  c("6h_D23580_exposed", "6h_Mock_uninfected"),
-  c("6h_LT2_exposed", "6h_Mock_uninfected"),
-  c("6h_D23580_infected", "6h_LT2_infected"), # 6h
-  c("6h_D23580_infected", "6h_D23580_exposed"),
-  c("6h_LT2_infected", "6h_LT2_exposed"),
-  c("6h_D23580_exposed", "6h_LT2_exposed")
+  c("6h_STM-D23580_Violet +", "6h_Mock_Violet +"), # 6h
+  c("6h_STM-LT2_Violet +", "6h_Mock_Violet +"),
+  c("6h_STM-D23580_Exposed", "6h_Mock_Violet +"),
+  c("6h_STM-LT2_Exposed", "6h_Mock_Violet +"),
+  c("6h_STM-D23580_Violet +", "6h_STM-LT2_Violet +"), # 6h
+  c("6h_STM-D23580_Violet +", "6h_STM-D23580_Exposed"),
+  c("6h_STM-LT2_Violet +", "6h_STM-LT2_Exposed"),
+  c("6h_STM-D23580_Exposed", "6h_STM-LT2_Exposed")
 )
 ```
 
@@ -514,7 +514,7 @@ mleRange <-
 v.data <- do.call(
   "rbind",
   lapply(
-    grep("uninfected", names(scde.res), value = TRUE),
+    grep("Uninfected", names(scde.res), value = TRUE),
     function(contrastName){
       timepoint <- gsub("([[:digit:]]h)_.*", "\\1", contrastName)
       contrastTreatment <-
@@ -543,7 +543,7 @@ ggplot(v.data) +
 v.data <- do.call(
   "rbind",
   lapply(
-    grep("uninfected", names(scde.res), value = TRUE, invert = TRUE),
+    grep("Uninfected", names(scde.res), value = TRUE, invert = TRUE),
     function(contrastName){
       timepoint <- gsub("([[:digit:]]h)_.*", "\\1", contrastName)
       contrastTreatment <-
@@ -570,7 +570,7 @@ ggplot(v.data) +
 ```{r fig1_volcano_4h_D23_InfExp, echo=FALSE, eval=FALSE}
 sub.data <- subset(
   v.data,
-  Contrast == "D23580 infected-D23580 exposed" & Time == "4h"
+  Contrast == "STM-D23580 Violet +-STM-D23580 Exposed" & Time == "4h"
 )
 geneData <- subset(mutate(
   sub.data,
@@ -590,7 +590,7 @@ ggplot(sub.data) +
     fontface = "bold"
   ) +
   scale_x_continuous(limits = mleRange) + theme_bw() +
-  labs(title = "4h STM-D23580", subtitle = "infected - exposed")
+  labs(title = "4h STM-D23580", subtitle = "Violet + / Exposed")
 ggsave("08_out/4h_volcano_D23580_Vogel.pdf", height = 5, width = 6.5)
 ```
 
@@ -606,14 +606,14 @@ ggplot(sub.data) +
     size = 2, min.segment.length = unit(0, "mm"), fontface = "bold"
   ) +
   scale_x_continuous(limits = mleRange) + theme_bw() +
-  labs(title = "4h STM-D23580", subtitle = "infected - exposed")
+  labs(title = "4h STM-D23580", subtitle = "Violet + / Exposed")
 ggsave("08_out/4h_volcano_D23580_Shalek.pdf", height = 5, width = 6.5)
 ```
 
 ```{r fig1_volcano_4h_LT2_InfExp, echo=FALSE, eval=FALSE}
 sub.data <- subset(
   v.data,
-  Contrast == "LT2 infected-LT2 exposed" & Time == "4h"
+  Contrast == "STM-LT2 Violet +-STM-LT2 Exposed" & Time == "4h"
 )
 geneData <- subset(mutate(
   sub.data,
@@ -633,7 +633,7 @@ ggplot(sub.data) +
     fontface = "bold"
   ) +
   scale_x_continuous(limits = mleRange) + theme_bw() +
-  labs(title = "4h STM-LT2", subtitle = "infected - exposed")
+  labs(title = "4h STM-LT2", subtitle = "Violet + / Exposed")
 ggsave("08_out/4h_volcano_LT2_Vogel.pdf", height = 5, width = 6.5)
 ```
 
@@ -649,7 +649,7 @@ ggplot(sub.data) +
     size = 2, min.segment.length = unit(0, "mm"), fontface = "bold"
   ) +
   scale_x_continuous(limits = mleRange) + theme_bw() +
-  labs(title = "4h STM-LT2", subtitle = "infected - exposed")
+  labs(title = "4h STM-LT2", subtitle = "Violet + / Exposed")
 ggsave("08_out/4h_volcano_LT2_Shalek.pdf", height = 5, width = 6.5)
 ```
 
@@ -661,7 +661,7 @@ ggsave("08_out/4h_volcano_LT2_Shalek.pdf", height = 5, width = 6.5)
 v.data <- do.call(
   "rbind",
   lapply(
-    grep("uninfected", names(scde.res), value = TRUE),
+    grep("Uninfected", names(scde.res), value = TRUE),
     function(contrastName){
       x.res <- scde.res[[contrastName]][,c("Z", "cZ")]
       x.res <- convert.z.score(x.res)
@@ -684,7 +684,7 @@ pander::pandoc.table(v.data)
 v.data <- do.call(
   "rbind",
   lapply(
-    grep("uninfected", names(scde.res), value = TRUE, invert = TRUE),
+    grep("Uninfected", names(scde.res), value = TRUE, invert = TRUE),
     function(contrastName){
       x.res <- scde.res[[contrastName]][,c("Z", "cZ")]
       x.res <- convert.z.score(x.res)
@@ -720,8 +720,7 @@ goseq.res <- list()
 * the gene length information reported by *featureCounts*:
 
 ```{r geneLengths}
-geneLengths <-
-  read.delim("counts/WTCHG_305264_201201", row.names = 1)[,1, drop = FALSE]
+geneLengths <- fData(sce.endo)[,"width", drop = FALSE]
 ```
 
 ## Compute {.tabset}
@@ -1113,8 +1112,16 @@ Least significant gene record (P ~ 0.01)
 in contrast D23580 vs. LT2 infected at 6h:
 
 ```{r ex.scde.last.sig}
-ex.scde.last.sig <- addGENENAME(tail(subset(orderResults(convert.z.score(
-  scde.res[["6h_D23580_infected-6h_LT2_infected"]])), p.value < 0.01), 1))
+ex.scde.last.sig <-
+  addGENENAME(tail(
+    subset(
+      orderResults(convert.z.score(
+        scde.res[["6h_STM-D23580_Violet +-6h_STM-LT2_Violet +"]]
+        )),
+      p.value < 0.01
+    ),
+  1
+))
 ```
 
 ```{r ex.scde.last.sig_table, echo=FALSE, results='asis'}
@@ -1136,7 +1143,7 @@ normExprsById(rownames(ex.scde.last.sig))
 ### *scde*
 
 ```{r single.scde.6h_ex.scde.last.sig}
-single.scde.6h(rownames(ex.scde.last.sig), "D23580_infected", "LT2_infected")
+single.scde.6h(rownames(ex.scde.last.sig), "STM-D23580_Violet +", "STM-LT2_Violet +")
 ```
 
 ## TLR2 {.tabset}
@@ -1153,13 +1160,13 @@ normExprsById("ENSG00000137462")
 ### *scde* D23580
 
 ```{r single.scde.6h_D23580_TLR2}
-single.scde.6h("ENSG00000137462", "D23580_infected", "D23580_exposed")
+single.scde.6h("ENSG00000137462", "STM-D23580_Violet +", "STM-D23580_Exposed")
 ```
 
 ### *scde* LT2
 
 ```{r single.scde.6h_LT2_TLR2}
-single.scde.6h("ENSG00000137462", "LT2_infected", "LT2_exposed")
+single.scde.6h("ENSG00000137462", "STM-LT2_Violet +", "STM-LT2_Exposed")
 ```
 
 ## IL10 {.tabset}
@@ -1176,13 +1183,13 @@ normExprsById("ENSG00000136634")
 ### *scde* D23580
 
 ```{r single.scde.6h_D23580_IL10}
-single.scde.6h("ENSG00000136634", "D23580_infected", "D23580_exposed")
+single.scde.6h("ENSG00000136634", "STM-D23580_Violet +", "STM-D23580_Exposed")
 ```
 
 ### *scde* LT2
 
 ```{r single.scde.6h_LT2_IL10}
-single.scde.6h("ENSG00000136634", "LT2_infected", "LT2_exposed")
+single.scde.6h("ENSG00000136634", "STM-LT2_Violet +", "STM-LT2_Exposed")
 ```
 
 
@@ -1199,7 +1206,7 @@ normExprsById("ENSG00000129472")
 ### *scde*
 
 ```{r single.scde.2h_RAB2B}
-single.scde.2h("ENSG00000129472", "D23580_infected", "LT2_infected")
+single.scde.2h("ENSG00000129472", "STM-D23580_Violet +", "STM-LT2_Violet +")
 ```
 
 ## RAB29
@@ -1215,7 +1222,7 @@ normExprsById("ENSG00000117280")
 ### *scde*
 
 ```{r single.scde.6h_RAB29}
-single.scde.6h("ENSG00000117280", "D23580_infected", "LT2_infected")
+single.scde.6h("ENSG00000117280", "STM-D23580_Violet +", "STM-LT2_Violet +")
 ```
 
 # Comparison of fold-change estimates
@@ -1263,22 +1270,22 @@ addOpposite <- function(x, cutoff = 0.01){
 
 ```{r contrasts.contrasts.time}
 contrasts.contrasts.2h <- list(
-c("2h_D23580_infected-2h_Mock_uninfected","2h_LT2_infected-2h_Mock_uninfected"),
-c("2h_D23580_infected-2h_Mock_uninfected","2h_D23580_exposed-2h_Mock_uninfected"),
-c("2h_LT2_infected-2h_Mock_uninfected","2h_LT2_exposed-2h_Mock_uninfected"),
-c("2h_D23580_exposed-2h_Mock_uninfected","2h_LT2_exposed-2h_Mock_uninfected")
+c("2h_STM-D23580_Violet +-2h_Mock_Uninfected","2h_STM-LT2_Violet +-2h_Mock_Uninfected"),
+c("2h_STM-D23580_Violet +-2h_Mock_Uninfected","2h_STM-D23580_Exposed-2h_Mock_Uninfected"),
+c("2h_STM-LT2_Violet +-2h_Mock_Uninfected","2h_STM-LT2_Exposed-2h_Mock_Uninfected"),
+c("2h_STM-D23580_Exposed-2h_Mock_Uninfected","2h_STM-LT2_Exposed-2h_Mock_Uninfected")
 )
 contrasts.contrasts.4h <- list(
-c("4h_D23580_infected-4h_Mock_uninfected","4h_LT2_infected-4h_Mock_uninfected"),
-c("4h_D23580_infected-4h_Mock_uninfected","4h_D23580_exposed-4h_Mock_uninfected"),
-c("4h_LT2_infected-4h_Mock_uninfected","4h_LT2_exposed-4h_Mock_uninfected"),
-c("4h_D23580_exposed-4h_Mock_uninfected","4h_LT2_exposed-4h_Mock_uninfected")
+c("4h_STM-D23580_Violet +-4h_Mock_Uninfected","4h_STM-LT2_Violet +-4h_Mock_Uninfected"),
+c("4h_STM-D23580_Violet +-4h_Mock_Uninfected","4h_STM-D23580_Exposed-4h_Mock_Uninfected"),
+c("4h_STM-LT2_Violet +-4h_Mock_Uninfected","4h_STM-LT2_Exposed-4h_Mock_Uninfected"),
+c("4h_STM-D23580_Exposed-4h_Mock_Uninfected","4h_STM-LT2_Exposed-4h_Mock_Uninfected")
 )
 contrasts.contrasts.6h <- list(
-c("6h_D23580_infected-6h_Mock_uninfected","6h_LT2_infected-6h_Mock_uninfected"),
-c("6h_D23580_infected-6h_Mock_uninfected","6h_D23580_exposed-6h_Mock_uninfected"),
-c("6h_LT2_infected-6h_Mock_uninfected","6h_LT2_exposed-6h_Mock_uninfected"),
-c("6h_D23580_exposed-6h_Mock_uninfected","6h_LT2_exposed-6h_Mock_uninfected")
+c("6h_STM-D23580_Violet +-6h_Mock_Uninfected","6h_STM-LT2_Violet +-6h_Mock_Uninfected"),
+c("6h_STM-D23580_Violet +-6h_Mock_Uninfected","6h_STM-D23580_Exposed-6h_Mock_Uninfected"),
+c("6h_STM-LT2_Violet +-6h_Mock_Uninfected","6h_STM-LT2_Exposed-6h_Mock_Uninfected"),
+c("6h_STM-D23580_Exposed-6h_Mock_Uninfected","6h_STM-LT2_Exposed-6h_Mock_Uninfected")
 )
 ```
 
@@ -1366,7 +1373,7 @@ for (contrastName in unique(v.data$Contrast)){
   c.y <- gsub(" ", "_", unique(v.subset$Contrast.y))
   c.x <- gsub(" ", "_", unique(v.subset$Contrast.x))
   message(c.y); message(c.x)
-  csvFile <- sprintf("SCDE_v8/compare.4h_%s-2h_%s.csv", c.y, c.x)
+  csvFile <- sprintf("SCDE_v8/compare.4h_%s-4h_%s.csv", c.y, c.x)
   message(csvFile)
   write.csv(v.subset, csvFile)
 }
@@ -1411,7 +1418,7 @@ for (contrastName in unique(v.data$Contrast)){
   c.y <- gsub(" ", "_", unique(v.subset$Contrast.y))
   c.x <- gsub(" ", "_", unique(v.subset$Contrast.x))
   message(c.y); message(c.x)
-  csvFile <- sprintf("SCDE_v8/compare.6h_%s-2h_%s.csv", c.y, c.x)
+  csvFile <- sprintf("SCDE_v8/compare.6h_%s-6h_%s.csv", c.y, c.x)
   message(csvFile)
   write.csv(v.subset, csvFile)
 }
