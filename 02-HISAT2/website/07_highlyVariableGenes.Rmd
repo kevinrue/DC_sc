@@ -9,6 +9,9 @@ reimported from disk, and smaller ones quickly recomputed. -->
 
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(cache = TRUE)
+stopifnot(require(DT))
+stopifnot(require(reshape2))
+stopifnot(require(dplyr))
 library(scater)
 library(scran)
 library(ggplot2)
@@ -19,15 +22,14 @@ sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 sce.bulk <- readRDS("rds/sce.bulk.rds")
 library(org.Hs.eg.db)
 library(goseq)
-library(DT)
-library(reshape2)
-library(dplyr)
 library(edgeR)
-col.set3 <- brewer.pal(12, "Set3")
-col.cluster <- col.set3[c(1,12,3,4,9)]; names(col.cluster) <- c(1:3,0,"NA")
-col.status<-col.set3[c(3,5:6)];names(col.status)<-levels(sce.norm$Status)
-col.infection<-col.set3[c(3,8,10)];names(col.infection)<-levels(sce.norm$Infection)
-col.time<-col.set3[c(2,7:8)];names(col.time)<-levels(sce.norm$Time)
+library(RColorBrewer)
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,2,4)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.norm$Time)[1:3]
+names(col.infection) <- levels(sce.norm$Infection)
+names(col.status) <- levels(sce.norm$Status)
 ```
 
 # Plotting themes
@@ -317,8 +319,10 @@ top.hvg <- rownames(hvg.out)[1:10]
 ```{r top.hvg_Time}
 plotExpressionSCESet(
   sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Time"
-  ) + scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
-   exprsViolinTheme
+  ) +
+  scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
+  # scale_colour_manual(values = col.time) +
+  exprsViolinTheme
 ```
 
 The figure above generally indicates a progressive *up*-regulation of gene
@@ -328,8 +332,10 @@ expression over time.
 
 ```{r top.hvg_Infection}
 plotExpressionSCESet(
-  sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Infection"
-  ) + scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
+    sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Infection"
+  ) +
+  scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
+  scale_colour_manual(values = col.infection) +
   exprsViolinTheme
 ```
 
@@ -342,7 +348,9 @@ particularly at the later time-points.
 ```{r top.hvg_Status}
 plotExpressionSCESet(
   sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Status"
-  ) + scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
+  ) +
+  scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
+  scale_colour_manual(values = col.status) +
   exprsViolinTheme
 ```
 
@@ -358,8 +366,10 @@ top9Names <- fData(sce.norm[top9Id,])$gene_name
 plotExpressionSCESet(
   sce.norm, geneId, exprs_values = "norm_exprs",
   colour_by = "Status"
-  ) + scale_x_discrete(labels = geneName) +
-   theme(legend.position = "bottom", legend.box = "vertical")
+  ) +
+  scale_x_discrete(labels = geneName) +
+  scale_colour_manual(values = col.status) +
+  theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
 ## GO enrichment
@@ -387,15 +397,14 @@ the gene length information reported by
 [featureCounts](http://bioinf.wehi.edu.au/featureCounts) is used:
 
 ```{r geneLengths}
-geneLengths <- read.delim(
-  "counts/WTCHG_305264_201201", row.names = 1)[,1, drop = FALSE]
+geneLengths <- fData(sce.norm)[,"width", drop = FALSE]
 ```
 
 Using the above gene length data, the probability weighting function (PWF)
 is calculated for the full gene set in this analysis:
 
 ```{r nullp}
-pwf <- goseq::nullp(hvgs, bias.data=geneLengths[names(hvgs),], plot.fit=FALSE)
+pwf <- goseq::nullp(hvgs, bias.data=geneLengths[names(hvgs),], plot.fit=TRUE)
 ```
 
 Finally, the `goseq` function is used to test for enrichment amongst the
@@ -407,11 +416,11 @@ GO.out <- goseq::goseq(pwf, "hg38", "ensGene")
 
 The ontology field (*i.e.*, `"BP"`, `"MF"`, or `"CC"`) is reformatted as
 a factor, and the result table is subsetted to retain only GO categories
-associated with at least **10** genes, for robustness:
+associated with at least **10** genes in the genome, for robustness:
 
 ```{r GO.out.trim}
 GO.out$ontology <- as.factor(GO.out$ontology)
-GO.out.trim <- arrange(
+GO.out.trim <- dplyr::arrange(
     subset(
       GO.out,
       p.adjust(over_represented_pvalue, "BH") < 0.05 & numInCat >= 10
@@ -462,12 +471,6 @@ norm.endo.hvg <- norm_exprs(sce.endo)[rownames(hvg.out),]
 dim(norm.endo.hvg)
 ```
 
-Let us prepare colours to indicate phenotype levels:
-
-```{r palette9}
-col9 <- brewer.pal(10, "Set3")[c(1:8, 10)]
-```
-
 In preparation for the heat map, let us define an annotation panel
 that indicates key phenotype levels for each cell:
 
@@ -498,7 +501,7 @@ while grouping samples arbitrarily according to their respective
 ```{r heatmap_supervised}
 ht_supervised <- Heatmap(
   norm.endo.hvg,
-  name = "norm_exprs", column_title = "Normalised expression",
+  name = "n.e.", column_title = "Normalised expression",
   top_annotation = h_column,
   row_order = hvg.endo.clust$order,
   cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
@@ -512,7 +515,7 @@ Now, let us cluster single cells according to their expression profile,
 ```{r sample.order}
 sample.order <- c()
 expGroups <- unique(pData(sce.endo)[,c("Time","Infection","Status")])
-expGroups <- arrange(expGroups, Time, Status, Infection)
+expGroups <- dplyr::arrange(expGroups, Time, Status, Infection)
 for (groupIndex in seq_len(nrow(expGroups))){
   time <- expGroups$Time[groupIndex]
   infection <- expGroups$Infection[groupIndex]
@@ -535,7 +538,7 @@ sub-structure within the otherwise homogeneous experimental groups:
 ```{r heatmap_semiSupervised}
 ht_semisupervised <- Heatmap(
   norm.endo.hvg,
-  name = "norm_exprs", column_title = "Normalised expression",
+  name = "n.e.", column_title = "Normalised expression",
   top_annotation = h_column,
   row_order = hvg.endo.clust$order, column_order = sample.order,
   cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
@@ -544,7 +547,7 @@ ht_semisupervised <- Heatmap(
 ```
 
 We may display the expression level of bulk samples for reference.
-($$log_2(CPM+1)$$ values).
+($log_2(count+1)$ values).
 
 Order bulks identically to single cells:
 
@@ -558,8 +561,8 @@ Annotate bulks with the same colour code:
 bulk_column <- HeatmapAnnotation(
   df = pData(sce.bulk)[,c("Time", "Infection")],
   col = list(
-    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
-    Infection = c("Mock" = col9[7], "STM-LT2" = col9[8], "STM-D23580" = col9[9])
+    Time = col.time,
+    Infection = col.infection
   )
 )
 ```
@@ -583,10 +586,33 @@ Alone:
 draw(ht_bulks)
 ```
 
-Alongside single cells:
+Alongside single cells (semi-supervised clustering):
 
 ```{r ht_semisupervised_draw, echo=FALSE}
-draw(ht_semisupervised + ht_bulks)
+draw(
+  Heatmap(
+    norm.endo.hvg,
+    name = "n.e.", column_title = "Normalised expression",
+    top_annotation = h_column,
+    row_order = hvg.endo.clust$order, column_order = sample.order,
+    cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
+    show_row_names = FALSE, show_column_names = FALSE
+  ) +
+  Heatmap(
+    exprs(sce.bulk)[rownames(norm.endo.hvg),],
+    top_annotation = HeatmapAnnotation(
+      df = pData(sce.bulk)[,c("Time", "Infection")],
+      col = list(
+        Time = col.time,
+        Infection = col.infection
+      ),
+      show_legend = FALSE
+    ),
+    name = "exprs", column_title = "Bulks",
+    cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
+    show_row_names = FALSE, show_column_names = FALSE
+  )
+)
 ```
 
 ## Gene ontology
@@ -656,13 +682,13 @@ h_tf <- Heatmap(
 
 ## Supervised
 
-```{r ht_supervised, fig.height=7}
+```{r ht_supervised, fig.height=7, echo=FALSE}
 draw(ht_supervised + h_top + h_ifn + h_death + h_lipid + h_tf)
 ```
 
 ## Semi-supervised
 
-```{r ht_semisupervised, fig.height=7}
+```{r ht_semisupervised, fig.height=7, echo=FALSE}
 draw(ht_semisupervised + h_top + h_ifn + h_death + h_lipid + h_tf)
 ```
 
@@ -699,9 +725,9 @@ Assemble the heat map:
 ht_column <- HeatmapAnnotation(
   df = pData(sce.endo)[h.e$order,c("Time", "Status", "Infection")],
   col = list(
-    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
-    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
-    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+    Time = col.time,
+    Status = col.status,
+    Infection = col.infection
   )
 )
 ht_e <- Heatmap(
@@ -735,9 +761,9 @@ Assemble the heat map:
 ht_column <- HeatmapAnnotation(
   df = pData(sce.endo)[h.c.s$order,c("Time", "Status", "Infection")],
   col = list(
-    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
-    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
-    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+    Time = col.time,
+    Status = col.status,
+    Infection = col.infection
   )
 )
 ht_s <- Heatmap(
@@ -771,9 +797,9 @@ Assemble the heat map:
 hn_column <- HeatmapAnnotation(
   df = pData(sce.endo)[h.c.p$order,c("Time", "Status", "Infection")],
   col = list(
-    Time = c("2h" = col9[1], "4h" = col9[2], "6h" = col9[3]),
-    Status=c("uninfected"=col9[4],"exposed"=col9[5],"infected"=col9[6]),
-    Infection = c("Mock" = col9[7], "LT2" = col9[8], "D23580" = col9[9])
+    Time = col.time,
+    Status = col.status,
+    Infection = col.infection
   )
 )
 ht_p <- Heatmap(
@@ -788,19 +814,19 @@ ht_p <- Heatmap(
 
 ### Euclidian
 
-```{r ht_e, fig.height=6}
+```{r ht_e, fig.height=6, echo=FALSE}
 draw(ht_e)
 ```
 
 ### Spearman
 
-```{r ht_s, fig.height=6}
+```{r ht_s, fig.height=6, echo=FALSE}
 draw(ht_s)
 ```
 
 ### Pearson
 
-```{r ht_p, fig.height=6}
+```{r ht_p, fig.height=6, echo=FALSE}
 draw(ht_p)
 ```
 
@@ -926,7 +952,7 @@ for (groupName in names(HVGs.group)){
   GO.out <- goseq(pwf, "hg38", "ensGene")
   GO.out$ontology <- as.factor(GO.out$ontology)
   write.csv(GO.out, sprintf("GO/HVGs_%s.csv", groupName), row.names = FALSE)
-  GO.out.trim <- arrange(
+  GO.out.trim <- dplyr::arrange(
     subset(
       GO.out,
       p.adjust(over_represented_pvalue, "BH") < 0.05 & numInCat >= 10
@@ -1124,15 +1150,15 @@ write.csv(HeHv_LT2_exp, "HVGs/6h_STM-D23580_Violet +_HeHv.csv")
 ### 6h LT2 infected
 
 ```{r 6h_LT2_infected_HeHv}
-HVG_LT2_inf <- subset(HVGs.group[["6h_STM-LT2_Violet +"]], mean > 10 & bio > 5)
+HeHv_LT2_inf <- subset(HVGs.group[["6h_STM-LT2_Violet +"]], mean > 10 & bio > 5)
 ```
 
 ```{r 6h_LT2_infected_HeHv_datatable, echo=FALSE}
-DT::datatable(HVG_LT2_inf)
+DT::datatable(HeHv_LT2_inf)
 ```
 
 ```{r 6h_LT2_infected_HeHv.csv, include=FALSE}
-write.csv(HVG_LT2_inf, "HVGs/6h_STM-LT2_Violet +_HeHv.csv")
+write.csv(HeHv_LT2_inf, "HVGs/6h_STM-LT2_Violet +_HeHv.csv")
 ```
 
 ### Melt
@@ -1147,10 +1173,10 @@ normExprsMelt <- reshape2::melt(
 normExprsMelt <- merge(normExprsMelt, pData(sce.norm)[,c("Sample","Treatment")])
 normExprsMelt <- subset(
   normExprsMelt, Feature %in% unique(c(
-    rownames(HVG_D23_exp),
-    rownames(HVG_LT2_exp),
-    rownames(HVG_D23_inf),
-    rownames(HVG_LT2_inf)))
+    rownames(HeHv_D23_exp),
+    rownames(HeHv_LT2_exp),
+    rownames(HeHv_D23_inf),
+    rownames(HeHv_LT2_inf)))
   )
 normExprsMelt <- merge(
   normExprsMelt, data.frame(
@@ -1165,7 +1191,9 @@ highly expressed (`norm_exprs > 10`) in group `D23 exposed`
 
 ```{r CCL22}
 ggplot(subset(normExprsMelt, gene_name == "CCL22")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### CTSB
@@ -1175,7 +1203,9 @@ highly expressed (`norm_exprs > 10`) in group `D23 exposed`
 
 ```{r CTSB, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "CTSB")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### SAT1
@@ -1185,7 +1215,9 @@ highly expressed (`norm_exprs > 10`) in group `D23 exposed`
 
 ```{r SAT1, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "SAT1")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### TNFAIP2
@@ -1195,7 +1227,9 @@ highly expressed (`norm_exprs > 10`) in group `D23 exposed`
 
 ```{r TNFAIP2, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "TNFAIP2")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### CD83
@@ -1205,7 +1239,9 @@ highly expressed (`norm_exprs > 10`) in group `D23 exposed`
 
 ```{r CD83, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "CD83")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### ACTG1
@@ -1215,7 +1251,9 @@ highly expressed (`norm_exprs > 10`) in group `D23 exposed`
 
 ```{r ACTG1, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "ACTG1")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### SLAMF7
@@ -1225,7 +1263,9 @@ highly expressed (`norm_exprs > 10`) in group `LT2 exposed`
 
 ```{r SLAMF7, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "SLAMF7")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### NFKBIA
@@ -1235,7 +1275,9 @@ highly expressed (`norm_exprs > 10`) in group `LT2 exposed`
 
 ```{r NFKBIA, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "NFKBIA")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### LDHA
@@ -1245,7 +1287,9 @@ highly expressed (`norm_exprs > 10`) in group `LT2 exposed`
 
 ```{r LDHA, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "LDHA")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### SLC2A3
@@ -1255,7 +1299,9 @@ highly expressed (`norm_exprs > 10`) in group `LT2 exposed`
 
 ```{r SLC2A3, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "SLC2A3")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### TIMP1
@@ -1265,7 +1311,9 @@ highly expressed (`norm_exprs > 10`) in group `D23 infected`
 
 ```{r TIMP1, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "TIMP1")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### RSAD2
@@ -1275,7 +1323,9 @@ highly expressed (`norm_exprs > 10`) in group `D23 infected`
 
 ```{r RSAD2, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "RSAD2")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### SPP1
@@ -1285,7 +1335,9 @@ highly expressed (`norm_exprs > 10`) in group `D23 infected`
 
 ```{r SPP1, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "SPP1")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### ANXA1
@@ -1295,7 +1347,9 @@ highly expressed (`norm_exprs > 10`) in group `LT2 infected`
 
 ```{r ANXA1, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "ANXA1")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### ATF3
@@ -1305,7 +1359,9 @@ highly expressed (`norm_exprs > 10`) in group `LT2 infected`
 
 ```{r ATF3, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "ATF3")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### PMAIP1
@@ -1315,13 +1371,17 @@ highly expressed (`norm_exprs > 10`) in group `LT2 infected`
 
 ```{r PMAIP1, echo=FALSE}
 ggplot(subset(normExprsMelt, gene_name == "PMAIP1")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment) + theme_minimal()
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### All
 
 ```{r normExprsMelt_All, echo=FALSE}
-ggplot(normExprsMelt) + facet_wrap(~Treatment) + theme_minimal() +
+ggplot(normExprsMelt) +
+  facet_wrap(~Treatment) +
+  theme_minimal() +
   geom_density(aes(norm_exprs, colour = gene_name), alpha = 0.5)
 ```
 
@@ -1355,21 +1415,27 @@ TNFAIP2normExprsMelt <- merge(
 
 ```{r TNFAIP2_2h}
 ggplot(subset(TNFAIP2normExprsMelt, Time == "2h")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### 4h
 
 ```{r TNFAIP2_4h}
 ggplot(subset(TNFAIP2normExprsMelt, Time == "4h")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ### 6h
 
 ```{r TNFAIP2_6h}
 ggplot(subset(TNFAIP2normExprsMelt, Time == "6h")) +
-  geom_density(aes(norm_exprs)) + facet_wrap(~Treatment)
+  geom_density(aes(norm_exprs)) +
+  facet_wrap(~Treatment) +
+  theme_minimal()
 ```
 
 ## Technical noise fit
@@ -1385,7 +1451,9 @@ function of the mean using the [scran](http://bioconductor.org/packages/scran)
 CV2data <- data.frame()
 for (groupName in names(dVar.groups)){
   techCV2 <- technicalCV2(
-    sce.norm[,sce.norm$Group == groupName], spike.type = "ERCC", assay = "counts")
+    sce.norm[,sce.norm$Group == groupName],
+    spike.type = "ERCC", assay = "counts"
+  )
   geneNames <- rownames(techCV2)
   CV2data <- rbind(CV2data, data.frame(
     CV2 = techCV2$cv2,
@@ -1411,8 +1479,12 @@ ggplot(CV2data) +
     size = 0.5, alpha = 0.5) +
   scale_x_log10() + scale_y_log10() +
   facet_grid(Treatment ~ Time) +
+  coord_fixed() +
   labs(x = "Average scaled read count", y = expression(CV^{2})) +
-  theme(legend.text = element_text(size=7), legend.title = element_text(size=7))
+  theme_minimal() +
+  theme(
+    legend.text = element_text(size=7), legend.title = element_text(size=7)
+  )
 ```
 
 
