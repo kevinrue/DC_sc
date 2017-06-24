@@ -26,6 +26,148 @@ o.ifm.6h <- readRDS("rds/o.ifm.6h_v8.rds")
 scde.res <- readRDS("rds/13_cluster_scde.res_v2.rds")
 goseq.res <- readRDS("rds/13_cluster_goseq.res_v2.rds")
 scde.groupRes <- readRDS("rds/scde.res_v8.rds")
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,2,4)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.norm$Time)[1:3]
+names(col.infection) <- levels(sce.norm$Infection)
+names(col.status) <- levels(sce.norm$Status)
+sce.endo <- sce.norm[!isSpike(sce.norm),]
+# Subset by time point
+sce.2h <- sce.endo[,sce.endo$Time == '2h']
+sce.6h <- sce.endo[,sce.endo$Time == '6h']
+sce.4h <- sce.endo[,sce.endo$Time == '4h']
+# Filter detected genes
+filterCounts <- function(m, counts = 10, cells = 10){
+  apply(m, 1, function(e){
+    return(sum(e >= counts) >= cells)
+  })
+}
+sg.2h <- droplevels(sce.2h$Group)
+keep.2h <- filterCounts(counts(sce.2h))
+cd.2h <- counts(sce.2h)[keep.2h,]; storage.mode(cd.2h) <- 'integer'
+sg.4h <- droplevels(sce.4h$Group)
+keep.4h <- filterCounts(counts(sce.4h))
+cd.4h <- counts(sce.4h)[keep.4h,]; storage.mode(cd.4h) <- 'integer'
+sg.6h <- droplevels(sce.6h$Group)
+keep.6h <- filterCounts(counts(sce.6h))
+cd.6h <- counts(sce.6h)[keep.6h,]; storage.mode(cd.6h) <- 'integer'
+# Reorder SCESet to match count matrix
+sce.ifm.2h <- sce.2h[,rownames(o.ifm.2h)]
+cd.ifm.2h <- counts(sce.ifm.2h); storage.mode(cd.ifm.2h) <- "integer"
+sce.ifm.4h <- sce.4h[,rownames(o.ifm.4h)]
+cd.ifm.4h <- counts(sce.ifm.4h); storage.mode(cd.ifm.4h) <- "integer"
+sce.ifm.6h <- sce.6h[,rownames(o.ifm.6h)]
+cd.ifm.6h <- counts(sce.ifm.6h); storage.mode(cd.ifm.6h) <- "integer"
+# Prior of expression
+o.prior.2h <- scde.expression.prior(
+  models = o.ifm.2h, counts = cd.ifm.2h, show.plot = FALSE
+)
+o.prior.4h <- scde.expression.prior(
+  models = o.ifm.4h, counts = cd.ifm.4h, show.plot = FALSE
+)
+o.prior.6h <- scde.expression.prior(
+  models = o.ifm.6h, counts = cd.ifm.6h, show.plot = FALSE
+)
+# Functions
+convert.z.score <- function(x, one.sided = NULL) {
+  z <- x$Z
+  if(is.null(one.sided)) {
+    pval = pnorm(-abs(z));
+    pval = 2 * pval
+  } else if(one.sided=="-") {
+    pval = pnorm(z);
+  } else {
+    pval = pnorm(-z);
+  }
+    x <- cbind(
+      x,
+      p.value = pval
+  )
+  return(x);
+}   
+addGENENAME <- function(x){
+  x <- cbind(
+    GENENAME = with(fData(sce.endo), gene_name[match(rownames(x), gene_id)]),
+    x
+  )
+  return(x)
+}
+orderResults <- function(x){
+  x <- x[with(x, order(abs(Z), decreasing = TRUE)),]
+  return(x)
+}
+normExprsById <- function(geneId){
+  geneName <- subset(fData(sce.endo),gene_id==geneId,"gene_name",drop=TRUE)
+  gdata <- data.frame(
+    norm_exprs = norm_exprs(sce.endo)[geneId,],
+    pData(sce.endo)[,c("Infection","Status","Time")],
+    row.names = sampleNames(sce.endo)
+  )
+  ggplot(gdata, aes(Infection, norm_exprs)) + 
+    geom_violin(
+      aes(fill = Infection, alpha = Status),
+      draw_quantiles = c(0.25, 0.5, 0.75)
+    ) +
+    geom_jitter(width = 0.1) +
+    facet_grid(Time ~ Status) +
+    scale_fill_manual(values = col.infection) +
+    ggtitle(sprintf("%s - %s", geneId, geneName)) +
+    theme_minimal() +
+    labs(y = "Normalised expression") +
+    guides(alpha = "none")
+}
+single.scde.4h <- function(gene, groupTarget, groupRef){
+  sg.test <- factor(sce.ifm.2h$quickCluster, levels = c(groupTarget, groupRef))
+  scde.test.gene.expression.difference(
+    gene, o.ifm.2h, cd.ifm.2h, o.prior.2h, sg.test,
+    n.cores = 4, verbose = 1
+  )
+}
+single.scde.4h <- function(gene, groupTarget, groupRef){
+  sg.test <- factor(sce.ifm.4h$quickCluster, levels = c(groupTarget, groupRef))
+  scde.test.gene.expression.difference(
+    gene, o.ifm.4h, cd.ifm.4h, o.prior.4h, sg.test,
+    n.cores = 4, verbose = 1
+  )
+}
+single.scde.6h <- function(gene, groupTarget, groupRef){
+  sg.test <- factor(sce.ifm.6h$quickCluster, levels = c(groupTarget, groupRef))
+  scde.test.gene.expression.difference(
+    gene, o.ifm.6h, cd.ifm.6h, o.prior.6h, sg.test,
+    n.cores = 4, verbose = 1
+  )
+}
+sig.levels <- c(0.05, 0.01)
+volcano.sig <- data.frame(
+  P = sig.levels,
+  level = as.character(sig.levels)
+)
+volcano.mle <- function(x, sub = NULL){
+  varName <- deparse(substitute(x))
+  x <- convert.z.score(x)
+  gg <- ggplot(x, aes(mle, -log10(p.value))) +
+    geom_point(aes(colour = (cZ != 0))) +
+    geom_hline(aes(yintercept=-log10(p.value),linetype=level),volcano.sig) +
+    ggtitle(varName, sub)
+  print(gg)
+  return(x)
+}
+showTopGO <- function(x, direction = "over", cutoff = 0.05, min = 10){
+  goCols <- c(
+  "category","over_represented_pvalue","under_represented_pvalue",
+  "numDEInCat","numInCat","ontology","term")
+  directionCol <- sprintf("%s_represented_pvalue", direction)
+  tmp.go <- x[,goCols]
+  tmp.sig <- (tmp.go[,directionCol] < cutoff); tmp.go <- tmp.go[tmp.sig,]
+  tmp.min <- (tmp.go[,"numInCat"] >= min); tmp.go <- tmp.go[tmp.min,]
+  tmp.go <- tmp.go[order(tmp.go[,directionCol]),]
+  tmp.go <- head(tmp.go, 50)
+  DT::datatable(
+    tmp.go, list(pageLength = 10, searching = TRUE), filter = "top",
+    rownames = FALSE
+  )
+}
 ```
 
 <!-- Cleaner code based on 08_SCDE_v8
@@ -49,250 +191,11 @@ for this analysis, the data is prepared identically to the
 * Genes in the data set are subsetted for those detected at sufficient levels
   within each time point,
 * Error models are computed on the subsetted data sets
-* Differentially expressed genes are called within the subsetted data sets
-  using a cutoff *P*-value less than **0.01**
-
-[Jump](#identifyClusters) to the section where this analysis of
-unsupervised clusters diverges from the differential expression
-between supervised experimental groups.
-
-## Remove spike-in features
-
-The analysis starts with a matrix of read counts,
-filtered based on gene and cell requirements.
-In this case, let us use the raw numbers of reads mapped to each endogenous
-feature, recast as `integer` type:
-
-```{r table_isSpike}
-table(isSpike(sce.norm))
-```
-
-```{r sce.endo}
-sce.endo <- sce.norm[!isSpike(sce.norm),]
-```
-
-```{r sce.endo_show, echo=FALSE}
-dim(sce.endo)
-```
-
-## Subset data by time point {.tabset}
-
-Considering the demonstrated impact on the `Time` factor on gene expression
-profiles, and the fact that differential expression will *not* be assessed
-between time points, individual time points will be processed separately for
-the remainder of this *scde* analysis.
-
-### 2h
-
-```{r sce.2h}
-sce.2h <- sce.endo[,sce.endo$Time == '2h']
-dim(sce.2h)
-```
-
-### 4h
-
-```{r sce.4h}
-sce.4h <- sce.endo[,sce.endo$Time == '4h']
-dim(sce.4h)
-```
-
-### 6h
-
-```{r sce.6h}
-sce.6h <- sce.endo[,sce.endo$Time == '6h']
-dim(sce.6h)
-```
-
-## Filter count matrices {.tabset}
-
-The analysis starts with a matrix of read counts,
-filtered based on gene and cell requirements.
-
-In this case, *for each time point*,
-let us retain only features detected with at least **10** counts in at least
-**10** cells of any of the five experimental groups,
-use the raw numbers of reads mapped to each endogenous
-feature, recast as `integer` type.
-
-Let us first define a function to apply the detection cutoff:
-
-```{r filterCounts}
-filterCounts <- function(m, counts = 10, cells = 10){
-  apply(m, 1, function(e){
-    return(sum(e >= counts) >= cells)
-  })
-}
-```
-
-### 2h
-
-```{r cleanCounts_2h}
-sg.2h <- droplevels(sce.2h$Group)
-keep.2h <- filterCounts(counts(sce.2h))
-cd.2h <- counts(sce.2h)[keep.2h,]; storage.mode(cd.2h) <- 'integer'
-```
-
-```{r cd.2h_show, echo=FALSE}
-dim(cd.2h)
-```
-
-### 4h
-
-```{r cleanCounts_4h}
-sg.4h <- droplevels(sce.4h$Group)
-keep.4h <- filterCounts(counts(sce.4h))
-cd.4h <- counts(sce.4h)[keep.4h,]; storage.mode(cd.4h) <- 'integer'
-```
-
-```{r cd.4h_show, echo=FALSE}
-dim(cd.4h)
-```
-
-### 6h
-
-```{r cleanCounts_6h}
-sg.6h <- droplevels(sce.6h$Group)
-keep.6h <- filterCounts(counts(sce.6h))
-cd.6h <- counts(sce.6h)[keep.6h,]; storage.mode(cd.6h) <- 'integer'
-```
-
-```{r cd.6h_show, echo=FALSE}
-dim(cd.6h)
-```
-
-# Error models {.tabset}
-
-Here, we fit the error models on which all subsequent calculations
-will rely. The fitting process relies on a subset of robust genes that are
-detected in multiple cross-cell comparisons. Here we supply the
-`groups` argument, so that the error models for each
-experimental group of cells are fit independently.
-If the groups argument is omitted, the models would be fit using a common set.
-
-## 2h
-
-```{r o.ifm.2h, eval=FALSE}
-o.ifm.2h <- scde.error.models(
-  counts = cd.2h, groups = sg.2h, n.cores = 4, verbose = 1
-)
-```
-
-```{r save_o.ifm.2h, echo=FALSE, eval=FALSE}
-saveRDS(o.ifm.2h, "rds/o.ifm.2h_v8.rds")
-write.csv(o.ifm.2h, "SCDE_v8/o.ifm.2h.csv")
-```
-
-Particularly poor cells may result in abnormal fits, most commonly showing
-negative `corr.a`, and should be removed.
-
-```{r validCells.2h}
-valid.cells <- o.ifm.2h$corr.a > 0; table(valid.cells)
-o.ifm.2h <- o.ifm.2h[valid.cells, ]
-dim(o.ifm.2h)
-```
-
-## 4h
-
-```{r o.ifm.4h, eval=FALSE}
-o.ifm.4h <- scde.error.models(
-  counts = cd.4h, groups = sg.4h, n.cores = 4, verbose = 1
-)
-```
-
-```{r save_o.ifm.4h, echo=FALSE, eval=FALSE}
-saveRDS(o.ifm.4h, "rds/o.ifm.4h_v8.rds")
-write.csv(o.ifm.4h, "SCDE_v8/o.ifm.4h.csv")
-```
-
-Particularly poor cells may result in abnormal fits, most commonly showing
-negative `corr.a`, and should be removed.
-
-```{r validCells.4h}
-valid.cells <- o.ifm.4h$corr.a > 0; table(valid.cells)
-o.ifm.4h <- o.ifm.4h[valid.cells, ]
-dim(o.ifm.4h)
-```
-
-## 6h
-
-```{r o.ifm.6h, eval=FALSE}
-o.ifm.6h <- scde.error.models(
-  counts = cd.6h, groups = sg.6h, n.cores = 4, verbose = 1
-)
-```
-
-```{r save_o.ifm.6h, echo=FALSE, eval=FALSE}
-saveRDS(o.ifm.6h, "rds/o.ifm.6h_v8.rds")
-write.csv(o.ifm.6h, "SCDE_v8/o.ifm.6h.csv")
-```
-
-Particularly poor cells may result in abnormal fits, most commonly showing
-negative `corr.a`, and should be removed.
-
-```{r validCells.6h}
-valid.cells <- o.ifm.6h$corr.a > 0; table(valid.cells)
-o.ifm.6h <- o.ifm.6h[valid.cells, ]
-dim(o.ifm.6h)
-```
-
-# Reorder counts to match error models {.tabset}
-
-The `scde.error.models` produces error models with cells reordered 
-by experimental group.
-For clarity, let us prepare a `SCESet` and count matrix that match this order:
-
-## 2h
-
-```{r sce.ifm.2h}
-sce.ifm.2h <- sce.2h[,rownames(o.ifm.2h)]
-cd.ifm.2h <- counts(sce.ifm.2h); storage.mode(cd.ifm.2h) <- "integer"
-```
-
-## 4h
-
-```{r sce.ifm.4h}
-sce.ifm.4h <- sce.4h[,rownames(o.ifm.4h)]
-cd.ifm.4h <- counts(sce.ifm.4h); storage.mode(cd.ifm.4h) <- "integer"
-```
-
-## 6h
-
-```{r sce.ifm.6h}
-sce.ifm.6h <- sce.6h[,rownames(o.ifm.6h)]
-cd.ifm.6h <- counts(sce.ifm.6h); storage.mode(cd.ifm.6h) <- "integer"
-```
-
-# Prior distribution for gene expression magnitudes {.tabset}
-
-Finally, we need to define an expression magnitude prior for the genes.
-Its main function, however, is to define a grid of expression magnitude values
-on which the numerical calculations will be carried out.
-
-## 2h
-
-```{r o.prior.2h}
-o.prior.2h <- scde.expression.prior(
-  models = o.ifm.2h, counts = cd.ifm.2h, show.plot = TRUE
-)
-```
-
-## 4h
-
-```{r o.prior.4h}
-o.prior.4h <- scde.expression.prior(
-  models = o.ifm.4h, counts = cd.ifm.4h, show.plot = TRUE
-)
-```
-
-## 6h
-
-```{r o.prior.6h}
-o.prior.6h <- scde.expression.prior(
-  models = o.ifm.6h, counts = cd.ifm.6h, show.plot = TRUE
-)
-```
 
 # Identify clusters {#identifyClusters .tabset}
+
+This analysis diverges from the differential expression between supervised experimental groups by the unsupervised identification of clusters within
+each time point.
 
 ## 2h
 
@@ -328,20 +231,16 @@ sce.endo$quickCluster.6h <- as.factor(qc.6h)
 saveRDS(sce.endo, "rds/13_sce.endo_clusters.rds")
 ```
 
-
 # tSNE {.tabset}
 
 Let us first define:
 
-* a set of colours used to indicate *cluster membership*,
-  *Infection* and *Status* phenotypes consistently in the upcoming sections:
+* a set of colours used to indicate *cluster membership* consistently
+  across the upcoming sections:
 
 ```{r col.sets}
-col.set3 <- brewer.pal(12, "Set3")
-col.cluster <- col.set3[c(1,12,3,4,9)]; names(col.cluster) <- c(1:3,0,"NA")
-col.status<-col.set3[c(3,5:6)];names(col.status)<-levels(sce.norm$Status)
-col.infection<-col.set3[c(3,8,10)];names(col.infection)<-levels(sce.norm$Infection)
-col.time<-col.set3[c(2,7:8)];names(col.time)<-levels(sce.norm$Time)
+col.cluster <- brewer.pal(12, "Set3")[c(1,12,3,4,9)]
+names(col.cluster) <- c(1:3,0,"NA")
 ```
 
 ## 2h
@@ -371,16 +270,21 @@ pander::pandoc.table(
 )
 ```
 
+Visualised as a bar plot:
+
 ```{r clusterBarplot.2h, echo=FALSE}
 tmpGG <- ggplot(pData(sce.ifm.2h)) +
   stat_count(aes(x = Treatment, fill = quickCluster)) +
-  facet_grid(~ quickCluster) +
+  facet_grid(~ ifelse(
+    quickCluster == 0, " No cluster" , gsub("^", "cluster ", quickCluster)
+  )) +
   scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
   theme_minimal() +
   theme(
     axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
   ) +
   labs(y = "Cells", fill = "Cluster")
+tmpGG
 ggsave("13_out/cluster_count_2h.pdf", width = 9, height = 4)
 ```
 
@@ -416,14 +320,17 @@ pander::pandoc.table(
 )
 ```
 
+Visualised as a bar plot:
+
 ```{r clusterBarplot.4h, echo=FALSE}
 tmpGG <- ggplot(pData(sce.ifm.4h)) +
-  stat_count(aes(x = Treatment, fill = quickCluster)) +
-  facet_grid(~ quickCluster) +
+  stat_count(aes(gsub("_", " ", Treatment), fill = quickCluster)) +
+  facet_grid(~ gsub("^", "Cluster ", quickCluster)) +
   scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
   theme_minimal() + theme(
     axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
-  ) + labs(y = "Cells", fill = "Cluster")
+  ) + labs(y = "Cells", fill = "Cluster", x = "")
+tmpGG
 ggsave("13_out/cluster_count_4h.pdf", width = 9, height = 4)
 ```
 
@@ -452,14 +359,17 @@ pander::pandoc.table(
 )
 ```
 
+Visualised as a bar plot:
+
 ```{r clusterBarplot.6h, echo=FALSE}
 tmpGG <- ggplot(pData(sce.ifm.6h)) +
   stat_count(aes(x = Treatment, fill = quickCluster)) +
-  facet_grid(~ quickCluster) +
+  facet_grid(~ gsub("^", "cluster ", quickCluster)) +
   scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
   theme_minimal() + theme(
     axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
   ) + labs(y = "Cells", fill = "Cluster")
+tmpGG
 ggsave("13_out/cluster_count_6h.pdf", width = 9, height = 4)
 ```
 
@@ -467,127 +377,14 @@ ggsave("13_out/cluster_count_6h.pdf", width = 9, height = 4)
 
 ## Setup
 
-Let us first define:
-
-* a list to store the result tables returned by *scde*
+Let us first define a list to store the result tables returned by *scde*:
 
 ```{r scde.res_init, eval=FALSE}
 scde.res <- list()
 ```
 
-* a function used to convert the Z-score computed by *scde* to a empirical
-P-value ([reference](https://www.biostars.org/p/17227/)):
-
-```{r convert.z.score}
-convert.z.score <- function(x, one.sided = NULL) {
-  z <- x$Z
-  if(is.null(one.sided)) {
-    pval = pnorm(-abs(z));
-    pval = 2 * pval
-  } else if(one.sided=="-") {
-    pval = pnorm(z);
-  } else {
-    pval = pnorm(-z);
-  }
-    x <- cbind(
-      x,
-      p.value = pval
-  )
-  return(x);
-}   
-```
-
-* a function used to annotate the tables of results returned by *scde*:
-
-```{r addGENENAME}
-addGENENAME <- function(x){
-  x <- cbind(
-    GENENAME = with(fData(sce.endo), gene_name[match(rownames(x), gene_id)]),
-    x
-  )
-  return(x)
-}
-```
-
-* a function to order results by decreasing absolute Z-score:
-
-```{r orderResults}
-orderResults <- function(x){
-  x <- x[with(x, order(abs(Z), decreasing = TRUE)),]
-  return(x)
-}
-```
-
-* a function to visualise *scran*-normalised gene expression for a given
-gene:
-
-Let us also define a function that displays normalised (*scran*) expression
-data in each group:
-
-```{r normExprsByName}
-normExprsById <- function(geneId){
-  geneName <- subset(fData(sce.endo),gene_id==geneId,"gene_name",drop=TRUE)
-  gdata <- data.frame(
-    norm_exprs = norm_exprs(sce.endo)[geneId,],
-    pData(sce.endo)[,c("Infection","Status","Time")],
-    row.names = sampleNames(sce.endo)
-  )
-  ggplot(gdata, aes(Infection, norm_exprs)) + 
-    geom_violin() + geom_jitter(width = 0.1) +
-    facet_grid(Time ~ Status) +
-    ggtitle(sprintf("%s - %s", geneId, geneName))
-}
-```
-
-* functions to visualise *scde* estimate of expression and
-  differential expression
-  for a given gene (identifier)
-  in a given contrast of clusters
-  within a specific time point:
-  
-```{r single.scde}
-single.scde.4h <- function(gene, groupTarget, groupRef){
-  sg.test <- factor(sce.ifm.4h$quickCluster, levels = c(groupTarget, groupRef))
-  scde.test.gene.expression.difference(
-    gene, o.ifm.4h, cd.ifm.4h, o.prior.4h, sg.test,
-    n.cores = 4, verbose = 1
-  )
-}
-single.scde.6h <- function(gene, groupTarget, groupRef){
-  sg.test <- factor(sce.ifm.6h$quickCluster, levels = c(groupTarget, groupRef))
-  scde.test.gene.expression.difference(
-    gene, o.ifm.6h, cd.ifm.6h, o.prior.6h, sg.test,
-    n.cores = 4, verbose = 1
-  )
-}
-```
-
-* various significance levels:
-
-```{r volcano.sig}
-sig.levels <- c(0.05, 0.01)
-volcano.sig <- data.frame(
-  P = sig.levels,
-  level = as.character(sig.levels)
-)
-```
-
-* a function to visualise *scde* differential expression statistics, and
-  return a table with those statistics augmented by a an empirical *P* value
-  computed from the *Z* score returned by *scde*:
-
-```{r volcano.mle}
-volcano.mle <- function(x, sub = NULL){
-  varName <- deparse(substitute(x))
-  x <- convert.z.score(x)
-  gg <- ggplot(x, aes(mle, -log10(p.value))) +
-    geom_point(aes(colour = (cZ != 0))) +
-    geom_hline(aes(yintercept=-log10(p.value),linetype=level),volcano.sig) +
-    ggtitle(varName, sub)
-  print(gg)
-  return(x)
-}
-```
+In addition, note that several functions defined in the first
+[scde section](08_SCDE_v8.html#DE) will be re-used here.
 
 ## Contrasts {.tabset}
 
@@ -649,8 +446,9 @@ ggplot(v.data) +
 ```
 
 ```{r fig1_volcano_4h_2v1, echo=FALSE, eval=FALSE}
-geneData <- subset(
-  mutate(v.data,gene_name = fData(sce.ifm.4h)[rownames(v.data),"gene_name"]),
+geneData <- subset(dplyr::mutate(
+    v.data, gene_name = fData(sce.ifm.4h)[rownames(v.data),"gene_name"]
+  ),
   gene_name %in% c(
     "NFKB1","IRF8","STAT5A","CEBPA","CD1A","CD1C","CD1E","CLECL1", # 8
     "IL1B","IL1A","EBI3","CD40","CD83", # 5
@@ -701,8 +499,9 @@ ggplot(v.data) +
 ```
 
 ```{r fig1_volcano_6h_2v1, echo=FALSE, eval=FALSE}
-geneData <- subset(
-  mutate(v.data,gene_name = fData(sce.ifm.4h)[rownames(v.data),"gene_name"]),
+geneData <- subset(dplyr::mutate(
+  v.data,gene_name = fData(sce.ifm.4h)[rownames(v.data),"gene_name"]
+  ),
   gene_name %in% c(
     "CTSB","CTSC","CTSD","CTSL", # 4
     "DEFB1","DUOX","ATF3", # 3
@@ -838,33 +637,13 @@ for (contrastName in names(goseq.res)){
 
 ### Setup
 
-Let us define a function to display the **50** most significantly
-`"over"`- or `"under"`-represented GO categories
-annotated to at least **10** genes (in the entire genome):
-
-```{r showTopGO}
-showTopGO <- function(x, direction = "over", cutoff = 0.05, min = 10){
-  goCols <- c(
-  "category","over_represented_pvalue","under_represented_pvalue",
-  "numDEInCat","numInCat","ontology","term")
-  directionCol <- sprintf("%s_represented_pvalue", direction)
-  tmp.go <- x[,goCols]
-  tmp.sig <- (tmp.go[,directionCol] < cutoff); tmp.go <- tmp.go[tmp.sig,]
-  tmp.min <- (tmp.go[,"numInCat"] >= min); tmp.go <- tmp.go[tmp.min,]
-  tmp.go <- tmp.go[order(tmp.go[,directionCol]),]
-  tmp.go <- head(tmp.go, 50)
-  DT::datatable(
-    tmp.go, list(pageLength = 10, searching = TRUE), filter = "top",
-    rownames = FALSE
-  )
-}
-```
+Again, let us re-use here a function defined in the first
+[scde section](08_SCDE_v8.html#GO):
 
 ```{r, echo=FALSE}
 write.csv(goseq.res[[1]], "13_out/4h_cluster2-1.csv")
 write.csv(goseq.res[[2]], "13_out/6h_cluster2-1.csv")
 ```
-
 
 ### Over-represented {.tabset}
 
@@ -882,16 +661,16 @@ showTopGO(goseq.res[["6h_cluster2-cluster1"]])
 
 ### Under-represented {.tabset}
 
-#### `r names(goseq.res)[1]`
+#### 4h_cluster2-cluster1
 
 ```{r goseq.under_1, echo=FALSE}
-showTopGO(goseq.res[[1]], "under")
+showTopGO(goseq.res[["4h_cluster2-cluster1"]], "under")
 ```
 
-#### `r names(goseq.res)[2]`
+#### 6h_cluster2-cluster1
 
 ```{r goseq.under_2, echo=FALSE}
-showTopGO(goseq.res[[2]], "under")
+showTopGO(goseq.res[["6h_cluster2-cluster1"]], "under")
 ```
 
 # Comparison of fold-change between clusters and experimental groups {.tabset}
@@ -899,7 +678,8 @@ showTopGO(goseq.res[[2]], "under")
 Let us first define:
 
 * functions that displays as violins the expression level of a given
-  gene in each group at 4h and 6h, respectively (only 4h shown)
+  gene in each group at 4h and 6h, respectively
+  (code shown for 4h time point only)
 
 ```{r normExprsByName.4h}
 normExprsByName.4h <- function(geneId){
@@ -912,12 +692,13 @@ normExprsByName.4h <- function(geneId){
   gdata$Infection <- paste("STM", gdata$Infection)
   geneName <- subset(fData(sc),gene_id==geneId,"gene_name",drop=TRUE)
   ggplot(gdata, aes(Status, norm_exprs, fill = Status)) + 
-    geom_violin(alpha = 0.25) +
+    geom_violin(alpha = 0.75) +
     geom_jitter(aes(colour = quickCluster), width = 0.25, size = 3) +
     facet_grid(~Infection) +
     ggtitle(sprintf("%s - %s", geneName, geneId)) +
     scale_y_continuous(limits=range(norm_exprs(sc))) +
     scale_colour_manual(values = col.cluster) +
+    scale_fill_manual(values = col.status) +
     theme_minimal()
 }
 ```
@@ -933,11 +714,13 @@ normExprsByName.6h <- function(geneId){
   gdata$Infection <- paste("STM", gdata$Infection)
   geneName <- subset(fData(sc),gene_id==geneId,"gene_name",drop=TRUE)
   ggplot(gdata, aes(Status, norm_exprs, fill = Status)) + 
-    geom_violin(alpha = 0.25) +
+    geom_violin(alpha = 0.75) +
     geom_jitter(aes(colour = quickCluster), width = 0.25, size = 3) +
     facet_grid(~Infection) + ggtitle(sprintf("%s - %s", geneName, geneId)) +
     scale_y_continuous(limits=range(norm_exprs(sc))) +
-    scale_colour_manual(values = col.cluster) + theme_minimal()
+    scale_colour_manual(values = col.cluster) +
+    scale_fill_manual(values = col.status) +
+    theme_minimal()
 }
 ```
 
@@ -952,11 +735,13 @@ normExprsByName.4h.Status <- function(geneId){ # facet by status
   gdata$Infection <- paste("STM", gdata$Infection)
   geneName <- subset(fData(sc),gene_id==geneId,"gene_name",drop=TRUE)
   ggplot(gdata, aes(Infection, norm_exprs, fill = Infection)) + 
-    geom_violin(alpha = 0.25) +
+    geom_violin(alpha = 0.75) +
     geom_jitter(aes(colour = quickCluster), width = 0.25, size = 3) +
     facet_grid(~Status) + ggtitle(sprintf("%s - %s", geneName, geneId)) +
     scale_y_continuous(limits=range(norm_exprs(sc))) +
-    scale_colour_manual(values = col.cluster) + theme_minimal()
+    scale_colour_manual(values = col.cluster) +
+    scale_fill_manual(values = col.status) +
+    theme_minimal()
 }
 ```
 
@@ -971,19 +756,21 @@ normExprsByName.6h.Status <- function(geneId){ # facet by status
   gdata$Infection <- paste("STM", gdata$Infection)
   geneName <- subset(fData(sc),gene_id==geneId,"gene_name",drop=TRUE)
   ggplot(gdata, aes(Infection, norm_exprs, fill = Infection)) + 
-    geom_violin(alpha = 0.25) +
+    geom_violin(alpha = 0.75) +
     geom_jitter(aes(colour = quickCluster), width = 0.25, size = 3) +
     facet_grid(~Status) + ggtitle(sprintf("%s - %s", geneName, geneId)) +
     scale_y_continuous(limits=range(norm_exprs(sc))) +
-    scale_colour_manual(values = col.cluster) + theme_minimal()
+    scale_colour_manual(values = col.cluster) +
+    scale_fill_manual(values = col.status) +
+    theme_minimal()
 }
 ```
 
 ```{r mleRange2, include=FALSE}
-scde.4h.D23580 <- scde.groupRes[["4h_D23580_infected-4h_D23580_exposed"]]
-scde.4h.LT2 <- scde.groupRes[["4h_LT2_infected-4h_LT2_exposed"]]
-scde.6h.D23580 <- scde.groupRes[["6h_D23580_infected-6h_D23580_exposed"]]
-scde.6h.LT2 <- scde.groupRes[["6h_LT2_infected-6h_LT2_exposed"]]
+scde.4h.D23580 <- scde.groupRes[["4h_STM-D23580_Violet +-4h_STM-D23580_Exposed"]]
+scde.4h.LT2 <- scde.groupRes[["4h_STM-LT2_Violet +-4h_STM-LT2_Exposed"]]
+scde.6h.D23580 <- scde.groupRes[["6h_STM-D23580_Violet +-6h_STM-D23580_Exposed"]]
+scde.6h.LT2 <- scde.groupRes[["6h_STM-LT2_Violet +-6h_STM-LT2_Exposed"]]
 mleRange2 <-
   max(abs(do.call("c", lapply(
     append(
@@ -992,7 +779,6 @@ mleRange2 <-
     function(x){return(x$mle)}
   )))) * c(-1,1)
 ```
-
 
 ## 4h {.tabset}
 
@@ -1327,7 +1113,7 @@ geneNames <- c(
   "DNAJC13","BLOC1S3")
 geneIds <- with(fData(sce.endo), gene_id[match(geneNames, gene_name)])
 stopifnot(nrow(geneIds) == length(geneNames))
-norm.mat <-norm_exprs(sce.ifm.6h)[geneIds$gene_id,]
+norm.mat <- norm_exprs(sce.ifm.6h)[geneIds,]
 norm.d23exp <- norm.mat[,sce.ifm.6h$Treatment == "STM-D23580_Exposed"]
 norm.d23inf <- norm.mat[,sce.ifm.6h$Treatment == "STM-D23580_Violet +"]
 norm.lt2exp <- norm.mat[,sce.ifm.6h$Treatment == "STM-LT2_Exposed"]
@@ -1388,7 +1174,7 @@ geneNames <- c(
   "JAK1","JAK3","STAT3","MARCH1")
 geneIds <- with(fData(sce.endo), gene_id[match(geneNames, gene_name)])
 stopifnot(nrow(geneIds) == length(geneNames))
-norm.mat <-norm_exprs(sce.ifm.6h)[geneIds$gene_id,]
+norm.mat <-norm_exprs(sce.ifm.6h)[geneIds,]
 norm.d23exp <- norm.mat[,sce.ifm.6h$Treatment == "STM-D23580_Exposed"]
 norm.d23inf <- norm.mat[,sce.ifm.6h$Treatment == "STM-D23580_Violet +"]
 norm.lt2exp <- norm.mat[,sce.ifm.6h$Treatment == "STM-LT2_Exposed"]
@@ -1596,8 +1382,6 @@ draw(hm + ra)
 Up-regulated in cluster 2 relative to cluster 1 at the 6h time point:
 
 ```{r single.scde.6h_D23580_IL6, echo=FALSE}
-scde.id <- mapIds(EnsDb.Hsapiens.v79,"IL6","GENEID","GENENAME")
+scde.id <- with(fData(sce.endo), gene_id[match("IL6", gene_name)])
 single.scde.6h(scde.id, 2, 1)
 ```
-
-
