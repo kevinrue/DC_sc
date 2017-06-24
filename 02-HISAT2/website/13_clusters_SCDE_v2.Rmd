@@ -353,8 +353,14 @@ tmpGG <- data.frame(
   Treatment = gsub("_", " ", sce.endo$Treatment)
 )
 ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
-  geom_point() + theme_bw() + labs(x="Dimension 1",y="Dimension 2",title="2h") +
+  geom_point() +
+  theme_bw() +
+  labs(x="Dimension 1",y="Dimension 2",title="2h") +
   scale_color_manual(values = col.cluster, na.value = col.cluster["NA"])
+```
+
+```{r reducedDimension_pdf.2h, include=FALSE}
+ggsave("13_out/tSNE_clusters_2h.pdf", width = 6, height = 4)
 ```
 
 Cross-tabulated counts of cells by cluster and experimental treatment:
@@ -370,9 +376,11 @@ tmpGG <- ggplot(pData(sce.ifm.2h)) +
   stat_count(aes(x = Treatment, fill = quickCluster)) +
   facet_grid(~ quickCluster) +
   scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
-  theme_minimal() + theme(
+  theme_minimal() +
+  theme(
     axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
-  ) + labs(y = "Cells", fill = "Cluster")
+  ) +
+  labs(y = "Cells", fill = "Cluster")
 ggsave("13_out/cluster_count_2h.pdf", width = 9, height = 4)
 ```
 
@@ -388,9 +396,16 @@ tmpGG <- data.frame(
   )
 )
 ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
-  geom_point() + theme_bw() + labs(x="Dimension 1",y="Dimension 2",title="4h") +
+  geom_point() +
+  theme_bw() +
+  # theme(legend.position = "bottom", legend.box = "vertical") +
+  labs(x="Dimension 1",y="Dimension 2",title="4h") +
   scale_color_manual(values = col.cluster, na.value = col.cluster["NA"]) #+
-  #geom_point(aes(colour = "red", size = as.numeric(label)), colour = "red", alpha = 0.25)
+  #geom_point(aes(colour = "red", size = as.numeric(label)), colour = "red", alpha = 0.25) # highlight
+```
+
+```{r reducedDimension_pdf.4h, include=FALSE}
+ggsave("13_out/tSNE_clusters_4h.pdf", width = 6, height = 4)
 ```
 
 Cross-tabulated counts of cells by cluster and experimental treatment:
@@ -423,6 +438,10 @@ tmpGG <- data.frame(
 ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
   geom_point() + theme_bw() + labs(x="Dimension 1",y="Dimension 2",title="6h") +
   scale_color_manual(values = col.cluster, na.value = col.cluster["NA"])
+```
+
+```{r reducedDimension_pdf.6h, include=FALSE}
+ggsave("13_out/tSNE_clusters_6h.pdf", width = 6, height = 4)
 ```
 
 Cross-tabulated counts of cells by cluster and experimental treatment:
@@ -768,8 +787,7 @@ goseq.res <- list()
 * the gene length information reported by *featureCounts*:
 
 ```{r geneLengths}
-geneLengths <-
-  read.delim("counts/WTCHG_305264_201201", row.names = 1)[,1, drop = FALSE]
+geneLengths <- fData(sce.endo)[,"width", drop = FALSE]
 ```
 
 Let us identify over- and under-represented GO categories in DE genes
@@ -960,7 +978,6 @@ normExprsByName.6h.Status <- function(geneId){ # facet by status
     scale_colour_manual(values = col.cluster) + theme_minimal()
 }
 ```
-
 
 ```{r mleRange2, include=FALSE}
 scde.4h.D23580 <- scde.groupRes[["4h_D23580_infected-4h_D23580_exposed"]]
