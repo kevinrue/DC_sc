@@ -13,11 +13,18 @@ library(scater)
 library(edgeR)
 library(ggplot2)
 library(SummarizedExperiment)
+library(RColorBrewer)
 sce.pass <- readRDS("rds/sce.pass.rds")
 sce.bulk <- readRDS("rds/sce.bulk.rds")
 mixC <- readRDS("rds/mixC.rds")
 ERCCs <- grep("^ERCC-[[:digit:]]+$", featureNames(sce.pass), value = TRUE)
 MTs <- subset(fData(sce.pass), seqnames== "MT", "gene_id", drop = TRUE)
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,2,4)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.pass$Time)[1:3]
+names(col.infection) <- levels(sce.pass$Infection)[1:3]
+names(col.status) <- levels(sce.pass$Status)
 ```
 
 # Preliminary notes
@@ -276,6 +283,9 @@ detectedCounts <- data.frame(
   Group = levels(avgCPMbyGroup$Group), y = 1E-2,
   Count = with(avgCPMbyGroup, tapply(AvgCPM, Group, function(x){sum(x>0)}))
 )
+detectedCounts$Time <- gsub("(.*)_.*_.*", "\\1", detectedCounts$Group)
+detectedCounts$Infection <- gsub(".*_(.*)_.*", "\\1", detectedCounts$Group)
+detectedCounts$Status <- gsub(".*_.*_(.*)", "\\1", detectedCounts$Group)
 ```
 
 The following figure displays the distribution of average
@@ -284,14 +294,20 @@ indicating for each of them the count of non-zero values in each
 experimental groups:
 
 ```{r violin_avgCPM, echo=FALSE, warning=FALSE}
-ggplot(avgCPMbyGroup, aes(Group, AvgCPM)) +
-  geom_violin(draw_quantiles = seq(0.25, 0.75, 0.25)) +
-  geom_label(aes(Group, y, label = Count), data = detectedCounts, size = 2) +
-  scale_y_log10(limits = c(1E-2, 1E5)) + labs(y = "Average CPM") +
-  theme_minimal() + theme(
-    axis.text.x = element_text(angle = 90, vjust = 0.5),
-    panel.grid.major.x = element_blank()
-  )
+ggplot(avgCPMbyGroup, aes(Time, AvgCPM)) +
+  geom_violin(
+    aes(fill = Infection, alpha = Status),
+    draw_quantiles = seq(0.25, 0.75, 0.25)
+    ) +
+  facet_grid(~ Infection + Status) +
+  geom_label(aes(Time, y, label = Count), data = detectedCounts, size = 2) +
+  scale_y_log10(limits = c(1E-2, 1E5)) +
+  scale_fill_manual(values = col.infection) +
+  scale_alpha_discrete(
+    breaks = levels(sce.pass$Status),
+    range = seq(0.2, 0.8, 0.3)) +
+  labs(y = "Average CPM") + guides(alpha = "none") +
+  theme_minimal() + theme(panel.grid.major.x = element_blank())
 ```
 
 # Selection of detected features {#selectFeatures}
@@ -367,17 +383,23 @@ the count of groups in which each feature passed the above detection cut-offs:
 
 ```{r detectedCPMandProp_bar, echo=FALSE}
 countPerGroup <- as.data.frame(with(pData(sce.pass), table(Time, Treatment)))
+detectedCPMandProp$Time <- gsub("(.*)_.*_.*", "\\1", detectedCPMandProp$Group)
+detectedCPMandProp$Infection<-gsub(".*_(.*)_.*","\\1",detectedCPMandProp$Group)
+detectedCPMandProp$Status <- gsub(".*_.*_(.*)", "\\1", detectedCPMandProp$Group)
 ggplot(detectedCPMandProp) +
-  geom_bar(aes(Treatment, fill = as.factor(Groups))) +
-  geom_label(aes(Treatment, 0, label = Freq), countPerGroup, size = 2) +
+  geom_bar(aes(gsub("_", " ", Treatment), fill = as.factor(Groups))) +
+  geom_label(
+    aes(gsub("_", " ", Treatment), 0, label = Freq), countPerGroup, size = 2
+  ) +
   facet_grid(~ Time) +
   theme_minimal() +
+  labs(y = "Features", x = "Treatment") +
   theme(axis.text.x = element_text(angle = 90, vjust = 0.5, hjust = 1)) +
-  labs(y = "Features") + scale_y_continuous(limits = c(0, 6E3)) +
+  scale_y_continuous(limits = c(0, 6E3)) +
   guides(fill = guide_legend(title = "25% group\n>10 CPM"))
 ```
 
-```{r detectedCPMandProp_pdf, echo=FALSE}
+```{r detectedCPMandProp_pdf, include=FALSE}
 ggsave("04_out/countFeatures_10CPM_25percent_byGroup.pdf", width = 6, height = 6)
 ```
 
