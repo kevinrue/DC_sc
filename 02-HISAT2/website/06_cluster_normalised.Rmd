@@ -883,14 +883,8 @@ draw(ht.6h)
 ```
 
 ```{r heatmap.6h_pdf, include=FALSE}
-pdf("06_out/heatmap_pairwise_6h.pdf", height = 5, width = 5)
+pdf("06_out/heatmap_pairwise_6h.pdf", height = 5, width = 5) # height = 4, width = 6 ?
 draw(ht.6h, show_heatmap_legend = FALSE)
-dev.off()
-```
-
-```{r heatmap.6h_pdf, include=FALSE}
-pdf("06_out/heatmap_pairwise_6h_legend.pdf", height = 4, width = 6)
-draw(ht.6h)
 dev.off()
 ```
 
