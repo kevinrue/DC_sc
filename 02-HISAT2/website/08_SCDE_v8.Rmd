@@ -16,18 +16,25 @@ library(ensembldb)
 library(dplyr)
 library(goseq)
 library(ggrepel)
+library(RColorBrewer)
 sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 scde.res <- readRDS("rds/scde.res_v8.rds")
 o.ifm.2h <- readRDS("rds/o.ifm.2h_v8.rds")
 o.ifm.4h <- readRDS("rds/o.ifm.4h_v8.rds")
 o.ifm.6h <- readRDS("rds/o.ifm.6h_v8.rds")
 goseq.res <- readRDS("rds/goseq.res_v8.rds")
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,2,4)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.norm$Time)[1:3]
+names(col.infection) <- levels(sce.norm$Infection)
+names(col.status) <- levels(sce.norm$Status)
 ```
 
 <!-- Cleaner code for v2
 Remove ERCC spike-ins
 !! Split cells by time
-!! Retain genes detected at each time (10 counts, 5 cells, 1 group)
+!! Retain genes detected at each time (10 counts, 10 cells)
 Error model: {cells @ time; genes @ time}
 Prior @ time
 DE: {group on all cells with NA; no batch correction; P-value < 0.01}
@@ -271,7 +278,7 @@ o.prior.6h <- scde.expression.prior(
 )
 ```
 
-# Differential expression
+# Differential expression {#DE}
 
 ## Setup
 
@@ -329,9 +336,6 @@ orderResults <- function(x){
 * a function to visualise *scran*-normalised gene expression for a given
 gene:
 
-Let us also define a function that displays normalised (*scran*) expression
-data in each group:
-
 ```{r normExprsByName}
 normExprsById <- function(geneId){
   geneName <- subset(fData(sce.endo),gene_id==geneId,"gene_name",drop=TRUE)
@@ -341,9 +345,17 @@ normExprsById <- function(geneId){
     row.names = sampleNames(sce.endo)
   )
   ggplot(gdata, aes(Infection, norm_exprs)) + 
-    geom_violin() + geom_jitter(width = 0.1) +
+    geom_violin(
+      aes(fill = Infection, alpha = Status),
+      draw_quantiles = c(0.25, 0.5, 0.75)
+    ) +
+    geom_jitter(width = 0.1) +
     facet_grid(Time ~ Status) +
-    ggtitle(sprintf("%s - %s", geneId, geneName)) + theme_minimal()
+    scale_fill_manual(values = col.infection) +
+    ggtitle(sprintf("%s - %s", geneId, geneName)) +
+    theme_minimal() +
+    labs(y = "Normalised expression") +
+    guides(alpha = "none")
 }
 ```
 
@@ -351,9 +363,9 @@ normExprsById <- function(geneId){
   differential expression
   for a given gene (identifier)
   in a given contrast
-  within a specific time point:
+  within a specific time point (code shown for 2h time point only):
   
-```{r single.scde}
+```{r single.scde.2h}
 single.scde.2h <- function(gene, groupTarget, groupRef){
   gT <- sprintf("2h_%s", groupTarget); gR <- sprintf("2h_%s", groupRef)
   sg.test <- factor(pData(sce.ifm.2h)[,"Group"], levels = c(gT, gR))
@@ -362,6 +374,9 @@ single.scde.2h <- function(gene, groupTarget, groupRef){
     n.cores = 4, verbose = 1
   )
 }
+```
+
+```{r single.scde.4h6h, echo=FALSE}
 single.scde.4h <- function(gene, groupTarget, groupRef){
   gT <- sprintf("4h_%s", groupTarget); gR <- sprintf("4h_%s", groupRef)
   sg.test <- factor(pData(sce.ifm.4h)[,"Group"], levels = c(gT, gR))
@@ -572,7 +587,7 @@ sub.data <- subset(
   v.data,
   Contrast == "STM-D23580 Violet +-STM-D23580 Exposed" & Time == "4h"
 )
-geneData <- subset(mutate(
+geneData <- subset(dplyr::mutate(
   sub.data,
   gene_name = fData(sce.ifm.4h)[as.character(sub.data$Gene),"gene_name"]),
   gene_name %in% c(
@@ -615,7 +630,7 @@ sub.data <- subset(
   v.data,
   Contrast == "STM-LT2 Violet +-STM-LT2 Exposed" & Time == "4h"
 )
-geneData <- subset(mutate(
+geneData <- subset(dplyr::mutate(
   sub.data,
   gene_name = fData(sce.ifm.4h)[as.character(sub.data$Gene),"gene_name"]),
   gene_name %in% c(
@@ -702,7 +717,7 @@ pander::pandoc.table(v.data)
 ```
 
 
-# Gene ontology
+# Gene ontology {#GO}
 
 Let us use the [goseq](http://bioconductor.org/packages/goseq) package to
 identify the most enriched gene ontologies among the various lists of DE genes.
@@ -1209,7 +1224,7 @@ normExprsById("ENSG00000129472")
 single.scde.2h("ENSG00000129472", "STM-D23580_Violet +", "STM-LT2_Violet +")
 ```
 
-## RAB29
+## RAB29 {.tabset}
 
 Gene of interest: *P*-value ~ 0.025 between D23580 and LT2 infected at 6h:
 
