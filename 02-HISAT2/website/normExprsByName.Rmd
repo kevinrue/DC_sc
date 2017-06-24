@@ -19,7 +19,7 @@ sce.endo <- readRDS("rds/13_sce.endo_clusters.rds")
 Let us create for each cell, a new `phenoData` field that indicates which
 clustes of which time point it belongs to:
 
-```{r}
+```{r qc.time}
 qc.time <- NA
 qc.time[sce.endo$Time == "2h"] <- 
   paste("2h", sce.endo$quickCluster.2h[sce.endo$Time == "2h"])
@@ -51,7 +51,7 @@ normExprsByName.basic <- function(geneName = 'RAB29'){
   )
   ggplot(gdata, aes(Infection, norm_exprs)) + 
     geom_violin() +
-    geom_jitter(, width = 0.1) +
+    geom_jitter(width = 0.1) +
     facet_grid(Time ~ Status) +
     ggtitle(sprintf("%s - %s", geneName, geneId))
 }
@@ -127,7 +127,7 @@ ggsave(sprintf("20170525_lab-meeting/%s.pdf", genename), width = 5, height = 5)
 
 ## HLA-DRA
 
-```{r}
+```{r HLA-DRA}
 genename <- "HLA-DRA"
 normExprsByName.basic(genename) + theme_minimal()
 ggsave(sprintf("20170525_lab-meeting/%s.pdf", genename), width = 5, height = 5)
@@ -135,7 +135,7 @@ ggsave(sprintf("20170525_lab-meeting/%s.pdf", genename), width = 5, height = 5)
 
 ## HLA-DRB1
 
-```{r}
+```{r HLA-DRB1}
 genename <- "HLA-DRB1"
 normExprsByName.basic(genename) + theme_minimal()
 ggsave(sprintf("20170525_lab-meeting/%s.pdf", genename), width = 5, height = 5)
@@ -143,7 +143,7 @@ ggsave(sprintf("20170525_lab-meeting/%s.pdf", genename), width = 5, height = 5)
 
 ## HLA-DRB5
 
-```{r}
+```{r HLA-DRB5}
 genename <- "HLA-DRB5"
 normExprsByName.basic(genename) + theme_minimal()
 ggsave(sprintf("20170525_lab-meeting/%s.pdf", genename), width = 5, height = 5)
@@ -151,7 +151,7 @@ ggsave(sprintf("20170525_lab-meeting/%s.pdf", genename), width = 5, height = 5)
 
 ## HLA-DRB6
 
-```{r}
+```{r HLA-DRB6}
 genename <- "HLA-DRB6"
 normExprsByName.basic(genename) + theme_minimal()
 ggsave(sprintf("20170525_lab-meeting/%s.pdf", genename), width = 5, height = 5)
