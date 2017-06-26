@@ -435,19 +435,25 @@ mleRange <-
 ## 4h (2 vs 1)
 
 ```{r volcano_4h_2v1, echo=FALSE}
-v.data <- scde.res[["4h_cluster2-cluster1"]][,c("mle", "Z", "cZ")]
-v.data <- convert.z.score(v.data)
-ggplot(v.data) +
+v.data.4h <- scde.res[["4h_cluster2-cluster1"]][,c("mle", "Z", "cZ")]
+v.data.4h <- convert.z.score(v.data.4h)
+v.data.6h <- scde.res[["6h_cluster2-cluster1"]][,c("mle", "Z", "cZ")]
+v.data.6h <- convert.z.score(v.data.6h)
+v.P.range <- rev(-log10(range(c(v.data.4h$p.value, v.data.6h$p.value))))
+ggplot(v.data.4h) +
   geom_point(aes(mle, -log10(p.value), colour = (cZ != 0)), size = 0.5) +
   geom_hline(
     aes(yintercept = -log10(P), linetype = level), data = volcano.sig
-  ) + scale_x_continuous(limits = mleRange) + theme_bw() +
+  ) +
+  scale_x_continuous(limits = mleRange) +
+  scale_y_continuous(limits = v.P.range) +
+  theme_bw() +
   ggtitle("4h: cluster 2 - cluster 1")
 ```
 
 ```{r fig1_volcano_4h_2v1, echo=FALSE, eval=FALSE}
-geneData <- subset(dplyr::mutate(
-    v.data, gene_name = fData(sce.ifm.4h)[rownames(v.data),"gene_name"]
+geneData.4h <- subset(dplyr::mutate(
+    v.data.4h, gene_name = fData(sce.ifm.4h)[rownames(v.data.4h),"gene_name"]
   ),
   gene_name %in% c(
     "NFKB1","IRF8","STAT5A","CEBPA","CD1A","CD1C","CD1E","CLECL1", # 8
@@ -455,32 +461,36 @@ geneData <- subset(dplyr::mutate(
     "CTSS","CTSD","CTSL","GRN","APOE","APOC1","ACOT2", # 7
     "S100A9","STAB1","LRP1","PSAP") # 4
 )
-ggplot(v.data) +
+ggplot(v.data.4h) +
   geom_point(aes(Z, -log10(p.value), colour = p.value < 0.01), size = 0.5) +
   geom_hline(yintercept = -log10(0.01), linetype = "dashed", alpha = 0.25) +
   geom_text_repel(
-    aes(Z, -log10(p.value), label = gene_name), geneData,
+    aes(Z, -log10(p.value), label = gene_name), geneData.4h,
     size = 2, min.segment.length = unit(0, "mm"), alpha = 0.75,
-    nudge_x = ifelse(geneData$Z > 0, 1, -1), nudge_y = 0, segment.size = 0.2,
+    nudge_x = ifelse(geneData.4h$Z > 0, 1, -1), nudge_y = 0, segment.size = 0.2,
     fontface = "bold"
   ) +
-  scale_x_continuous(limits = mleRange) + theme_bw() +
+  scale_x_continuous(limits = mleRange) +
+  scale_y_continuous(limits = v.P.range) +
+  theme_bw() +
   ggtitle("4h: cluster 2 - cluster 1")
 ggsave("13_out/4h_volcano_Vogel.pdf", height = 5, width = 6.5)
 ```
 
 ```{r fig2_volcano_4h_2v1, echo=FALSE, eval=FALSE}
-ggplot(v.data) +
+ggplot(v.data.4h) +
   geom_point(
     aes(mle, -log10(p.value), colour = p.value < 0.01),
     size = 0.5, alpha = 0.25
   ) +
   geom_hline(yintercept = -log10(0.01), linetype = "dashed") +
   geom_text_repel(
-    aes(mle, -log10(p.value), label = gene_name),
-    geneData, size = 2, min.segment.length = unit(0, "mm"), fontface = "bold"
+    aes(mle, -log10(p.value), label = gene_name), geneData.4h,
+    size = 2, min.segment.length = unit(0, "mm"), fontface = "bold"
   ) +
-  scale_x_continuous(limits = mleRange) + theme_bw() +
+  scale_x_continuous(limits = mleRange) +
+  scale_y_continuous(limits = v.P.range) +
+  theme_bw() +
   ggtitle("4h: cluster 2 - cluster 1")
 ggsave("13_out/4h_volcano_Shalek.pdf", height = 5, width = 6.5)
 ```
@@ -488,19 +498,20 @@ ggsave("13_out/4h_volcano_Shalek.pdf", height = 5, width = 6.5)
 ## 6h (2 vs 1)
 
 ```{r volcano_6h_2v1, echo=FALSE}
-v.data <- scde.res[["6h_cluster2-cluster1"]][,c("mle", "Z", "cZ")]
-v.data <- convert.z.score(v.data)
-ggplot(v.data) +
+ggplot(v.data.6h) +
   geom_point(aes(mle, -log10(p.value), colour = (cZ != 0)), size = 0.5) +
   geom_hline(
     aes(yintercept = -log10(P), linetype = level), data = volcano.sig
-  ) + scale_x_continuous(limits = mleRange) + theme_bw() +
+  ) +
+  scale_x_continuous(limits = mleRange) +
+  scale_y_continuous(limits = v.P.range) +
+  theme_bw() +
   ggtitle("6h: cluster 2 - cluster 1")
 ```
 
 ```{r fig1_volcano_6h_2v1, echo=FALSE, eval=FALSE}
-geneData <- subset(dplyr::mutate(
-  v.data,gene_name = fData(sce.ifm.4h)[rownames(v.data),"gene_name"]
+geneData.6h <- subset(dplyr::mutate(
+  v.data.6h, gene_name = fData(sce.ifm.4h)[rownames(v.data.6h),"gene_name"]
   ),
   gene_name %in% c(
     "CTSB","CTSC","CTSD","CTSL", # 4
@@ -508,32 +519,36 @@ geneData <- subset(dplyr::mutate(
     "IL12B","IL23A","IL1A","EBI3","IL6", # 5
     "MAFF","CREBFR","NFKB1","NFKB2") # 4
 )
-ggplot(v.data) +
+ggplot(v.data.6h) +
   geom_point(aes(Z, -log10(p.value), colour = p.value < 0.01), size = 0.5) +
   geom_hline(yintercept = -log10(0.01), linetype = "dashed", alpha = 0.25) +
   geom_text_repel(
-    aes(Z, -log10(p.value), label = gene_name), geneData,
+    aes(Z, -log10(p.value), label = gene_name), geneData.6h,
     size = 2, min.segment.length = unit(0, "mm"), alpha = 0.75,
-    nudge_x = ifelse(geneData$Z > 0, 1, -1), nudge_y = 0, segment.size = 0.2,
+    nudge_x = ifelse(geneData.6h$Z > 0, 1, -1), nudge_y = 0, segment.size = 0.2,
     fontface = "bold"
   ) +
-  scale_x_continuous(limits = mleRange) + theme_bw() +
+  scale_x_continuous(limits = mleRange) +
+  scale_y_continuous(limits = v.P.range) +
+  theme_bw() +
   ggtitle("6h: cluster 2 - cluster 1")
 ggsave("13_out/6h_volcano_Vogel.pdf", height = 5, width = 6.5)
 ```
 
 ```{r fig2_volcano_6h_2v1, echo=FALSE, eval=FALSE}
-ggplot(v.data) +
+ggplot(v.data.6h) +
   geom_point(
     aes(mle, -log10(p.value), colour = p.value < 0.01),
     size = 0.5, alpha = 0.25
   ) +
   geom_hline(yintercept = -log10(0.01), linetype = "dashed") +
   geom_text_repel(
-    aes(mle, -log10(p.value), label = gene_name),
-    geneData, size = 2, min.segment.length = unit(0, "mm"), fontface = "bold"
+    aes(mle, -log10(p.value), label = gene_name), geneData.6h,
+    size = 2, min.segment.length = unit(0, "mm"), fontface = "bold"
   ) +
-  scale_x_continuous(limits = mleRange) + theme_bw() +
+  scale_x_continuous(limits = mleRange) +
+  scale_y_continuous(limits = v.P.range) +
+  theme_bw() +
   ggtitle("6h: cluster 2 - cluster 1")
 ggsave("13_out/6h_volcano_Shalek.pdf", height = 5, width = 6.5)
 ```
