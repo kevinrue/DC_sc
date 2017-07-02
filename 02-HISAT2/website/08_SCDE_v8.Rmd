@@ -336,7 +336,7 @@ orderResults <- function(x){
 * a function to visualise *scran*-normalised gene expression for a given
 gene:
 
-```{r normExprsByName}
+```{r normExprsById}
 normExprsById <- function(geneId){
   geneName <- subset(fData(sce.endo),gene_id==geneId,"gene_name",drop=TRUE)
   gdata <- data.frame(
@@ -344,7 +344,7 @@ normExprsById <- function(geneId){
     pData(sce.endo)[,c("Infection","Status","Time")],
     row.names = sampleNames(sce.endo)
   )
-  ggplot(gdata, aes(Infection, norm_exprs)) + 
+  ggplot(gdata, aes(gsub("-", "\n", Infection), norm_exprs)) + 
     geom_violin(
       aes(fill = Infection, alpha = Status),
       draw_quantiles = c(0.25, 0.5, 0.75)
@@ -352,9 +352,10 @@ normExprsById <- function(geneId){
     geom_jitter(width = 0.1) +
     facet_grid(Time ~ Status) +
     scale_fill_manual(values = col.infection) +
+    scale_alpha_discrete(range = c(0.3, 0.6, 0.9)) +
     ggtitle(sprintf("%s - %s", geneId, geneName)) +
     theme_minimal() +
-    labs(y = "Normalised expression") +
+    labs(y = "Normalised expression", x = "Infection") +
     guides(alpha = "none")
 }
 ```
@@ -586,7 +587,7 @@ p.range <- rev(-log10(range(v.data$p.value)))
 ```{r Vogel_volcano_4h_D23_InfExp, include=FALSE}
 sub.data <- subset(
   v.data,
-  Contrast == "STM-D23580 Violet +-STM-D23580 Exposed" & Time == "4h"
+  Contrast == "STM-D23580 Violet +\nSTM-D23580 Exposed" & Time == "4h"
 )
 geneData <- subset(dplyr::mutate(
   sub.data,
@@ -633,7 +634,7 @@ ggsave("08_out/4h_volcano_D23580_Shalek.pdf", height = 5, width = 6.5)
 ```{r Vogel_volcano_4h_LT2_InfExp, include=FALSE}
 sub.data <- subset(
   v.data,
-  Contrast == "STM-LT2 Violet +-STM-LT2 Exposed" & Time == "4h"
+  Contrast == "STM-LT2 Violet +\nSTM-LT2 Exposed" & Time == "4h"
 )
 geneData <- subset(dplyr::mutate(
   sub.data,
@@ -1315,7 +1316,7 @@ c("6h_STM-D23580_Exposed-6h_Mock_Uninfected","6h_STM-LT2_Exposed-6h_Mock_Uninfec
 
 ### 2h
 
-```{r corPlot_2h, eval=TRUE, echo=FALSE, fig.height=7}
+```{r corPlot_2h, echo=FALSE, fig.height=7}
 v.data <- do.call(
   "rbind",
   lapply(
@@ -1360,7 +1361,7 @@ for (contrastName in unique(v.data$Contrast)){
 
 ### 4h
 
-```{r corPlot_4h, eval=TRUE, echo=FALSE, fig.height=7}
+```{r corPlot_4h, echo=FALSE, fig.height=7}
 v.data <- do.call(
   "rbind",
   lapply(
@@ -1405,7 +1406,7 @@ for (contrastName in unique(v.data$Contrast)){
 
 ### 6h
 
-```{r corPlot_6h, eval=TRUE, echo=FALSE, fig.height=7}
+```{r corPlot_6h, echo=FALSE, fig.height=7}
 v.data <- do.call(
   "rbind",
   lapply(
