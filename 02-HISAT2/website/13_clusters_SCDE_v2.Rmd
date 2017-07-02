@@ -448,7 +448,7 @@ ggplot(v.data.4h) +
   scale_x_continuous(limits = mleRange) +
   scale_y_continuous(limits = v.P.range) +
   theme_bw() +
-  ggtitle("4h: cluster 2 - cluster 1")
+  labs(title = "4h: cluster 2 - cluster 1")
 ```
 
 ```{r fig1_volcano_4h_2v1, echo=FALSE, eval=FALSE}
@@ -473,7 +473,7 @@ ggplot(v.data.4h) +
   scale_x_continuous(limits = mleRange) +
   scale_y_continuous(limits = v.P.range) +
   theme_bw() +
-  ggtitle("4h: cluster 2 - cluster 1")
+  labs(title = "4h: cluster 2 - cluster 1")
 ggsave("13_out/4h_volcano_Vogel.pdf", height = 5, width = 6.5)
 ```
 
@@ -491,7 +491,7 @@ ggplot(v.data.4h) +
   scale_x_continuous(limits = mleRange) +
   scale_y_continuous(limits = v.P.range) +
   theme_bw() +
-  ggtitle("4h: cluster 2 - cluster 1")
+  labs(title = "4h: cluster 2 - cluster 1")
 ggsave("13_out/4h_volcano_Shalek.pdf", height = 5, width = 6.5)
 ```
 
@@ -506,7 +506,7 @@ ggplot(v.data.6h) +
   scale_x_continuous(limits = mleRange) +
   scale_y_continuous(limits = v.P.range) +
   theme_bw() +
-  ggtitle("6h: cluster 2 - cluster 1")
+  labs(title = "6h: cluster 2 - cluster 1")
 ```
 
 ```{r fig1_volcano_6h_2v1, echo=FALSE, eval=FALSE}
@@ -517,7 +517,8 @@ geneData.6h <- subset(dplyr::mutate(
     "CTSB","CTSC","CTSD","CTSL", # 4
     "DEFB1","DUOX","ATF3", # 3
     "IL12B","IL23A","IL1A","EBI3","IL6", # 5
-    "MAFF","CREBFR","NFKB1","NFKB2") # 4
+    "MAFF","CREBFR","NFKB1","NFKB2",
+    "MARCH1") # 4
 )
 ggplot(v.data.6h) +
   geom_point(aes(Z, -log10(p.value), colour = p.value < 0.01), size = 0.5) +
@@ -531,7 +532,7 @@ ggplot(v.data.6h) +
   scale_x_continuous(limits = mleRange) +
   scale_y_continuous(limits = v.P.range) +
   theme_bw() +
-  ggtitle("6h: cluster 2 - cluster 1")
+  labs(title = "6h: cluster 2 - cluster 1", y = expression(-log[10]*" ("*italic(P)*"-value)"))
 ggsave("13_out/6h_volcano_Vogel.pdf", height = 5, width = 6.5)
 ```
 
@@ -549,7 +550,7 @@ ggplot(v.data.6h) +
   scale_x_continuous(limits = mleRange) +
   scale_y_continuous(limits = v.P.range) +
   theme_bw() +
-  ggtitle("6h: cluster 2 - cluster 1")
+  labs(title = "6h: cluster 2 - cluster 1")
 ggsave("13_out/6h_volcano_Shalek.pdf", height = 5, width = 6.5)
 ```
 
