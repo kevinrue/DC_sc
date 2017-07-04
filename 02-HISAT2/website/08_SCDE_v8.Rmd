@@ -12,7 +12,6 @@ knitr::opts_chunk$set(cache = TRUE)
 library(scater)
 library(scran)
 library(scde)
-library(ensembldb)
 library(dplyr)
 library(goseq)
 library(ggrepel)
@@ -840,145 +839,151 @@ showTopGO <- function(x, direction = "over", cutoff = 0.05, min = 10){
 
 ### Over-represented {.tabset}
 
-#### `r names(goseq.res)[1]`
+#### 2h {.tabset}
+
+##### `r names(goseq.res)[1]`
 
 ```{r goseq.over_1, echo=FALSE}
 showTopGO(goseq.res[[1]])
 ```
 
-#### `r names(goseq.res)[2]`
+##### `r names(goseq.res)[2]`
 
 ```{r goseq.over_2, echo=FALSE}
 showTopGO(goseq.res[[2]])
 ```
 
-#### `r names(goseq.res)[3]`
+##### `r names(goseq.res)[3]`
 
 ```{r goseq.over_3, echo=FALSE}
 showTopGO(goseq.res[[3]])
 ```
 
-#### `r names(goseq.res)[4]`
+##### `r names(goseq.res)[4]`
 
 ```{r goseq.over_4, echo=FALSE}
 showTopGO(goseq.res[[4]])
 ```
 
-#### `r names(goseq.res)[5]`
+##### `r names(goseq.res)[5]`
 
 ```{r goseq.over_5, echo=FALSE}
 showTopGO(goseq.res[[5]])
 ```
 
-#### `r names(goseq.res)[6]`
+##### `r names(goseq.res)[6]`
 
 ```{r goseq.over_6, echo=FALSE}
 showTopGO(goseq.res[[6]])
 ```
 
-#### `r names(goseq.res)[7]`
+##### `r names(goseq.res)[7]`
 
 ```{r goseq.over_7, echo=FALSE}
 showTopGO(goseq.res[[7]])
 ```
 
-#### `r names(goseq.res)[8]`
+##### `r names(goseq.res)[8]`
 
 ```{r goseq.over_8, echo=FALSE}
 showTopGO(goseq.res[[8]])
 ```
 
-#### `r names(goseq.res)[9]`
+#### 4h {.tabset}
+
+##### `r names(goseq.res)[9]`
 
 ```{r goseq.over_9, echo=FALSE}
 showTopGO(goseq.res[[9]])
 ```
 
-#### `r names(goseq.res)[10]`
+##### `r names(goseq.res)[10]`
 
 ```{r goseq.over_10, echo=FALSE}
 showTopGO(goseq.res[[10]])
 ```
 
-#### `r names(goseq.res)[11]`
+##### `r names(goseq.res)[11]`
 
 ```{r goseq.over_11, echo=FALSE}
 showTopGO(goseq.res[[11]])
 ```
 
-#### `r names(goseq.res)[12]`
+##### `r names(goseq.res)[12]`
 
 ```{r goseq.over_12, echo=FALSE}
 showTopGO(goseq.res[[12]])
 ```
 
-#### `r names(goseq.res)[13]`
+##### `r names(goseq.res)[13]`
 
 ```{r goseq.over_13, echo=FALSE}
 showTopGO(goseq.res[[13]])
 ```
 
-#### `r names(goseq.res)[14]`
+##### `r names(goseq.res)[14]`
 
 ```{r goseq.over_14, echo=FALSE}
 showTopGO(goseq.res[[14]])
 ```
 
-#### `r names(goseq.res)[15]`
+##### `r names(goseq.res)[15]`
 
 ```{r goseq.over_15, echo=FALSE}
 showTopGO(goseq.res[[15]])
 ```
 
-#### `r names(goseq.res)[16]`
+##### `r names(goseq.res)[16]`
 
 ```{r goseq.over_16, echo=FALSE}
 showTopGO(goseq.res[[16]])
 ```
 
-#### `r names(goseq.res)[17]`
+#### 6h {.tabset}
+
+##### `r names(goseq.res)[17]`
 
 ```{r goseq.over_17, echo=FALSE}
 showTopGO(goseq.res[[17]])
 ```
 
-#### `r names(goseq.res)[18]`
+##### `r names(goseq.res)[18]`
 
 ```{r goseq.over_18, echo=FALSE}
 showTopGO(goseq.res[[18]])
 ```
 
-#### `r names(goseq.res)[19]`
+##### `r names(goseq.res)[19]`
 
 ```{r goseq.over_19, echo=FALSE}
 showTopGO(goseq.res[[19]])
 ```
 
-#### `r names(goseq.res)[20]`
+##### `r names(goseq.res)[20]`
 
 ```{r goseq.over_20, echo=FALSE}
 showTopGO(goseq.res[[20]])
 ```
 
-#### `r names(goseq.res)[21]`
+##### `r names(goseq.res)[21]`
 
 ```{r goseq.over_21, echo=FALSE}
 showTopGO(goseq.res[[21]])
 ```
 
-#### `r names(goseq.res)[22]`
+##### `r names(goseq.res)[22]`
 
 ```{r goseq.over_22, echo=FALSE}
 showTopGO(goseq.res[[22]])
 ```
 
-#### `r names(goseq.res)[23]`
+##### `r names(goseq.res)[23]`
 
 ```{r goseq.over_23, echo=FALSE}
 showTopGO(goseq.res[[23]])
 ```
 
-#### `r names(goseq.res)[24]`
+##### `r names(goseq.res)[24]`
 
 ```{r goseq.over_24, echo=FALSE}
 showTopGO(goseq.res[[24]])
@@ -987,145 +992,151 @@ showTopGO(goseq.res[[24]])
 
 ### Under-represented {.tabset}
 
-#### `r names(goseq.res)[1]`
+#### 2h {.tabset}
+
+##### `r names(goseq.res)[1]`
 
 ```{r goseq.under_1, echo=FALSE}
 showTopGO(goseq.res[[1]], "under")
 ```
 
-#### `r names(goseq.res)[2]`
+##### `r names(goseq.res)[2]`
 
 ```{r goseq.under_2, echo=FALSE}
 showTopGO(goseq.res[[2]], "under")
 ```
 
-#### `r names(goseq.res)[3]`
+##### `r names(goseq.res)[3]`
 
 ```{r goseq.under_3, echo=FALSE}
 showTopGO(goseq.res[[3]], "under")
 ```
 
-#### `r names(goseq.res)[4]`
+##### `r names(goseq.res)[4]`
 
 ```{r goseq.under_4, echo=FALSE}
 showTopGO(goseq.res[[4]], "under")
 ```
 
-#### `r names(goseq.res)[5]`
+##### `r names(goseq.res)[5]`
 
 ```{r goseq.under_5, echo=FALSE}
 showTopGO(goseq.res[[5]], "under")
 ```
 
-#### `r names(goseq.res)[6]`
+##### `r names(goseq.res)[6]`
 
 ```{r goseq.under_6, echo=FALSE}
 showTopGO(goseq.res[[6]], "under")
 ```
 
-#### `r names(goseq.res)[7]`
+##### `r names(goseq.res)[7]`
 
 ```{r goseq.under_7, echo=FALSE}
 showTopGO(goseq.res[[7]], "under")
 ```
 
-#### `r names(goseq.res)[8]`
+##### `r names(goseq.res)[8]`
 
 ```{r goseq.under_8, echo=FALSE}
 showTopGO(goseq.res[[8]], "under")
 ```
 
-#### `r names(goseq.res)[9]`
+#### 4h {.tabset}
+
+##### `r names(goseq.res)[9]`
 
 ```{r goseq.under_9, echo=FALSE}
 showTopGO(goseq.res[[9]], "under")
 ```
 
-#### `r names(goseq.res)[10]`
+##### `r names(goseq.res)[10]`
 
 ```{r goseq.under_10, echo=FALSE}
 showTopGO(goseq.res[[10]], "under")
 ```
 
-#### `r names(goseq.res)[11]`
+##### `r names(goseq.res)[11]`
 
 ```{r goseq.under_11, echo=FALSE}
 showTopGO(goseq.res[[11]], "under")
 ```
 
-#### `r names(goseq.res)[12]`
+##### `r names(goseq.res)[12]`
 
 ```{r goseq.under_12, echo=FALSE}
 showTopGO(goseq.res[[12]], "under")
 ```
 
-#### `r names(goseq.res)[13]`
+##### `r names(goseq.res)[13]`
 
 ```{r goseq.under_13, echo=FALSE}
 showTopGO(goseq.res[[13]], "under")
 ```
 
-#### `r names(goseq.res)[14]`
+##### `r names(goseq.res)[14]`
 
 ```{r goseq.under_14, echo=FALSE}
 showTopGO(goseq.res[[14]], "under")
 ```
 
-#### `r names(goseq.res)[15]`
+##### `r names(goseq.res)[15]`
 
 ```{r goseq.under_15, echo=FALSE}
 showTopGO(goseq.res[[15]], "under")
 ```
 
-#### `r names(goseq.res)[16]`
+##### `r names(goseq.res)[16]`
 
 ```{r goseq.under_16, echo=FALSE}
 showTopGO(goseq.res[[16]], "under")
 ```
 
-#### `r names(goseq.res)[17]`
+#### 6h {.tabset}
+
+##### `r names(goseq.res)[17]`
 
 ```{r goseq.under_17, echo=FALSE}
 showTopGO(goseq.res[[17]], "under")
 ```
 
-#### `r names(goseq.res)[18]`
+##### `r names(goseq.res)[18]`
 
 ```{r goseq.under_18, echo=FALSE}
 showTopGO(goseq.res[[18]], "under")
 ```
 
-#### `r names(goseq.res)[19]`
+##### `r names(goseq.res)[19]`
 
 ```{r goseq.under_19, echo=FALSE}
 showTopGO(goseq.res[[19]], "under")
 ```
 
-#### `r names(goseq.res)[20]`
+##### `r names(goseq.res)[20]`
 
 ```{r goseq.under_20, echo=FALSE}
 showTopGO(goseq.res[[20]], "under")
 ```
 
-#### `r names(goseq.res)[21]`
+##### `r names(goseq.res)[21]`
 
 ```{r goseq.under_21, echo=FALSE}
 showTopGO(goseq.res[[21]], "under")
 ```
 
-#### `r names(goseq.res)[22]`
+##### `r names(goseq.res)[22]`
 
 ```{r goseq.under_22, echo=FALSE}
 showTopGO(goseq.res[[22]], "under")
 ```
 
-#### `r names(goseq.res)[23]`
+##### `r names(goseq.res)[23]`
 
 ```{r goseq.under_23, echo=FALSE}
 showTopGO(goseq.res[[23]], "under")
 ```
 
-#### `r names(goseq.res)[24]`
+##### `r names(goseq.res)[24]`
 
 ```{r goseq.under_24, echo=FALSE}
 showTopGO(goseq.res[[24]], "under")
