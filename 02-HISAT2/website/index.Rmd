@@ -58,13 +58,15 @@ making this website:
 ```{r, eval=FALSE}
 source("http://bioconductor.org/biocLite.R")
 BiocInstaller::biocLite(c(
-  "ComplexHeatmap", "cowplot",
+  "broom",
+  "circlize", "ComplexHeatmap", "cowplot",
   "destiny", "dplyr", "DT",
-  "edgeR", "EnsDb.Hsapiens.v79", "ensembldb",
-  "ggplot2", "ggrepel", "goseq",
+  "edgeR", "ensembldb",
+  "ggplot2", "ggrepel", "gplots", "goseq",
+  "knitr",
   "MKmisc",
   "org.Hs.eg.db", 
-  "RColorBrewer", "reshape2", "reshape2", "rmarkdown", "rtracklayer", "Rtsne",
+  "RColorBrewer", "reshape2", "rmarkdown", "rtracklayer", "Rtsne",
   "scater", "scde", "scran",  "SummarizedExperiment",
   "xlsx"
 ), ask = FALSE)
