@@ -7,7 +7,6 @@ bibliography:
 ```{r setup, include=FALSE}
 library(ggplot2)
 library(DT)
-library(jsonlite)
 ```
 
 # Objective
