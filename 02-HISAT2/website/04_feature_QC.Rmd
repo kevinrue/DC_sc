@@ -102,7 +102,7 @@ ggplot(bulkSCdata) +
   ) + guides(fill = "none")
 ```
 
-```{r bulkSCdata_pdf, echo=FALSE}
+```{r bulkSCdata_pdf, include=FALSE}
 ggsave(file.path("04_out/correlation_cells_bulk.pdf"), width = 4, height = 8)
 ```
 
@@ -133,7 +133,7 @@ range(colSums(cpm(sce.pass)))
 ```
 
 **Note:**
-The `scater::cpm` method is an accessor to the corresponding slot of
+The `scater::cpm` method is an *accessor* to the corresponding slot of
 `SCESet` objects, while the `edgeR::cpm` method *calculates* normalised
 counts per million for given a matrix of read counts.
 
@@ -181,7 +181,7 @@ ggplot(mixC) +
   scale_x_log10() + scale_y_log10() + coord_fixed(ratio = 1) + theme_minimal()
 ```
 
-```{r ERCCcorrelation_pdf}
+```{r ERCCcorrelation_pdf, include=FALSE}
 ggsave("04_out/correlation_ERCC_expected.pdf", width = 5, height = 5)
 ```
 
@@ -266,7 +266,7 @@ ggplot() +
   labs(x = "log10(Average CPM)") + theme_minimal()
 ```
 
-```{r histogram_avgCPM_pdf}
+```{r histogram_avgCPM_pdf, include=FALSE}
 ggsave("04_out/countFeaturesByAvgLogCPM.pdf", height = 8, width = 6)
 ```
 
