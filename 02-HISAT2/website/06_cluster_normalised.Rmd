@@ -266,7 +266,7 @@ ggplot(
   geom_col(aes(PC, PercentVariance)) + theme_minimal()
 ```
 
-```{r PercentVariance_pdf}
+```{r PercentVariance_pdf, include=FALSE}
 ggsave("06_out/PCA_variance_explained.pdf", height = 5, width = 7)
 ```
 
@@ -422,7 +422,7 @@ per group).
 **Note**: "In t-SNE, the perplexity may be viewed as a knob that sets the number
 of effective nearest neighbors. It is comparable with the number of nearest
 neighbors $k$ that is employed in many manifold learners
-(see the GitHub website"
+(see the GitHub website of
 [Laurens van der Maaten](https://lvdmaaten.github.io/tsne/)).
 As a consequence, an appropriate value of perplexity is necessary to
 allow data points (here, single cells) to form clusters with a reasonable
@@ -477,25 +477,29 @@ ggsave(
 
 #### Status {#tSNEstatus}
 
-```{r plotTSNE_status}
+```{r plotTSNE_status, echo=FALSE}
 plotReducedDim.SCESet(sce.norm,2,colour_by="Status",shape_by="Time") + PCAtheme
 ```
 
 #### Infection
 
-```{r plotTSNE_infection}
+```{r plotTSNE_infection, echo=FALSE}
 plotReducedDim.SCESet(sce.norm,2,colour_by="Infection",shape_by="Time") + PCAtheme
 ```
 
 #### Treatment
 
-```{r plotTSNE_Treatment}
+```{r plotTSNE_Treatment, echo=FALSE}
 plotReducedDim.SCESet(sce.norm,2,colour_by="Treatment",shape_by="Time") + PCAtheme
 ```
 
 #### Plate (batch)
 
-```{r plotTSNE_Plate}
+We may overlay the plate identifier onto the tSNE coordinates,
+to demonstrate the absence of batch effect associated with the preparation
+of sequencing libraries:
+
+```{r plotTSNE_Plate, echo=FALSE}
 plotReducedDim.SCESet(sce.norm,2,colour_by="Plate",shape_by="Time") + PCAtheme
 ```
 
@@ -504,14 +508,14 @@ plotReducedDim.SCESet(sce.norm,2,colour_by="Plate",shape_by="Time") + PCAtheme
 We may also overlay the clusters identify during
 [normalisation](05_normalisation.html) onto the t-SNE:
 
-```{r plotTSNE_quickCluster}
+```{r plotTSNE_quickCluster, echo=FALSE}
 plotReducedDim.SCESet(sce.norm,2,colour_by="Cluster",shape_by="Time") + PCAtheme
 ```
 
 ### Genes {.tabset}
 
-Alternatively, we may overlay the expression level of a particular gene onto
-the data points as a colour gradient.
+Alternatively, we may also overlay the expression level of a particular gene
+onto the data points as a colour gradient.
 
 For this purpose, let us first set a common colour scale that ranges from
 the lowest to the highest expression values observed in the data set:
@@ -729,7 +733,17 @@ plotDiffusionMapSCESet(
 
 # Pairwise distance beween samples in tSNE
 
+The high-dimensional nature of gene expression data sets presents significant
+challenges for many analytical and visualisation methods.
+In particular, the set of low-dimensional coordinates produced by the tSNE
+technique can greatly facilitate the calculation of distance matrices, and
+the identification of robust clusters of cells in the data set.
+
 ## Subset time points {.tabset}
+
+Considering the overwhelming effect of the `Time` factor, let us
+examine pairwise distance and hierarchical clustering of cells within each
+time-point:
 
 ### 2h
 
@@ -883,15 +897,21 @@ dev.off()
 
 # Heat maps of selected marker genes
 
+It is also possible to use the above hierarchical clustering of cells
+(based on tSNE coordinates) to preserve the order of cells in heat maps
+used to display the expression levels of selected genes, thereby
+emphasising particular gene expression differences between clusters of cells
+defined by their broader transcriptome.
+
 Let us first define:
 
-* the relevant gene identifiers:
+* relevant gene identifiers:
 
 ```{r geneIds.ht}
 geneNames.ht <- list(
-  "1. Trans. reprog."=c("DUSP1","DUSP2","SOCS3","IER3","NFKBIZ"),
-  "2. Interm."=c("IL1B","IL1A","IFNB1","CCL7","TNF"),
-  "3. Late"=c("IL6","IL10","IL12B","IL27")
+  "1. Trans. reprog." = c("DUSP1","DUSP2","SOCS3","IER3","NFKBIZ"),
+  "2. Interm." = c("IL1B","IL1A","IFNB1","CCL7","TNF"),
+  "3. Late" = c("IL6","IL10","IL12B","IL27")
 )
 geneIds.ht <- with(
   fData(sce.norm),
