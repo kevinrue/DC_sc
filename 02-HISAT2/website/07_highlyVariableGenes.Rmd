@@ -77,12 +77,12 @@ the use of endogenous features was preferred for the following reasons:
 * the limited count of detected ERCC spike-in features adversely affected the
   quality of the fitted trend at intermediate expression levels
   (*i.e.*, mean log-expression in the range \approx 5-10)
-* ERCC spike-in features show variability levels similar to endogenous
-  features.
+* ERCC spike-in features show variability levels generally similar to
+  endogenous features.
 
 ### Using ERCC spike-in features
 
-Recall that the same set of ERCC spike-in features was added
+Let us recall that the same set of ERCC spike-in features was added
 in identical quantity to each sample.
 Consequently, ERCC spike-in features should exhibit no biological
 variability, *i.e.*, any variance in their counts should be technical
@@ -163,8 +163,21 @@ var.out.endo <- decomposeVar(sce.norm, var.fit.endo)
 names(var.out.endo)
 ```
 
-We assess the suitability of the trend fitted to the endogenous variances by
-examining whether it is consistent with the spike-in variances.
+In the figure below, we assess the suitability of the trend fitted to the
+endogenous variances by examining whether it is consistent with the spike-in
+variances.
+
+```{r plot_var.out.endo}
+plot(
+  var.out.endo$mean, var.out.endo$total, pch=16, cex=0.6,
+  xlab="Mean log-expression", ylab="Variance of log-expression"
+)
+o <- order(var.out.endo$mean)
+lines(var.out.endo$mean[o], var.out.endo$tech[o], col="dodgerblue", lwd=2)
+spike.fit <- trendVar(sce.norm, use.spikes=TRUE) # To compute spike-in variances.
+points(spike.fit$mean, spike.fit$var, col="red", pch=16)
+```
+
 Notably, the trend passes through or close to most of the spike-in variances,
 suggesting that the assumption
 (that most genes have low levels of biological variability) is suitable for
@@ -181,17 +194,6 @@ features using the default `use.spikes=TRUE` settings.
 Notably,
 this would sacrifice stability to reduce systematic errors in the estimate of
 the biological component for each gene [@67].
-
-```{r plot_var.out.endo}
-plot(
-  var.out.endo$mean, var.out.endo$total, pch=16, cex=0.6,
-  xlab="Mean log-expression", ylab="Variance of log-expression"
-)
-o <- order(var.out.endo$mean)
-lines(var.out.endo$mean[o], var.out.endo$tech[o], col="dodgerblue", lwd=2)
-spike.fit <- trendVar(sce.norm, use.spikes=TRUE) # To compute spike-in variances.
-points(spike.fit$mean, spike.fit$var, col="red", pch=16)
-```
 
 \bioccomment{
 The help page for `trendVar` suggests fiddling with arguments for smoothing
@@ -270,17 +272,21 @@ P-value and FDR of ERCC spike-in features are set to `NA` in the result table.
 As a result, any filter on those fields will remove those features.
 }
 
-Let us annotate features with their associated gene name:
+The **100** genes with highest biological component of variance may be
+examined in the second tab.
+
+### Table
+
+Let us first annotate features with their associated gene name:
 
 ```{r annotated_hvg.out}
 hvg.out <- cbind(
-  gene_name = fData(sce.norm)[rownames(hvg.out),]$gene_name,
+  gene_name = fData(sce.norm)[rownames(hvg.out), "gene_name"],
   hvg.out
 )
 ```
 
-We may then examine the HVGs in a table initially ordered by decreasing
-biological variance. For convenience, let us first create a copy of the table
+For convenience, let us create a copy of the table
 in which the numeric values are trimmed to two significant decimal places:
 
 ```{r hvg.trim}
@@ -290,16 +296,12 @@ for (cname in c("mean","total","bio","tech","p.value","FDR")){
 }
 ```
 
-### Table
-
-```{r pandoc_topBioVariance, results='asis'}
+```{r topBioVariance, results='asis', echo=FALSE}
 DT::datatable(
-  hvg.trim, options = list(pageLength = 10, searching = TRUE), filter = "top"
+  head(hvg.trim, 100),
+  options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
-
-**Note**: the table is initially sorted by decreasing biological variance.
-
 
 ## Expression levels {.tabset}
 
@@ -316,11 +318,11 @@ top.hvg <- rownames(hvg.out)[1:10]
 
 ### Time
 
-```{r top.hvg_Time}
+```{r top.hvg_Time, echo=FALSE}
 plotExpressionSCESet(
   sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Time"
   ) +
-  scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
+  scale_x_discrete(labels = fData(sce.norm)[top.hvg, "gene_name"]) +
   # scale_colour_manual(values = col.time) +
   exprsViolinTheme
 ```
@@ -330,11 +332,11 @@ expression over time.
 
 ### Infection
 
-```{r top.hvg_Infection}
+```{r top.hvg_Infection, echo=FALSE}
 plotExpressionSCESet(
     sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Infection"
   ) +
-  scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
+  scale_x_discrete(labels = fData(sce.norm)[top.hvg, "gene_name"]) +
   scale_colour_manual(values = col.infection) +
   exprsViolinTheme
 ```
@@ -345,11 +347,11 @@ particularly at the later time-points.
 
 ### Status
 
-```{r top.hvg_Status}
+```{r top.hvg_Status, echo=FALSE}
 plotExpressionSCESet(
   sce.norm, top.hvg, exprs_values = "norm_exprs", colour_by = "Status"
   ) +
-  scale_x_discrete(labels = fData(sce.norm[top.hvg,])$gene_name) +
+  scale_x_discrete(labels = fData(sce.norm)[top.hvg, "gene_name"]) +
   scale_colour_manual(values = col.status) +
   exprsViolinTheme
 ```
@@ -362,7 +364,7 @@ particularly at the later time-points.
 geneName <- "LGALS3BP"
 geneId <- subset(fData(sce.norm),gene_name == geneName, "gene_id", drop = TRUE)
 top9Id <- head(top.hvg, 4)
-top9Names <- fData(sce.norm[top9Id,])$gene_name
+top9Names <- fData(sce.norm)[top9Id, "gene_name"]
 plotExpressionSCESet(
   sce.norm, geneId, exprs_values = "norm_exprs",
   colour_by = "Status"
@@ -372,17 +374,19 @@ plotExpressionSCESet(
   theme(legend.position = "bottom", legend.box = "vertical")
 ```
 
-## GO enrichment
+## GO enrichment {.tabset}
 
 Let us use the [goseq](http://bioconductor.org/packages/goseq) package to
 identify the most enriched gene ontologies among the HVGs.
 Note that we restrict the results to GO categories associated with at least
 **10** genes, for robustness.
 
+### Computation
+
 The initial step of the
 [goseq](http://bioconductor.org/packages/goseq) procedure
-is to create a named vector that define whether each gene (*i.e.*, `names`)
-is highly variable (*i.e.*, `1`) or not (*i.e.*, `0`):
+is to create a named vector that indicates whether each gene (*i.e.*, `names`)
+is highly variable (`1`) or not (`0`):
 
 ```{r endoFeatures}
 endoFeatures <- rownames(sce.norm)[!isSpike(sce.norm)]
@@ -429,12 +433,15 @@ GO.out.trim <- dplyr::arrange(
   )
 ```
 
-We may then display the table restricted to a maximum of **500** most
+We may then display (in the second tab)
+the table restricted to a maximum of **100** most
 significantly enriched GO categories:
+
+### Table
 
 ```{r showGO.out.trim}
 DT::datatable(
-  head(GO.out.trim, 500), # restrict to top 500
+  head(GO.out.trim, 100), # restrict to top 100
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -458,7 +465,7 @@ to facilitate interpretation of the expression data in the context of the
 present experimental design:
 
 ```{r orderSamples}
-sce.endo <- sce.norm[endoFeatures,]
+sce.endo <- sce.norm[!isSpike(sce.norm),]
 sce.endo <- sce.endo[,with(pData(sce.endo), order(Time, Status, Infection))]
 dim(sce.endo)
 ```
@@ -618,8 +625,8 @@ draw(
 ## Gene ontology
 
 Let us retrieve the identifier of genes associated with the most enriched
-category *`r GO.out.trim$term[1]`* with identifier
-*`r GO.out.trim$category[1]`*:
+category
+[`r GO.out.trim$term[1]`](http://amigo.geneontology.org/amigo/term/`r GO.out.trim$category[1]`)::
 
 ```{r genes.top, message=FALSE}
 genes.topCategory <- unique(AnnotationDbi::select(
@@ -963,137 +970,137 @@ for (groupName in names(HVGs.group)){
 }
 ```
 
-### 2h_Mock_uninfected
+### 2h Mock Uninfected
 
 ```{r HVGs_2h_Mock_uninfected}
 DT::datatable(
-  head(GO.HVGs.group[["2h_Mock_uninfected"]], 500), # restrict to top 500
+  head(GO.HVGs.group[["2h_Mock_Uninfected"]], 100), # restrict to top 100
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-### 4h_Mock_uninfected
+### 4h Mock Uninfected
 
 ```{r HVGs_4h_Mock_uninfected}
 DT::datatable(
-  head(GO.HVGs.group[["4h_Mock_uninfected"]], 500), # restrict to top 500
+  head(GO.HVGs.group[["4h_Mock_Uninfected"]], 100), # restrict to top 100
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-### 6h_Mock_uninfected
+### 6h Mock Uninfected
 
 ```{r HVGs_6h_Mock_uninfected}
 DT::datatable(
-  head(GO.HVGs.group[["6h_Mock_uninfected"]], 500), # restrict to top 500
+  head(GO.HVGs.group[["6h_Mock_Uninfected"]], 100), # restrict to top 100
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-### 2h_D23580_exposed
+### 2h_STM-D23580_Exposed
 
 ```{r HVGs_2h_D23580_exposed}
 DT::datatable(
-  head(GO.HVGs.group[["2h_D23580_exposed"]], 500), # restrict to top 500
+  head(GO.HVGs.group[["2h_STM-D23580_Exposed"]], 100), # restrict to top 100
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-### 4h_D23580_exposed
+### 4h_STM-D23580_Exposed
 
 ```{r HVGs_4h_D23580_exposed}
 DT::datatable(
-  head(GO.HVGs.group[["4h_D23580_exposed"]], 500), # restrict to top 500
+  head(GO.HVGs.group[["4h_STM-D23580_Exposed"]], 100), # restrict to top 100
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-### 6h_D23580_exposed
+### 2h_STM-D23580_Exposed
 
 ```{r HVGs_6h_D23580_exposed}
 DT::datatable(
-  head(GO.HVGs.group[["6h_D23580_exposed"]], 500), # restrict to top 500
+  head(GO.HVGs.group[["6h_STM-D23580_Exposed"]], 100), # restrict to top 100
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-### 2h_LT2_exposed
+### 2h_STM-LT2_Exposed
 
 ```{r HVGs_2h_LT2_exposed}
 DT::datatable(
-  head(GO.HVGs.group[["2h_LT2_exposed"]], 500), # restrict to top 500
+  head(GO.HVGs.group[["2h_STM-LT2_Exposed"]], 100), # restrict to top 100
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-### 4h_LT2_exposed
+### 4h_STM-LT2_Exposed
 
 ```{r HVGs_4h_LT2_exposed}
 DT::datatable(
-  head(GO.HVGs.group[["4h_LT2_exposed"]], 500), # restrict to top 500
+  head(GO.HVGs.group[["4h_STM-LT2_Exposed"]], 100), # restrict to top 100
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-### 6h_LT2_exposed
+### 6h_STM-LT2_Exposed
 
 ```{r HVGs_6h_LT2_exposed}
 DT::datatable(
-  head(GO.HVGs.group[["6h_LT2_exposed"]], 500), # restrict to top 500
+  head(GO.HVGs.group[["6h_STM-LT2_Exposed"]], 100), # restrict to top 100
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-### 2h_D23580_infected
+### 2h_STM-D23580_Violet +
 
 ```{r HVGs_2h_D23580_infected}
 DT::datatable(
-  head(GO.HVGs.group[["2h_D23580_infected"]], 500), # restrict to top 500
+  head(GO.HVGs.group[["2h_STM-D23580_Violet +"]], 100), # restrict to top 100
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-### 4h_D23580_infected
+### 4h_STM-D23580_Violet +
 
 ```{r HVGs_4h_D23580_infected}
 DT::datatable(
-  head(GO.HVGs.group[["4h_D23580_infected"]], 500), # restrict to top 500
+  head(GO.HVGs.group[["4h_STM-D23580_Violet +"]], 100), # restrict to top 100
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-### 6h_D23580_infected
+### 6h_STM-D23580_Violet +
 
 ```{r HVGs_6h_D23580_infected}
 DT::datatable(
-  head(GO.HVGs.group[["6h_D23580_infected"]], 500), # restrict to top 500
+  head(GO.HVGs.group[["6h_STM-D23580_Violet +"]], 100), # restrict to top 100
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-### 2h_LT2_infected
+### 2h_STM-LT2_Violet +
 
 ```{r HVGs_2h_LT2_infected}
 DT::datatable(
-  head(GO.HVGs.group[["2h_LT2_infected"]], 500), # restrict to top 500
+  head(GO.HVGs.group[["2h_STM-LT2_Violet +"]], 100), # restrict to top 100
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-### 4h_LT2_infected
+### 4h_STM-LT2_Violet +
 
 ```{r HVGs_4h_LT2_infected}
 DT::datatable(
-  head(GO.HVGs.group[["4h_LT2_infected"]], 500), # restrict to top 500
+  head(GO.HVGs.group[["4h_STM-LT2_Violet +"]], 100), # restrict to top 100
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
 
-### 6h_LT2_infected
+### 6h_STM-LT2_Violet +
 
 ```{r HVGs_6h_LT2_infected}
 DT::datatable(
-  head(GO.HVGs.group[["6h_LT2_infected"]], 500), # restrict to top 500
+  head(GO.HVGs.group[["6h_STM-LT2_Violet +"]], 100), # restrict to top 100
   options = list(pageLength = 10, searching = TRUE), filter = "top"
 )
 ```
@@ -1112,7 +1119,11 @@ HeHv_D23_exp <- subset(HVGs.group[["6h_STM-D23580_Exposed"]], mean > 10 & bio > 
 ```
 
 ```{r 6h_D23580_exposed_HeHv_datatable, echo=FALSE}
-DT::datatable(HeHv_D23_exp)
+hvg.trim <- HeHv_D23_exp
+for (cname in c("mean","total","bio","tech","p.value","FDR")){
+  hvg.trim[,cname] <- round(hvg.trim[,cname], 2)
+}
+DT::datatable(hvg.trim)
 ```
 
 ```{r 6h_D23580_exposed_HeHv.csv, include=FALSE}
@@ -1126,35 +1137,47 @@ HeHv_LT2_exp <- subset(HVGs.group[["6h_STM-LT2_Exposed"]], mean > 10 & bio > 5)
 ```
 
 ```{r 6h_LT2_exposed_HeHv_datatable, echo=FALSE}
-DT::datatable(HeHv_LT2_exp)
+hvg.trim <- HeHv_LT2_exp
+for (cname in c("mean","total","bio","tech","p.value","FDR")){
+  hvg.trim[,cname] <- round(hvg.trim[,cname], 2)
+}
+DT::datatable(hvg.trim)
 ```
 
 ```{r 6h_LT2_exposed_HeHv.csv, include=FALSE}
 write.csv(HeHv_LT2_exp, "HVGs/6h_STM-LT2_Exposed_HeHv.csv")
 ```
 
-### 6h D23580 infected
+### 6h D23580 Violet +
 
 ```{r 6h_D23580_infected_HeHv}
 HeHv_D23_inf <- subset(HVGs.group[["6h_STM-D23580_Violet +"]], mean > 10 & bio > 5)
 ```
 
 ```{r 6h_D23580_infected_HeHv_datatable, echo=FALSE}
-DT::datatable(HeHv_D23_inf)
+hvg.trim <- HeHv_D23_inf
+for (cname in c("mean","total","bio","tech","p.value","FDR")){
+  hvg.trim[,cname] <- round(hvg.trim[,cname], 2)
+}
+DT::datatable(hvg.trim)
 ```
 
 ```{r 6h_D23580_infected_HeHv.csv, include=FALSE}
 write.csv(HeHv_LT2_exp, "HVGs/6h_STM-D23580_Violet +_HeHv.csv")
 ```
 
-### 6h LT2 infected
+### 6h LT2 Violet +
 
 ```{r 6h_LT2_infected_HeHv}
 HeHv_LT2_inf <- subset(HVGs.group[["6h_STM-LT2_Violet +"]], mean > 10 & bio > 5)
 ```
 
 ```{r 6h_LT2_infected_HeHv_datatable, echo=FALSE}
-DT::datatable(HeHv_LT2_inf)
+hvg.trim <- HeHv_LT2_inf
+for (cname in c("mean","total","bio","tech","p.value","FDR")){
+  hvg.trim[,cname] <- round(hvg.trim[,cname], 2)
+}
+DT::datatable(hvg.trim)
 ```
 
 ```{r 6h_LT2_infected_HeHv.csv, include=FALSE}
@@ -1180,7 +1203,7 @@ normExprsMelt <- subset(
   )
 normExprsMelt <- merge(
   normExprsMelt, data.frame(
-    Feature = featureNames(sce.norm), gene_name = fData(sce.norm)$gene_name)
+    Feature = featureNames(sce.norm), gene_name = fData(sce.norm)[,"gene_name"])
   )
 ```
 
@@ -1407,7 +1430,8 @@ TNFAIP2normExprsMelt <- merge(
   TNFAIP2normExprsMelt, pData(sce.norm)[,c("Sample","Treatment","Time")])
 TNFAIP2normExprsMelt <- merge(
   TNFAIP2normExprsMelt, data.frame(
-    Feature = featureNames(sce.norm), gene_name = fData(sce.norm)$gene_name)
+    Feature = featureNames(sce.norm),
+    gene_name = fData(sce.norm)[,"gene_name"])
   )
 ```
 
@@ -1461,7 +1485,8 @@ for (groupName in names(dVar.groups)){
     trend = techCV2$trend,
     HVG = geneNames %in% rownames(HVGs.group[[groupName]]),
     Time = gsub("(.*h)_.*", "\\1", groupName),
-    Treatment = gsub(".*h_(.*)", "\\1", groupName),
+    Infection = gsub(".*h_(.*)_.*", "\\1", groupName),
+    Status = gsub(".*h_.*_(.*)", "\\1", groupName),
     Feature = geneNames
   ))
 }
@@ -1478,7 +1503,7 @@ ggplot(CV2data) +
     aes(meanScaledCount, CV2, fill = HVG), colour = "dimgray",
     size = 0.5, alpha = 0.5) +
   scale_x_log10() + scale_y_log10() +
-  facet_grid(Treatment ~ Time) +
+  facet_grid(Infection + Status ~ Time) +
   coord_fixed() +
   labs(x = "Average scaled read count", y = expression(CV^{2})) +
   theme_minimal() +
