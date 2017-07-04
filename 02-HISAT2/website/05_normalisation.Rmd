@@ -24,8 +24,13 @@ names(col.status) <- levels(sce.filtered$Status)
 
 # Sum factors
 
-Having identified the cells of good quality and the features robustly
-detected across those cells, we may now normalise expression levels between
+Having identified in previous sections:
+
+* cells with good quality sequencing data ([here](03_sample_QC.html)),
+* features detected in at least one of the experimental groups
+  ([here](04_feature_QC.html));
+
+We may now normalise expression levels between
 cells using an approach suitable for single cell data sets.
 
 ## Unsupervised clusters
@@ -41,7 +46,7 @@ as implemented in the [scran](http://bioconductor.org/packages/scran) package.
 
 Importantly, let us define the *smallest cluster* size to the minimum number
 of cells in any experimental group (*i.e.*, `r min(table(sce.filtered$Group))`
-in group `r names(which.min(table(sce.filtered$Group)))`; see this
+cells in group `r names(which.min(table(sce.filtered$Group)))`; see this
 [earlier section](04_feature_QC.html#selectFeatures) for the count of cells
 per group).
 
@@ -108,7 +113,7 @@ summary(sizeFactors(sce.filtered))
 ## Relation to library size {.tabset}
 
 In the absence of biological effect, size factors are expected to correlate
-with library size. Let us visualise the two values in a scatter plot:
+with library size [@67]. Let us visualise the two values in a scatter plot:
 
 ### Scatter: Status
 
@@ -230,7 +235,7 @@ transcripts separately from the endogenous features:
 
 ```{r normalise}
 sce.norm <- normalize(sce.filtered)
-dim(sce.norm)
+names(assayData(sce.norm))
 ```
 
 <!-- As HTML pages are built independently, objects need to be saved to disk
@@ -239,3 +244,5 @@ and imported as needed by the other R mardown files -->
 ```{r saveRDS, include=FALSE}
 saveRDS(sce.norm, "rds/sce.norm.rds")
 ```
+
+# References
