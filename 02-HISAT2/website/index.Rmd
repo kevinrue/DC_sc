@@ -48,7 +48,7 @@ invasive Salmonella disease.
 
 # Graphical abstract
 
-![Graphical abstract.](img/graphical_abstract.png)
+![Graphical abstract.](img/graphical_abstract_2.svg)
 
 # Requirements
 
