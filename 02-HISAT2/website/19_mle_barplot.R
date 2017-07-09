@@ -42,11 +42,15 @@ scde.plot$gene_name <- with(scde.plot, reorder(gene_name, mle))
 scde.plot$Highest <- with(scde.plot, ifelse(mle > 0, "STM-D23580", "STM-LT2"))
 
 ggplot(scde.plot, aes(gene_name, mle)) +
-  geom_col(aes(fill = Highest), alpha = 0.5) +
+  geom_col(aes(fill = Highest), alpha = 0.75) +
   coord_flip() +
   scale_fill_manual(values = col.infection) +
   scale_y_continuous(breaks = with(scde.plot, seq(floor(min(mle)), max(mle), 1))) +
-  labs(x = NULL, y = "Maximum likelihood estimate of fold-change") +
+  labs(
+    x = NULL,
+    y = "Maximum likelihood estimate of fold-change",
+    fill = "Up-regulated in"
+  ) +
   theme_minimal() +
   theme(axis.text.y = element_text(face = "italic"))
 ggsave("19_out/mle_6h_D23-LT2_vertical.pdf", width = 7, height = 8)
@@ -55,7 +59,11 @@ ggplot(scde.plot, aes(gene_name, mle)) +
   geom_col(aes(fill = Highest), alpha = 0.75) +
   scale_fill_manual(values = col.infection) +
   scale_y_continuous(breaks = with(scde.plot, seq(floor(min(mle)), max(mle), 1))) +
-  labs(x = NULL, y = "Maximum likelihood estimate of fold-change") +
+  labs(
+    x = NULL,
+    y = "Maximum likelihood estimate of fold-change",
+    fill = "Up-regulated in"
+  ) +
   theme_minimal() +
   theme(axis.text.x = element_text(angle = 90, hjust = 1, face = "italic"))
 ggsave("19_out/mle_6h_D23-LT2_horizontal.pdf", width = 8, height = 6)
