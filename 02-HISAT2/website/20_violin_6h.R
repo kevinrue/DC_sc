@@ -10,29 +10,54 @@ names(col.time) <- levels(sce.norm$Time)[1:3]
 names(col.infection) <- levels(sce.norm$Infection)
 names(col.status) <- levels(sce.norm$Status)
 
+exprsRange <- range(norm_exprs(sce.norm))
+
 # MARCH1 ----
 
 geneName <- "MARCH1"
 geneId <- subset(fData(sce.norm), gene_name == geneName, gene_id, drop = TRUE)
-cellsId <- subset(pData(sce.norm), Time == "6h", Sample, drop = TRUE)
 
 gene.plot <- data.frame(
-  norm_exprs = norm_exprs(sce.norm)[geneId, cellsId],
-  pData(sce.norm)[cellsId, c("Time", "Infection", "Status")]
+  norm_exprs = norm_exprs(sce.norm)[geneId, ],
+  pData(sce.norm)[, c("Time", "Infection", "Status")]
 )
 
 ggplot(
   gene.plot,
-  aes(interaction(Infection, Status, sep = "\n"), norm_exprs)
+  aes(interaction(Status, Infection, sep = "\n"), norm_exprs)
+) +
+  facet_grid(Time ~ .) +
+  geom_violin(
+    aes(fill = Infection),
+    draw_quantiles = c(0.25, 0.5, 0.75),
+    alpha = 0.5
+  ) +
+  geom_jitter(aes(colour = Infection), width = 0.3, height = 0) +
+  scale_fill_manual(values = col.infection) +
+  scale_colour_manual(values = col.infection) +
+  scale_y_continuous(limits = exprsRange) +
+  labs(
+    title = sprintf("%s - %s", geneName, geneId),
+    x = NULL,
+    y = "Normalised expression"
+  ) +
+  theme_minimal()
+
+ggsave(sprintf("20_out/violin_all_%s.pdf", geneName), height = 6, width = 8)
+
+ggplot(
+  subset(gene.plot, Time == "6h"),
+  aes(interaction(Status, Infection, sep = "\n"), norm_exprs)
   ) +
   geom_violin(
     aes(fill = Infection),
     draw_quantiles = c(0.25, 0.5, 0.75),
     alpha = 0.5
   ) +
-  geom_jitter(aes(colour = Infection), width = 0.3) +
+  geom_jitter(aes(colour = Infection), width = 0.3, height = 0) +
   scale_fill_manual(values = col.infection) +
   scale_colour_manual(values = col.infection) +
+  scale_y_continuous(limits = exprsRange) +
   labs(
     title = sprintf("%s - %s", geneName, geneId),
     x = NULL,
@@ -46,25 +71,48 @@ ggsave(sprintf("20_out/violin_6h_%s.pdf", geneName), height = 4, width = 8)
 
 geneName <- "IL10"
 geneId <- subset(fData(sce.norm), gene_name == geneName, gene_id, drop = TRUE)
-cellsId <- subset(pData(sce.norm), Time == "6h", Sample, drop = TRUE)
 
 gene.plot <- data.frame(
-  norm_exprs = norm_exprs(sce.norm)[geneId, cellsId],
-  pData(sce.norm)[cellsId, c("Time", "Infection", "Status")]
+  norm_exprs = norm_exprs(sce.norm)[geneId, ],
+  pData(sce.norm)[, c("Time", "Infection", "Status")]
 )
 
 ggplot(
   gene.plot,
-  aes(interaction(Infection, Status, sep = "\n"), norm_exprs)
+  aes(interaction(Status, Infection, sep = "\n"), norm_exprs)
+) +
+  facet_grid(Time ~ .) +
+  geom_violin(
+    aes(fill = Infection),
+    draw_quantiles = c(0.25, 0.5, 0.75),
+    alpha = 0.5
+  ) +
+  geom_jitter(aes(colour = Infection), width = 0.3, height = 0) +
+  scale_fill_manual(values = col.infection) +
+  scale_colour_manual(values = col.infection) +
+  scale_y_continuous(limits = exprsRange) +
+  labs(
+    title = sprintf("%s - %s", geneName, geneId),
+    x = NULL,
+    y = "Normalised expression"
+  ) +
+  theme_minimal()
+
+ggsave(sprintf("20_out/violin_all_%s.pdf", geneName), height = 6, width = 8)
+
+ggplot(
+  subset(gene.plot, Time == "6h"),
+  aes(interaction(Status, Infection, sep = "\n"), norm_exprs)
 ) +
   geom_violin(
     aes(fill = Infection),
     draw_quantiles = c(0.25, 0.5, 0.75),
     alpha = 0.5
   ) +
-  geom_jitter(aes(colour = Infection), width = 0.3) +
+  geom_jitter(aes(colour = Infection), width = 0.3, height = 0) +
   scale_fill_manual(values = col.infection) +
   scale_colour_manual(values = col.infection) +
+  scale_y_continuous(limits = exprsRange) +
   labs(
     title = sprintf("%s - %s", geneName, geneId),
     x = NULL,
