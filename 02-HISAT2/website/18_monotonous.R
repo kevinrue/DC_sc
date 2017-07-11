@@ -51,9 +51,7 @@ glm.out <- do.call(
 
 
 # Count of genes positively correlated with time in stimulated cells
-dim(
-  subset(glm.out, estimate > 0 & p.value < 0.01)
-)
+dim(subset(glm.out, estimate > 0 & p.value < 0.01))
 
 # Count of genes by significance and direction of time effect
 ggplot(glm.out) +
@@ -61,20 +59,17 @@ ggplot(glm.out) +
 
 glm.out$BH <- p.adjust(glm.out$p.value, "BH")
 
-dim(
-  subset(glm.out, estimate > 0 & BH < 0.01)
-)
+dim(subset(glm.out, estimate > 0 & BH < 0.01))
 
-glm.out$gene_name <- with(fData(sce.stim), gene_name[match(rownames(glm.out), gene_id)])
+glm.out$gene_name <-
+  with(fData(sce.stim), gene_name[match(rownames(glm.out), gene_id)])
 
 write.csv(
   glm.out[order(-glm.out$estimate),],
   "18_out/glm.out.csv"
 )
 
-View(
-  subset(glm.out, estimate > 0 & BH < 0.05)
-)
+View(subset(glm.out, estimate > 0 & BH < 0.05))
 
 head(
   subset(glm.out[order(glm.out$p.value),], estimate > 0 & BH < 0.05)
@@ -130,7 +125,8 @@ HSMM <- estimateSizeFactors(HSMM)
 HSMM <- estimateDispersions(HSMM)
 
 # Select genes that increase monotonously in challenged DCs
-ordering_genes <- rownames(subset(glm.out, estimate > 2 & BH < 0.01))
+# ordering_genes <- rownames(subset(glm.out, estimate > 2 & BH < 0.01))
+ordering_genes <- rownames(subset(glm.out, estimate > 0.5 & BH < 0.01))
 
 # Using genes to order the cells as above yields the following trajectory:
 HSMM <- setOrderingFilter(HSMM, ordering_genes)
@@ -165,11 +161,13 @@ dev.off()
 with(pData(HSMM), table(State, Time))
 with(pData(HSMM), table(State, Infection))
 
-# Finding genes that change in  as a function of pseudotime
+# Finding genes that change as a function of pseudotime
 
 HSMM.stim <- HSMM[,HSMM$Infection != "Mock"]
 
-diff_test_res <- differentialGeneTest(HSMM.stim, fullModelFormulaStr="~sm.ns(Pseudotime)")
+diff_test_res <- differentialGeneTest(
+  HSMM.stim, fullModelFormulaStr="~sm.ns(Pseudotime)"
+)
 
 write.csv(
   diff_test_res[order(diff_test_res$qval),],
@@ -209,3 +207,54 @@ plot_pseudotime_heatmap(
   cores = 1,
   show_rownames = T)
 dev.off()
+
+# Test genes for differential expression between
+# challenged and Mock-uninfected DCs,
+# while subtracting the effect of Time
+
+diff.mock <- differentialGeneTest(
+  HSMM,
+  fullModelFormulaStr="~isMock + Time",
+  reducedModelFormulaStr="~Time"
+)
+
+View(diff.mock[,c("gene_short_name", "pval", "qval")])
+
+plot_genes_jitter(
+  HSMM[head(rownames(diff.mock)[order(diff.mock$qval)], 4),],
+  cell_size = 2,
+  grouping="Time", color_by = "Infection", plot_trend = TRUE) +
+  facet_wrap( ~ feature_label, scales="free_y")
+
+HSMM.stim$Status <- droplevels(HSMM.stim$Status)
+HSMM.stim$Infection <- droplevels(HSMM.stim$Infection)
+
+diff.status.infection <- differentialGeneTest(
+  HSMM.stim,
+  fullModelFormulaStr="~Status + Time + Infection",
+  reducedModelFormulaStr="~Time + Infection"
+)
+
+View(diff.status.infection[,c("gene_short_name", "pval", "qval")])
+
+plot_genes_jitter(
+  HSMM.stim[head(rownames(diff.status.infection)[
+    order(diff.status.infection$qval)], 6),],
+  cell_size = 2,
+  grouping="Time", color_by = "Status", plot_trend = TRUE) +
+  facet_wrap( ~ feature_label, scales="free_y")
+
+diff.status <- differentialGeneTest(
+  HSMM.stim,
+  fullModelFormulaStr="~Status + Time",
+  reducedModelFormulaStr="~Time"
+)
+
+View(diff.status[,c("gene_short_name", "pval", "qval")])
+
+plot_genes_jitter(
+  HSMM.stim[head(rownames(diff.status)[order(diff.status$qval)], 6),],
+  cell_size = 2,
+  panel_order = head(diff.status$gene_short_name[order(diff.status$qval)], 6),
+  grouping="Time", color_by = "Status", plot_trend = TRUE) +
+  facet_wrap( ~ feature_label, scales="free_y")
