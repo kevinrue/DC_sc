@@ -580,10 +580,11 @@ ggplot(v.data) +
   geom_hline(
     aes(yintercept = -log10(P), linetype = level), data = volcano.sig
   ) + theme_minimal()
-p.range <- rev(-log10(range(v.data$p.value)))
 ```
 
 ```{r Vogel_volcano_4h_D23_InfExp, include=FALSE}
+p.range <- rev(-log10(range(v.data$p.value))
+)
 sub.data <- subset(
   v.data,
   Contrast == "STM-D23580 Violet +\nSTM-D23580 Exposed" & Time == "4h"
@@ -682,7 +683,7 @@ ggsave("08_out/4h_volcano_LT2_Shalek.pdf", height = 5, width = 6.5)
 ## Uninfected
 
 ```{r countDE_control, echo=FALSE, results='asis'}
-v.data <- do.call(
+DE.uninfected <- do.call(
   "rbind",
   lapply(
     grep("Uninfected", names(scde.res), value = TRUE),
@@ -699,13 +700,13 @@ v.data <- do.call(
     }
   )
 )
-pander::pandoc.table(v.data)
+pander::pandoc.table(DE.uninfected)
 ```
 
 ## Direct
 
 ```{r countDE_direct, echo=FALSE, results='asis'}
-v.data <- do.call(
+DE.direct <- do.call(
   "rbind",
   lapply(
     grep("Uninfected", names(scde.res), value = TRUE, invert = TRUE),
@@ -722,9 +723,40 @@ v.data <- do.call(
     }
   )
 )
-pander::pandoc.table(v.data)
+pander::pandoc.table(DE.direct)
 ```
 
+```{r DE.countUpDown, include=FALSE}
+DE.count <- data.frame()
+for (x.time in c("2h", "4h", "6h")){
+  for (x.infection in c("STM-LT2", "STM-D23580")){
+    contrastName <- sprintf(
+      "%s_%s_Violet +-%s_%s_Exposed",
+      x.time, x.infection, x.time, x.infection
+    )
+    x.res <- scde.res[[contrastName]][,c("Z", "cZ")]
+    x.res <- convert.z.score(x.res)
+    DE.count <- rbind(DE.count, data.frame(
+      Time = x.time, Infection = x.infection, Direction = "Up",
+      Count = with(x.res, sum(Z > 0 & p.value < 0.01))
+    ))
+    DE.count <- rbind(DE.count, data.frame(
+      Time = x.time, Infection = x.infection, Direction = "Down",
+      Count = with(x.res, -sum(Z < 0 & p.value < 0.01))
+    ))
+  }
+}
+ggplot(DE.count, aes(Time, Count, colour = Infection)) +
+  geom_point(size = 3) +
+  geom_line(aes(group = interaction(Infection, Direction))) +
+  geom_abline(intercept = 0, slope = 0, linetype = "dashed") +
+  theme_minimal() +
+  labs(
+    title = "Violet + / Exposed",
+    y = "Count of differentially expressed genes"
+  )
+ggsave("08_out/DE_counts.pdf", width = 7, height = 4)
+```
 
 # Gene ontology {#GO}
 
