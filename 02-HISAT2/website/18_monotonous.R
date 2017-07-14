@@ -2,6 +2,7 @@ library(plyr)
 library(dplyr)
 library(broom)
 library(monocle)
+library(scran)
 
 # Normalised
 sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
@@ -69,7 +70,7 @@ write.csv(
   "18_out/glm.out.csv"
 )
 
-View(subset(glm.out, estimate > 0 & BH < 0.05))
+# View(subset(glm.out, estimate > 0 & BH < 0.05))
 
 head(
   subset(glm.out[order(glm.out$p.value),], estimate > 0 & BH < 0.05)
@@ -178,7 +179,7 @@ head(dplyr::arrange(
   pval
 ))
 
-View(diff_test_res)
+# View(diff_test_res)
 
 table(diff_test_res$qval < 0.01)
 
@@ -208,6 +209,8 @@ plot_pseudotime_heatmap(
   show_rownames = T)
 dev.off()
 
+# isMock ~ Time
+
 # Test genes for differential expression between
 # challenged and Mock-uninfected DCs,
 # while subtracting the effect of Time
@@ -218,13 +221,15 @@ diff.mock <- differentialGeneTest(
   reducedModelFormulaStr="~Time"
 )
 
-View(diff.mock[,c("gene_short_name", "pval", "qval")])
+# View(diff.mock[,c("gene_short_name", "pval", "qval")])
 
 plot_genes_jitter(
   HSMM[head(rownames(diff.mock)[order(diff.mock$qval)], 4),],
   cell_size = 2,
   grouping="Time", color_by = "Infection", plot_trend = TRUE) +
   facet_wrap( ~ feature_label, scales="free_y")
+
+# Status ~ Time + Infection ----
 
 HSMM.stim$Status <- droplevels(HSMM.stim$Status)
 HSMM.stim$Infection <- droplevels(HSMM.stim$Infection)
@@ -235,7 +240,7 @@ diff.status.infection <- differentialGeneTest(
   reducedModelFormulaStr="~Time + Infection"
 )
 
-View(diff.status.infection[,c("gene_short_name", "pval", "qval")])
+# View(diff.status.infection[,c("gene_short_name", "pval", "qval")])
 
 plot_genes_jitter(
   HSMM.stim[head(rownames(diff.status.infection)[
@@ -244,13 +249,15 @@ plot_genes_jitter(
   grouping="Time", color_by = "Status", plot_trend = TRUE) +
   facet_wrap( ~ feature_label, scales="free_y")
 
+# Status ~ Time ----
+
 diff.status <- differentialGeneTest(
   HSMM.stim,
   fullModelFormulaStr="~Status + Time",
   reducedModelFormulaStr="~Time"
 )
 
-View(diff.status[,c("gene_short_name", "pval", "qval")])
+# View(diff.status[,c("gene_short_name", "pval", "qval")])
 
 plot_genes_jitter(
   HSMM.stim[head(rownames(diff.status)[order(diff.status$qval)], 6),],
@@ -258,3 +265,118 @@ plot_genes_jitter(
   panel_order = head(diff.status$gene_short_name[order(diff.status$qval)], 6),
   grouping="Time", color_by = "Status", plot_trend = TRUE) +
   facet_wrap( ~ feature_label, scales="free_y")
+
+# Status ~ Time in D23580 only ----
+
+HSMM.d23 <- HSMM.stim[,HSMM.stim$Infection == "STM-D23580"]
+dim(HSMM.d23)
+
+diff.status.d23 <- differentialGeneTest(
+  HSMM.d23,
+  fullModelFormulaStr="~Status + Time",
+  reducedModelFormulaStr="~Time"
+)
+
+# View(diff.status.d23[,c("gene_short_name", "pval", "qval")])
+
+pdf("18_out/diff.status.d23_top6.pdf", height = 6, width = 10)
+with(
+  diff.status.d23,
+  plot_genes_jitter(
+    HSMM.d23[head(rownames(diff.status.d23)[order(qval)], 6),],
+    cell_size = 2,
+    panel_order = head(gene_short_name[order(qval)], 6),
+    grouping="Time", color_by = "Status", plot_trend = TRUE) +
+    facet_wrap( ~ feature_label, scales="free_y")
+) + labs(title = "STM-D23580")
+dev.off()
+
+write.csv(
+  diff.status.d23[order(diff.status.d23$qval),],
+  "18_out/diff.status.d23.csv"
+)
+
+# Status ~ Time in LT2 only ----
+
+HSMM.lt2 <- HSMM.stim[,HSMM.stim$Infection == "STM-LT2"]
+dim(HSMM.lt2)
+
+diff.status.lt2 <- differentialGeneTest(
+  HSMM.lt2,
+  fullModelFormulaStr="~Status + Time",
+  reducedModelFormulaStr="~Time"
+)
+
+# View(diff.status.lt2[,c("gene_short_name", "pval", "qval")])
+
+pdf("18_out/diff.status.lt2_top6.pdf", height = 6, width = 10)
+with(
+  diff.status.lt2,
+  plot_genes_jitter(
+    HSMM.lt2[head(rownames(diff.status.lt2)[order(qval)], 6),],
+    cell_size = 2,
+    panel_order = head(gene_short_name[order(qval)], 6),
+    grouping="Time", color_by = "Status", plot_trend = TRUE) +
+    facet_wrap( ~ feature_label, scales="free_y")
+) + labs(title = "STM-LT2")
+dev.off()
+
+write.csv(
+  diff.status.lt2[order(diff.status.lt2$qval),],
+  "18_out/diff.status.lt2.csv"
+)
+
+# Infection ~ Time in Violet + only ----
+
+HSMM.violet <- HSMM.stim[,HSMM.stim$Status == "Violet +"]
+dim(HSMM.violet)
+
+diff.infection.violet <- differentialGeneTest(
+  HSMM.violet,
+  fullModelFormulaStr="~Infection + Time",
+  reducedModelFormulaStr="~Time"
+)
+
+# View(diff.infection.violet[,c("gene_short_name", "pval", "qval")])
+
+pdf("18_out/diff.infection.violet_top6.pdf", height = 6, width = 10)
+with(
+  diff.infection.violet,
+  plot_genes_jitter(
+    HSMM.violet[head(rownames(diff.infection.violet)[order(qval)], 6),],
+    cell_size = 2,
+    panel_order = head(gene_short_name[order(qval)], 6),
+    grouping="Time", color_by = "Infection", plot_trend = TRUE) +
+    facet_wrap( ~ feature_label, scales="free_y")
+) + labs(title = "Violet +")
+dev.off()
+
+write.csv(diff.infection.violet, "18_out/diff.infection.violet.csv")
+
+# Infection ~ Time in Exposed only ----
+
+HSMM.exposed <- HSMM.stim[,HSMM.stim$Status == "Exposed"]
+dim(HSMM.exposed)
+
+diff.infection.exposed <- differentialGeneTest(
+  HSMM.exposed,
+  fullModelFormulaStr="~Infection + Time",
+  reducedModelFormulaStr="~Time"
+)
+
+# View(diff.infection.exposed[,c("gene_short_name", "pval", "qval")])
+
+pdf("18_out/diff.infection.exposed_top6.pdf", height = 6, width = 10)
+with(
+  diff.infection.exposed,
+  plot_genes_jitter(
+    HSMM.exposed[head(rownames(diff.infection.exposed)[order(qval)], 6),],
+    cell_size = 2,
+    panel_order = head(gene_short_name[order(qval)], 6),
+    grouping="Time", color_by = "Infection", plot_trend = TRUE) +
+    facet_wrap( ~ feature_label, scales="free_y")
+) + labs(title = "Exposed")
+dev.off()
+
+write.csv(diff.infection.exposed, "18_out/diff.infection.exposed.csv")
+
