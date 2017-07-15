@@ -116,7 +116,7 @@ normExprsById <- function(geneId){
     labs(y = "Normalised expression") +
     guides(alpha = "none")
 }
-single.scde.4h <- function(gene, groupTarget, groupRef){
+single.scde.2h <- function(gene, groupTarget, groupRef){
   sg.test <- factor(sce.ifm.2h$quickCluster, levels = c(groupTarget, groupRef))
   scde.test.gene.expression.difference(
     gene, o.ifm.2h, cd.ifm.2h, o.prior.2h, sg.test,
