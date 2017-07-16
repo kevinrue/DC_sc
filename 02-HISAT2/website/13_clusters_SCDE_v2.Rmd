@@ -285,6 +285,24 @@ tmpGG <- ggplot(pData(sce.ifm.2h)) +
   labs(x = NULL, y = "Cells", fill = "Cluster")
 tmpGG
 ggsave("13_out/cluster_count_2h.pdf", width = 9, height = 4)
+ggsave(
+  "13_out/cluster_count_2h_wrap.pdf",
+  ggplot(pData(sce.ifm.2h)) +
+    stat_count(aes(
+      x = gsub("_", "\n", Treatment),
+      fill = quickCluster
+    )) +
+    facet_wrap(~ ifelse(
+      quickCluster == 0, " No cluster" , gsub("^", "cluster ", quickCluster)
+    )) +
+    scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
+    ) +
+    labs(x = NULL, y = "Cells", fill = "Cluster"),
+  width = 9, height = 8
+)
 ```
 
 ## 4h
