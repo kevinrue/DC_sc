@@ -273,7 +273,7 @@ Visualised as a bar plot:
 
 ```{r clusterBarplot.2h, echo=FALSE}
 tmpGG <- ggplot(pData(sce.ifm.2h)) +
-  stat_count(aes(x = Treatment, fill = quickCluster)) +
+  stat_count(aes(x = gsub("_", " ", Treatment), fill = quickCluster)) +
   facet_grid(~ ifelse(
     quickCluster == 0, " No cluster" , gsub("^", "cluster ", quickCluster)
   )) +
@@ -282,7 +282,7 @@ tmpGG <- ggplot(pData(sce.ifm.2h)) +
   theme(
     axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
   ) +
-  labs(y = "Cells", fill = "Cluster")
+  labs(x = NULL, y = "Cells", fill = "Cluster")
 tmpGG
 ggsave("13_out/cluster_count_2h.pdf", width = 9, height = 4)
 ```
@@ -328,7 +328,7 @@ tmpGG <- ggplot(pData(sce.ifm.4h)) +
   scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
   theme_minimal() + theme(
     axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
-  ) + labs(y = "Cells", fill = "Cluster", x = "")
+  ) + labs(y = "Cells", fill = "Cluster", x = NULL)
 tmpGG
 ggsave("13_out/cluster_count_4h.pdf", width = 9, height = 4)
 ```
@@ -392,7 +392,7 @@ In addition, note that several functions defined in the first
 ```{r contrasts.4h_run, eval=FALSE}
 groupTarget <- 2; groupRef <- 1
 sg.test <- factor(sce.ifm.4h$quickCluster, levels = c(groupTarget, groupRef))
-names(sg.test) <- sampleNames(sce.4h); summary(sg.test)
+names(sg.test) <- sampleNames(sce.ifm.4h); summary(sg.test)
 contrastName <- sprintf("4h_cluster%s-cluster%s", groupTarget, groupRef); message(contrastName)
 scde.res[[contrastName]] <- scde.expression.difference(
     o.ifm.4h, cd.4h, o.prior.4h, sg.test, n.cores = 4, verbose = 1
@@ -404,7 +404,7 @@ scde.res[[contrastName]] <- scde.expression.difference(
 ```{r contrasts.6h_run, eval=FALSE}
 groupTarget <- 2; groupRef <- 1
 sg.test <- factor(sce.ifm.6h$quickCluster, levels = c(groupTarget, groupRef))
-names(sg.test) <- sampleNames(sce.6h); summary(sg.test)
+names(sg.test) <- sampleNames(sce.ifm.6h); summary(sg.test)
 contrastName <- sprintf("6h_cluster%s-cluster%s", groupTarget, groupRef); message(contrastName)
 scde.res[[contrastName]] <- scde.expression.difference(
     o.ifm.6h, cd.6h, o.prior.6h, sg.test, n.cores = 4, verbose = 1
