@@ -180,6 +180,16 @@ ggplot(tmpGG, aes(X1, X2, colour = Cluster)) +
   labs(x="Dimension 1",y="Dimension 2",title="2h") +
   scale_color_manual(values = col.cluster, na.value = col.cluster["NA"])
 
+ggplot(subset(pData(sce.ifm.2h), Time == "2h")) +
+  facet_wrap(~ quickCluster) +
+  geom_bar(aes(Treatment, fill = quickCluster)) +
+  scale_fill_manual(values = col.cluster) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5)
+  )
+ggsave("22_out/facet_wrap_cluster_count.pdf", height = 8, width = 9)
+
 # DE between challenged cluster 2 vs challenged cluster 1 ----
 
 sg.test <- rep(NA, ncol(sce.ifm.2h))
@@ -294,6 +304,8 @@ HSMM <- setOrderingFilter(HSMM, ordering_genes)
 HSMM <- reduceDimension(HSMM, max_components = 2)
 HSMM <- orderCells(HSMM)
 
+write.csv(subset(diff_test_res, qval < 0.01), "22_out/diff_test_res.csv")
+
 # Find state with maximum uninfected
 root_state <- function(cds, refPheno = "Infection", refState = "Mock"){
   if (length(unique(pData(cds)$State)) > 1){
@@ -314,7 +326,12 @@ plot_cell_trajectory(HSMM, color_by = "Treatment")
 
 plot_cell_trajectory(HSMM, color_by = "Status") + facet_wrap(~State, nrow=1)
 
-plot_cell_trajectory(HSMM, color_by = "Treatment") + facet_wrap(~State, nrow=1)
+HSMM$vState <- with(pData(HSMM), factor(paste("State", State), paste("State", levels(State))))
+
+HSMM$State <- factor(HSMM$State, c(4,3,2,5,1))
+
+plot_cell_trajectory(HSMM, color_by = "Treatment") +
+  facet_wrap(~vState, nrow=1)
 ggsave("22_out/pseudotime_Treatment_facetOrderedStates.pdf", height = 4, width = 12)
 
 plot_cell_trajectory(HSMM, color_by = "quickCluster") + facet_wrap(~State, nrow=1)
@@ -323,7 +340,7 @@ plot_cell_trajectory(HSMM, color_by = "quickCluster") + facet_wrap(~State, nrow=
 
 bds <- buildBranchCellDataSet(HSMM, branch_point = 1)
 
-BEAM_res <- BEAM(HSMM, branch_point = 1, cores = 1)
+BEAM_res <- BEAM(HSMM, branch_point = 1, cores = 4)
 # BEAM_res <- BEAM(
 #   HSMM, cores = 4,
 #   branch_states = c(2, 3), branch_labels = c("Activated", "Mock-like")
@@ -356,6 +373,25 @@ gg
 
 # Profile of states 2 and 3
 # TODO: plot values of norm_exprs instead!
+
+sce.ifm.2h$State <- pData(HSMM)[sampleNames(sce.ifm.2h),"State"]
+sce.ifm.2h$Pseudotime <- pData(HSMM)[sampleNames(sce.ifm.2h),"Pseudotime"]
+
+ggplot(
+  cbind(
+    n.e. = norm_exprs(sce.ifm.2h)[
+      subset(fData(sce.ifm.2h), gene_name == "TNF", gene_id, drop = TRUE)
+    ,],
+    pData(sce.ifm.2h)[,c("Time","Infection","Status","State")]
+  ),
+  aes(x = State, y = n.e.)
+) + geom_violin(draw_quantiles = c(0.25,0.5,0.75)) +
+  geom_jitter(aes(colour = Status), height = 0, width = 0.3) +
+  scale_y_continuous(limits = range(norm_exprs(sce.ifm.2h))) +
+  labs(y = "Normalised expression") +
+  theme_minimal()
+
+
 assayData(bds)[["log2"]] <- log2(exprs(bds) + 1)
 lipa.id <- subset(fData(bds), gene_name == "IL1B", gene_id, drop = TRUE)
 lipa.df <- data.frame(
