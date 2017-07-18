@@ -328,31 +328,34 @@ plot_cell_trajectory(HSMM, color_by = "Status") + facet_wrap(~State, nrow=1)
 
 HSMM$vState <- with(pData(HSMM), factor(paste("State", State), paste("State", levels(State))))
 
-HSMM$State <- factor(HSMM$State, c(4,3,2,5,1))
+# HSMM$State <- factor(HSMM$State, c(4,3,2,5,1))
 
 plot_cell_trajectory(HSMM, color_by = "Treatment") +
   facet_wrap(~vState, nrow=1)
 ggsave("22_out/pseudotime_Treatment_facetOrderedStates.pdf", height = 4, width = 12)
 
 plot_cell_trajectory(HSMM, color_by = "quickCluster") + facet_wrap(~State, nrow=1)
+ggsave("22_out/pseudotime_quickCluster_facetOrderedStates.pdf", height = 4, width = 12)
+
+# BEAM branching point 1 ----
 
 # T <- minSpanningTree(HSMM)
 
 bds <- buildBranchCellDataSet(HSMM, branch_point = 1)
 
-BEAM_res <- BEAM(HSMM, branch_point = 1, cores = 4)
-# BEAM_res <- BEAM(
+BEAM_1 <- BEAM(HSMM, branch_point = 1, cores = 4)
+# BEAM_1 <- BEAM(
 #   HSMM, cores = 4,
 #   branch_states = c(2, 3), branch_labels = c("Activated", "Mock-like")
 # )
-BEAM_res <- BEAM_res[order(BEAM_res$qval),]
-BEAM_res <- BEAM_res[,c("gene_short_name", "pval", "qval")]
+BEAM_1 <- BEAM_1[order(BEAM_1$qval),]
+BEAM_1 <- BEAM_1[,c("gene_short_name", "pval", "qval")]
 
-View(BEAM_res)
+View(BEAM_1)
 
 pdf("22_out/heatmap_point1.pdf", height = 12, width = 6)
 plot_genes_branched_heatmap(
-  HSMM[row.names(subset(BEAM_res, qval < 1e-4)),],
+  HSMM[row.names(subset(BEAM_1, qval < 1e-4)),],
   branch_point = 1,
   num_clusters = 4,
   cores = 1,
@@ -371,8 +374,39 @@ gg <- plot_genes_branched_pseudotime(
 )
 gg
 
-# Profile of states 2 and 3
-# TODO: plot values of norm_exprs instead!
+# BEAM branching point 2 ----
+
+BEAM_2 <- BEAM(HSMM, branch_point = 1, cores = 4)
+# BEAM_2 <- BEAM(
+#   HSMM, cores = 4,
+#   branch_states = c(2, 3), branch_labels = c("Activated", "Mock-like")
+# )
+BEAM_2 <- BEAM_2[order(BEAM_2$qval),]
+BEAM_2 <- BEAM_2[,c("gene_short_name", "pval", "qval")]
+View(BEAM_2)
+
+pdf("22_out/heatmap_point2.pdf", height = 12, width = 6)
+plot_genes_branched_heatmap(
+  HSMM[row.names(subset(BEAM_2, qval < 1e-4)),],
+  branch_point = 2,
+  num_clusters = 4,
+  cores = 4,
+  use_gene_short_name = T,
+  show_rownames = T)
+dev.off()
+
+point1_genes <- row.names(
+  subset(fData(HSMM), gene_short_name %in% c("APOE", "APOE", "APOC1", "LAMP3")))
+
+gg <- plot_genes_branched_pseudotime(
+  HSMM[point1_genes,],
+  branch_point=1,
+  color_by = "Status",
+  ncol=1, cell_size = 3
+)
+gg
+
+# Profile of states ----
 
 sce.ifm.2h$State <- pData(HSMM)[sampleNames(sce.ifm.2h),"State"]
 sce.ifm.2h$Pseudotime <- pData(HSMM)[sampleNames(sce.ifm.2h),"Pseudotime"]
@@ -380,7 +414,7 @@ sce.ifm.2h$Pseudotime <- pData(HSMM)[sampleNames(sce.ifm.2h),"Pseudotime"]
 ggplot(
   cbind(
     n.e. = norm_exprs(sce.ifm.2h)[
-      subset(fData(sce.ifm.2h), gene_name == "TNF", gene_id, drop = TRUE)
+      subset(fData(sce.ifm.2h), gene_name == "CD52", gene_id, drop = TRUE)
     ,],
     pData(sce.ifm.2h)[,c("Time","Infection","Status","State")]
   ),
@@ -388,7 +422,7 @@ ggplot(
 ) + geom_violin(draw_quantiles = c(0.25,0.5,0.75)) +
   geom_jitter(aes(colour = Status), height = 0, width = 0.3) +
   scale_y_continuous(limits = range(norm_exprs(sce.ifm.2h))) +
-  labs(y = "Normalised expression") +
+  labs(y = "Normalised expression", x = NULL) +
   theme_minimal()
 
 
@@ -396,7 +430,7 @@ assayData(bds)[["log2"]] <- log2(exprs(bds) + 1)
 lipa.id <- subset(fData(bds), gene_name == "IL1B", gene_id, drop = TRUE)
 lipa.df <- data.frame(
   log2 = assayData(bds)[["log2"]][lipa.id,],
-  State = pData(bds)[,"State"],
+  State = pData(bds)[,"vState"],
   Branch = pData(bds)[,"Branch"]
 )
 # ggplot(lipa.df) + geom_jitter(aes(as.factor(State), log2, colour = State))
