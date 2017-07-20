@@ -327,10 +327,11 @@ plot_cell_trajectory(HSMM, color_by = "Status") + facet_wrap(~State, nrow=1)
 HSMM$vState <- with(pData(HSMM), factor(paste("State", State), paste("State", levels(State))))
 
 saveRDS(HSMM, "22_out/HSMM_2h.rds")
+HSMM <- readRDS("22_out/HSMM_2h.rds")
 
 # HSMM$State <- factor(HSMM$State, c(4,3,2,5,1))
 
-HSMM$Treatment <- gsub("_", "\n", HSMM$Treatment)
+HSMM$Treatment2 <- gsub("_", "\n", HSMM$Treatment)
 
 plot_cell_trajectory(HSMM, color_by = "Treatment") +
   facet_wrap(~vState, nrow=1)
@@ -477,7 +478,7 @@ prop.Treatment <- merge(
   by.x = "Treatment", by.y = "Var1", suffixes = c("Count", "Total"))
 prop.Treatment$Proportion <- with(prop.Treatment, FreqCount / FreqTotal)
 
-prop.Treatment$Treatment2 <- gsub("\n", " ", prop.Treatment$Treatment)
+prop.Treatment$Treatment2 <- gsub(" ([[:alpha:]])", "\n\\1", prop.Treatment$Treatment)
 
 ggplot(prop.Treatment) +
   facet_grid(. ~ vState) +
@@ -496,7 +497,7 @@ ggsave("22_out/Treatment-State_Proportion.pdf", height = 5, width = 12)
 ggplot(prop.Treatment) +
   facet_grid(. ~ vState) +
   geom_col(aes(Treatment2, Proportion, fill = Treatment2)) +
-  geom_text(aes(Treatment, Proportion + 0.05, label = FreqCount), alpha = 0.75) +
+  geom_text(aes(Treatment2, Proportion + 0.05, label = FreqCount), alpha = 0.75) +
   labs(x = NULL, y = "Proportion of cells") +
   theme_bw() +
   scale_y_continuous(labels=scales::percent, limits = c(0, 1)) +
