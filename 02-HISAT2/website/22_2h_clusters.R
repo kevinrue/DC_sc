@@ -10,6 +10,8 @@ library(dplyr)
 library(ggrepel)
 library(RColorBrewer)
 library(goseq)
+library(randomForest)
+library(monocle)
 
 sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 o.ifm.2h <- readRDS("rds/o.ifm.2h_v8.rds")
@@ -202,28 +204,26 @@ sg.test[
 sg.test <- factor(sg.test, paste0("challenged_cluster", 2:1))
 table(sg.test)
 
-names(sg.test) <- sampleNames(sce.ifm.2h)
-contrastName <- "challenged_cluster2-cluster1"
-scde.res[[contrastName]] <- scde.expression.difference(
-  o.ifm.2h, cd.2h, o.prior.2h, sg.test, n.cores = 4, verbose = 1
-)
-
-assign(contrastName, orderResults(addGENENAME(convert.z.score(scde.res[[contrastName]]))))
-
-View(get(contrastName))
-
-write.csv(get(contrastName), sprintf("22_out/%s.csv", contrastName))
-
-# CD1A
-scde.test.gene.expression.difference("ENSG00000158477", o.ifm.2h, cd.2h, o.prior.2h, sg.test)
-# CTSL
-scde.test.gene.expression.difference("ENSG00000135047", o.ifm.2h, cd.2h, o.prior.2h, sg.test)
-
-normExprsById("ENSG00000135047")
+# names(sg.test) <- sampleNames(sce.ifm.2h)
+# contrastName <- "challenged_cluster2-cluster1"
+# scde.res[[contrastName]] <- scde.expression.difference(
+#   o.ifm.2h, cd.2h, o.prior.2h, sg.test, n.cores = 4, verbose = 1
+# )
+#
+# assign(contrastName, orderResults(addGENENAME(convert.z.score(scde.res[[contrastName]]))))
+#
+# View(get(contrastName))
+#
+# write.csv(get(contrastName), sprintf("22_out/%s.csv", contrastName))
+#
+# # CD1A
+# scde.test.gene.expression.difference("ENSG00000158477", o.ifm.2h, cd.2h, o.prior.2h, sg.test)
+# # CTSL
+# scde.test.gene.expression.difference("ENSG00000135047", o.ifm.2h, cd.2h, o.prior.2h, sg.test)
+#
+# normExprsById("ENSG00000135047")
 
 # randomForest ----
-
-library(randomForest)
 
 sce.rf <- sce.ifm.2h[
   , sce.ifm.2h$quickCluster %in% c(1, 2) & sce.ifm.2h$Infection != "Mock"]
@@ -274,8 +274,6 @@ draw(hm)
 
 # Monocle pseudotemporal trajectory ----
 
-library(monocle)
-
 fd <- featureData(sce.ifm.2h)
 fd$gene_short_name <- fd$gene_name
 
@@ -314,7 +312,7 @@ root_state <- function(cds, refPheno = "Infection", refState = "Mock"){
 }
 HSMM <- orderCells(HSMM, root_state = root_state(HSMM))
 
-HSMM$State <- factor(HSMM$State, c(4,3,2,5,1))
+# HSMM$State <- factor(HSMM$State, c(4,3,2,5,1))
 
 plot_cell_trajectory(HSMM, color_by = "State")
 ggsave("22_out/pseudotime_State.pdf", height = 4, width = 5)
@@ -328,7 +326,11 @@ plot_cell_trajectory(HSMM, color_by = "Status") + facet_wrap(~State, nrow=1)
 
 HSMM$vState <- with(pData(HSMM), factor(paste("State", State), paste("State", levels(State))))
 
+saveRDS(HSMM, "22_out/HSMM_2h.rds")
+
 # HSMM$State <- factor(HSMM$State, c(4,3,2,5,1))
+
+HSMM$Treatment <- gsub("_", "\n", HSMM$Treatment)
 
 plot_cell_trajectory(HSMM, color_by = "Treatment") +
   facet_wrap(~vState, nrow=1)
@@ -350,6 +352,8 @@ BEAM_1 <- BEAM(HSMM, branch_point = 1, cores = 4)
 # )
 BEAM_1 <- BEAM_1[order(BEAM_1$qval),]
 BEAM_1 <- BEAM_1[,c("gene_short_name", "pval", "qval")]
+
+saveRDS(BEAM_1, "22_out/BEAM_1.rds")
 
 View(BEAM_1)
 
@@ -383,6 +387,9 @@ BEAM_2 <- BEAM(HSMM, branch_point = 1, cores = 4)
 # )
 BEAM_2 <- BEAM_2[order(BEAM_2$qval),]
 BEAM_2 <- BEAM_2[,c("gene_short_name", "pval", "qval")]
+
+saveRDS(BEAM_2, "22_out/BEAM_2.rds")
+
 View(BEAM_2)
 
 pdf("22_out/heatmap_point2.pdf", height = 12, width = 6)
@@ -448,3 +455,54 @@ with(pData(bds), table(Branch, Infection))
 
 mleRange <-
   max(abs(do.call("c", lapply(scde.res, function(x){return(x$mle)}))))*c(-1,1)
+
+# Count of Treatment per State ----
+
+ggplot(pData(HSMM)) +
+  facet_grid(. ~ vState) +
+  geom_bar(aes(Treatment, fill = Treatment)) +
+  labs(x = NULL, y = "Cells") +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+    legend.position = "bottom"
+  )
+
+ggsave("22_out/Treatment-State_Count.pdf", height = 5, width = 12)
+
+cross.Treatment <- as.data.frame(with(pData(HSMM), table(Treatment, vState)))
+total.Treatment <- as.data.frame(table(HSMM$Treatment))
+prop.Treatment <- merge(
+  x = cross.Treatment, y = total.Treatment,
+  by.x = "Treatment", by.y = "Var1", suffixes = c("Count", "Total"))
+prop.Treatment$Proportion <- with(prop.Treatment, FreqCount / FreqTotal)
+
+prop.Treatment$Treatment2 <- gsub("\n", " ", prop.Treatment$Treatment)
+
+ggplot(prop.Treatment) +
+  facet_grid(. ~ vState) +
+  geom_col(aes(Treatment, Proportion, fill = Treatment)) +
+  geom_text(aes(Treatment, Proportion + 0.05, label = FreqCount), alpha = 0.75) +
+  labs(x = NULL, y = "Proportion of cells") +
+  theme_bw() +
+  scale_y_continuous(labels=scales::percent, limits = c(0, 1)) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+    legend.position = "bottom"
+  )
+
+ggsave("22_out/Treatment-State_Proportion.pdf", height = 5, width = 12)
+
+ggplot(prop.Treatment) +
+  facet_grid(. ~ vState) +
+  geom_col(aes(Treatment2, Proportion, fill = Treatment2)) +
+  geom_text(aes(Treatment, Proportion + 0.05, label = FreqCount), alpha = 0.75) +
+  labs(x = NULL, y = "Proportion of cells") +
+  theme_bw() +
+  scale_y_continuous(labels=scales::percent, limits = c(0, 1)) +
+  theme(
+    axis.text.x = element_text(angle = 90, hjust = 1, vjust = 0.5),
+    legend.position = "bottom"
+  )
+
+ggsave("22_out/Treatment-State_Proportion_legend.pdf", height = 5, width = 12)
