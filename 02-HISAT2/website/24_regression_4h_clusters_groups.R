@@ -247,7 +247,7 @@ gg <- ggplot(gg.sig.cluster) +
   scale_colour_manual(values = colours.infection) +
   labs(y = "MLE\n(Violet + / Exposed)", x = "MLE\n(Cluster 1 / Cluster 2)")
 
-ggsave("figures/regression_4h_clusters_groups.pdf", height = 4, width = 5.5)
+ggsave("24_out/regression_4h_clusters_groups.pdf", height = 4, width = 5.5)
 
 gg
 
