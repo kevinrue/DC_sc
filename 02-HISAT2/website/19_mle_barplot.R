@@ -42,7 +42,7 @@ scde.plot$gene_name <- with(scde.plot, reorder(gene_name, mle))
 scde.plot$Highest <- with(scde.plot, ifelse(mle > 0, "STM-D23580", "STM-LT2"))
 
 ggplot(scde.plot, aes(gene_name, mle)) +
-  geom_col(aes(fill = Highest), alpha = 0.75) +
+  geom_col(aes(fill = Highest), alpha = 2/3) +
   coord_flip() +
   scale_fill_manual(values = col.infection) +
   scale_y_continuous(breaks = with(scde.plot, seq(floor(min(mle)), max(mle), 1))) +
@@ -52,7 +52,10 @@ ggplot(scde.plot, aes(gene_name, mle)) +
     fill = "Up-regulated in"
   ) +
   theme_minimal() +
-  theme(axis.text.y = element_text(face = "italic"))
+  theme(
+    axis.text.y = element_text(face = "italic"),
+    panel.grid.minor.x = element_blank()
+  )
 ggsave("19_out/mle_6h_D23-LT2_vertical.pdf", width = 7, height = 8)
 
 ggplot(scde.plot, aes(gene_name, mle)) +
