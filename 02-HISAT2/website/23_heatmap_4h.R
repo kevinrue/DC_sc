@@ -28,6 +28,7 @@ sce.4h <- sce.endo[,sce.endo$Time == '4h']
 
 # Subset genes
 geneNames <- c("APOE", "APOC1", "LRP1", "CD1A", "CD1B", "CD1C", "CD1E")
+geneNames <- c("APOE", "APOC1", "LRP1", "CD1A")
 geneMap <- with(
   fData(sce.4h),
   fData(sce.4h)[match(geneNames, gene_name), c("gene_name", "gene_id")]
@@ -57,7 +58,8 @@ sce.lt2exp <- sce.genes[,sce.genes$Treatment == "STM-LT2_Exposed"]
 mat.lt2exp <- norm_exprs(sce.lt2exp)
 rownames(mat.lt2exp) <- geneNames
 
-pdf("23_out/heatmap_4h.pdf", height = 5, width = 8)
+# pdf("23_out/heatmap_4h.pdf", height = 5, width = 8)
+pdf("23_out/heatmap_4h_v2.pdf", height = 3, width = 8)
 HeatmapList(
   Heatmap(
     matrix = mat.mock, col = colorMap, column_title = "Mock\nUninfected",
