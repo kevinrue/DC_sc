@@ -296,7 +296,7 @@ ggsave(
       quickCluster == 0, " No cluster" , gsub("^", "cluster ", quickCluster)
     )) +
     scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
-    theme_minimal() +
+    theme_bw() +
     theme(
       axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
     ) +
@@ -349,6 +349,43 @@ tmpGG <- ggplot(pData(sce.ifm.4h)) +
   ) + labs(y = "Cells", fill = "Cluster", x = NULL)
 tmpGG
 ggsave("13_out/cluster_count_4h.pdf", width = 9, height = 4)
+ggsave(
+  "13_out/cluster_count_4h_wrap.pdf",
+  ggplot(pData(sce.ifm.4h)) +
+    stat_count(aes(
+      x = gsub("_", "\n", Treatment),
+      fill = quickCluster
+    )) +
+    facet_wrap(~ ifelse(
+      quickCluster == 0, " No cluster" , gsub("^", "cluster ", quickCluster)
+    ), nrow = 1) +
+    scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+    theme_bw() +
+    theme(
+      axis.text.x = element_text(
+        angle=90,hjust=1,vjust=0.5,face="bold", size = rel(1.25))
+    ) +
+    labs(x = NULL, y = "Cells", fill = "Cluster"),
+  width = 9, height = 5
+)
+ggsave(
+  "13_out/cluster_count_4h_vertical.pdf",
+  ggplot(pData(sce.ifm.4h)) +
+    stat_count(aes(
+      x = gsub("_", "\n", Treatment),
+      fill = quickCluster
+    )) +
+    facet_wrap(~ ifelse(
+      quickCluster == 0, " No cluster" , gsub("^", "cluster ", quickCluster)
+    ), ncol = 1) +
+    scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
+    ) +
+    labs(x = NULL, y = "Cells", fill = "Cluster"),
+  width = 9, height = 18
+)
 ```
 
 ## 6h
@@ -388,6 +425,25 @@ tmpGG <- ggplot(pData(sce.ifm.6h)) +
   ) + labs(y = "Cells", fill = "Cluster")
 tmpGG
 ggsave("13_out/cluster_count_6h.pdf", width = 9, height = 4)
+ggsave(
+  "13_out/cluster_count_6h_wrap.pdf",
+  ggplot(pData(sce.ifm.6h)) +
+    stat_count(aes(
+      x = gsub("_", "\n", Treatment),
+      fill = quickCluster
+    )) +
+    facet_wrap(~ ifelse(
+      quickCluster == 0, " No cluster" , gsub("^", "cluster ", quickCluster)
+    ), nrow = 1) +
+    scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+    theme_bw() +
+    theme(
+      axis.text.x = element_text(
+        angle=90,hjust=1,vjust=0.5,face="bold", size = rel(1.25))
+    ) +
+    labs(x = NULL, y = "Cells", fill = "Cluster"),
+  width = 9, height = 5
+)
 ```
 
 # Differential expression {#DE}
@@ -468,7 +524,7 @@ ggplot(v.data.4h) +
   labs(title = "4h: cluster 2 - cluster 1")
 ```
 
-```{r fig1_volcano_4h_2v1, echo=FALSE, eval=FALSE}
+```{r fig1_volcano_4h_2v1, include=FALSE}
 geneData.4h <- subset(dplyr::mutate(
     v.data.4h, gene_name = fData(sce.ifm.4h)[rownames(v.data.4h),"gene_name"]
   ),
@@ -490,7 +546,10 @@ ggplot(v.data.4h) +
   scale_x_continuous(limits = mleRange) +
   scale_y_continuous(limits = v.P.range) +
   theme_bw() +
-  labs(title = "4h: cluster 2 - cluster 1")
+  labs(
+    title = "4h: cluster 2 - cluster 1",
+    y = expression(-log[10]*" ("*italic(P)*"-value)")
+  )
 ggsave("13_out/4h_volcano_Vogel.pdf", height = 5, width = 6.5)
 ```
 
@@ -549,7 +608,10 @@ ggplot(v.data.6h) +
   scale_x_continuous(limits = mleRange) +
   scale_y_continuous(limits = v.P.range) +
   theme_bw() +
-  labs(title = "6h: cluster 2 - cluster 1", y = expression(-log[10]*" ("*italic(P)*"-value)"))
+  labs(
+    title = "6h: cluster 2 - cluster 1",
+    y = expression(-log[10]*" ("*italic(P)*"-value)")
+  )
 ggsave("13_out/6h_volcano_Vogel.pdf", height = 5, width = 6.5)
 ```
 
