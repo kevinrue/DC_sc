@@ -209,7 +209,7 @@ plot_pseudotime_heatmap(
   show_rownames = T)
 dev.off()
 
-# isMock ~ Time
+# isMock ~ Time ----
 
 # Test genes for differential expression between
 # challenged and Mock-uninfected DCs,
