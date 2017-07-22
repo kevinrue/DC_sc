@@ -2,6 +2,7 @@
 library(scater)
 library(scde)
 library(ggplot2)
+library(ggrepel)
 library(RColorBrewer)
 
 # load data ----
@@ -173,3 +174,27 @@ scde.test.gene.expression.difference(
 )
 
 write.csv(scde.res, "26_out/scde.D23580.violet_APOE.csv")
+
+gene.res <- scde.res[
+  match(
+    c(
+      "APOE","CASP8","TLR4","LIMA1","CCL22","APOC1","LYZ","AP1G2","AFTPH", # 9
+      "HLA-DQA1","CST3","CLEC4G","COMMD3","CLEC5A","PTGER3","COPS7B" # 7
+    ),
+    scde.res$GENENAME),]
+
+ggplot(scde.res, aes(Z, -log10(p.value))) +
+  geom_point(aes(colour = p.value < 0.01)) +
+  geom_hline(yintercept = -log10(0.01), linetype = "dashed", colour = "grey") +
+  geom_text_repel(
+    aes(label = GENENAME), gene.res,
+    size = 2, min.segment.length = unit(0, "mm"), alpha = 0.75,
+    nudge_x = ifelse(gene.res$Z > 0, 1, -1), nudge_y = 0, segment.size = 0.2,
+    fontface = "bold"
+  ) +
+  scale_x_continuous(limits = max(scde.res$Z) * c(-1,1)) +
+  guides(colour = "none") +
+  labs(y = expression(-log[10]*" ("*italic(P)*"-value)")) +
+  theme_bw()
+
+ggsave("26_out/volcano_APOE_PosNeg_Vogel.pdf", height = 5, width = 6.5)
