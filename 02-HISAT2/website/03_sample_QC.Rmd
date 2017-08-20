@@ -302,8 +302,7 @@ For reference:
 
 ## Summary
 
-Let us display the count of cells identified as outliers for each of the
-filters so far:
+Let us display the count of cells identified as outliers for each of the filters so far:
 
 ```{r fastqc.fr}
 fastqc.fr <- FilterRules(colnames(outliers))
@@ -317,6 +316,12 @@ pander::pandoc.table(
     Pass = summary(!evalSeparately(fastqc.fr, outliers))
 ))
 ```
+
+**Note:**
+In the above table, the first row simply indicates the total count
+of cells before any filtering;
+conversely, the last row indicates the count of cells that failed or
+passed, respectively, _all_ filters.
 
 # *scater*
 
@@ -643,8 +648,6 @@ For reference:
 * single cells
     - median: `r features.M`
 * cut-offs
-    - upper bound:
-      `r sprintf("%.1f", features.M+2*features.MAD)`
     - lower bound:
       `r sprintf("%.1f", features.M-2*features.MAD)`
 
