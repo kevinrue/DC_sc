@@ -302,7 +302,8 @@ For reference:
 
 ## Summary
 
-Let us display the count of cells identified as outliers for each of the filters so far:
+Let us display the count of cells identified as outliers for each of the
+filters so far:
 
 ```{r fastqc.fr}
 fastqc.fr <- FilterRules(colnames(outliers))
