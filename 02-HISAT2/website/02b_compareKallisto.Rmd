@@ -1,0 +1,188 @@
+---
+title: "Comparison HISAT2+featureCounts vs. Kallisto"
+---
+
+```{r loadKallisto, echo=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+kallisto_all <- readRDS("../../01-kallisto/rds/all_EnsDb.rds")
+sce.all <- readRDS("rds/sce.all.rds")
+```
+
+# Preprocessing
+
+```{r kallisto_all_fix, include=FALSE}
+# Quick fix: update phenodata in Kallisto to match current ones
+kallisto_all$Infection <- factor(
+  kallisto_all$Infection,
+  levels = c("Blank", "D23580", "LT2", "Mock"),
+  labels = c("Blank", "STM-D23580", "STM-LT2", "Mock"))
+kallisto_all$Status <- factor(
+  kallisto_all$Status,
+  levels = c("Blank", "BULK", "exposed", "infected", "uninfected"),
+  labels = c("Blank", "Bulk", "Exposed", "Violet +", "Uninfected"))
+```
+
+Let us identify features present in both the _Kallisto_ and the
+_HISAT2 & featureCounts_ (hereafter, "_HF_") pipelines:
+
+```{r overlapKallistoAligned}
+features.overlap <-
+  intersect(fData(kallisto_all)[,"feature_id"], featureNames(sce.all))
+```
+
+Let us reorder features in the _Kallisto_  to match the order of the
+_HF_ pipeline, and retain only features observed in both data sets:
+
+```{r kallisto.overlap}
+kallisto.overlap <- kallisto_all[
+  match(features.overlap, fData(kallisto_all)$feature_id),
+]
+sce.overlap <- sce.all[features.overlap,]
+rm(kallisto_all, sce.all)
+```
+
+Let us identfy ERCC features for specific visualisation:
+
+```{r erccIds}
+ercc <- grepl("^ERCC-", features.overlap)
+table(ercc)
+```
+
+# Comparative read counts at bulk level
+
+Let us collect the count of sequenced fragments produce by each pipeline
+for each gene feature:
+
+```{r prepareBulkPlot, message=FALSE}
+comp.bulks <- data.frame(
+  Time = character(),
+  Infection = character(),
+  Kallisto = integer(),
+  HF = integer(),
+  ERCC = logical()
+)
+for (time in c("2h", "4h", "6h")){
+  for (infection in c("Mock", "STM-D23580", "STM-LT2")){
+    message(sprintf("%s - %s", time, infection))
+    kallisto <- counts(kallisto.overlap[
+      ,
+      kallisto.overlap$Time == time &
+        kallisto.overlap$Infection == infection &
+        kallisto.overlap$Status == "Bulk"
+    ])[,1]
+    hf = counts(sce.overlap)[
+      ,
+      sce.overlap$Time == time &
+        sce.overlap$Infection == infection &
+        sce.overlap$Status == "Bulk"
+    ]
+    new.df <- data.frame(
+      Time = time,
+      Infection = infection,
+      Kallisto = kallisto,
+      HF = hf,
+      ERCC = ercc
+    )
+    comp.bulks <- rbind(comp.bulks, new.df)
+  }
+}
+rm(kallisto, hf, time, infection, new.df)
+```
+
+We may then compare the estimated counts produced by _Kallisto_ to
+the counts produced by the _HF_ pipeline,
+while indicating the identity relationship by a green dashed line:
+
+```{r bulkPlot, echo=FALSE}
+ggplot(comp.bulks, aes(log10(Kallisto + 1), log10(HF + 1))) +
+  geom_hex() +
+  geom_abline(
+    slope=1, intercept=0, alpha=0.5, colour="green", linetype="dashed") +
+  coord_fixed(ratio = 1) +
+  facet_grid(Infection ~ Time) +
+  geom_point(
+    aes(log10(Kallisto + 1), log10(HF + 1)),
+    subset(comp.bulks, ERCC),
+    colour = "red", size = 0.5) +
+  labs(
+    y="HISAT2 & featureCounts", x="Kallisto",
+    title=expression(log[10]*(counts+1))
+  ) +
+  guides(fill = "none") + theme_bw()
+ggsave("NGS-SIG/Kallisto-HISAT2_bulk.pdf", width = 5, height = 4)
+ggsave("02_out/Kallisto-HISAT2_bulk.pdf", width = 5, height = 4)
+```
+
+# Comparative read counts in random single cells
+
+```{r prepareSCplot, message=FALSE}
+set.seed(1985)
+comp.sc <- data.frame(
+  Time = character(),
+  Infection = character(),
+  Status = character(),
+  Kallisto = numeric(),
+  THF = numeric(),
+  ERCC = logical()
+)
+cells.df <- data.frame(
+  Cell = character(),
+  Time = character(),
+  Infection  = character()
+)
+for (time in c("2h", "4h", "6h")){
+   for (infection in c("Mock", "STM-D23580", "STM-LT2")){
+     message(sprintf("%s - %s", time, infection))
+    sname <- as.character(sample(subset(
+      pData(kallisto.overlap),
+      Time == time & Infection == infection & Status != 'Bulk',
+      select = sample,
+      drop = TRUE), 1))
+    kallisto <- counts(kallisto.overlap[,sname])[,1]
+    hf = counts(sce.overlap)[,sname]
+    new.df <- data.frame(
+      Time = time,
+      Infection = infection,
+      Status = subset(
+        pData(kallisto.overlap), sample == sname, select = Status, drop = TRUE
+      ),
+      Kallisto = kallisto,
+      HF = hf,
+      ERCC = ercc
+    )
+    comp.sc <- rbind(comp.sc, new.df)
+    newCell <- data.frame(
+      Cell = sprintf("Cell %s", sname),
+      Time = time,
+      Infection = infection
+    )
+    cells.df <- rbind(cells.df, newCell)
+  }
+}
+```
+
+```{r SCplot, echo=FALSE}
+cells.df$Y = 5
+cells.df$X = 0
+ggplot(comp.sc, aes(log10(Kallisto + 1), log10(HF + 1))) +
+  geom_hex(aes(colour = Status)) +
+  geom_abline(
+    slope=1, intercept=0, alpha=0.75, linetype="dashed") +
+  coord_fixed(ratio = 1) +
+  facet_grid(Infection ~ Time) +
+  geom_point(
+    aes(log10(Kallisto + 1), log10(HF + 1)),
+    subset(comp.sc, ERCC),
+    colour = "red", size = 0.5) +
+  ggrepel::geom_label_repel(
+    aes(X, Y, label = Cell), cells.df, min.segment.length = unit(3, "lines"),
+    size = 2, alpha = 0.5) +
+  labs(
+    y="HISAT2 & featureCounts", x="Kallisto",
+    title=expression(log[10]*(counts+1))
+  ) +
+  scale_fill_continuous(name = "Density") +
+  guides(fill = "none") + theme_bw()
+ggsave("NGS-SIG/Kallisto-HISAT2_SC9.pdf", width = 6, height = 4)
+ggsave("02_out/Kallisto-HISAT2_SC9.pdf", width = 6, height = 4)
+```
