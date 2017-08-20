@@ -412,7 +412,7 @@ plot(
 
 First, from a QC perspective:
 
-* Blanks samples show a very low library complexity, as expected.
+* Blank samples show a very low library complexity, as expected.
 * Bulk samples show a generally high library complexity, as expected.
 * Single cells generally show a complexity profile comparable to that of bulk
   samples, indicative of healthy dendritic cells and unbiased sampling of
