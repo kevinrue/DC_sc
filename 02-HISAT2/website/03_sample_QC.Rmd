@@ -892,13 +892,12 @@ draw(hm + hm_row)
 dev.off()
 ```
 
-
 ## Interactive tables {.tabset}
 
-We may also display the full list of outliers samples as a table,
-or alternatively, the samples that *successfully* passed all filters:
-
 ### Outliers
+
+We may also display the full list of outliers samples as a table,
+or alternatively, the samples that _failed_ any filters:
 
 ```{r table_outliers, echo=FALSE}
 DT::datatable(
@@ -918,6 +917,9 @@ DT::datatable(
 ```
 
 ### Passed
+
+We may also display the full list of outliers samples as a table,
+or alternatively, the samples that *successfully* passed all filters:
 
 ```{r table_pass, echo=FALSE}
 DT::datatable(
@@ -978,6 +980,7 @@ ggsave("poster/densityLibrary.pdf", posterDensity, width=8, height = 6)
 [Themes](00a_themes.html) panel.
 
 ```{r ggplot_ERCC_label_legend, include=FALSE, fig.height=4, warning=FALSE}
+# ERCC plot with legend for manuscript figures
 plot.ERCC <-
   ggplot(pData(sce.all), aes(Sample, pct_counts_feature_controls_ERCC)) +
   geom_point(aes(colour = Status, shape = Infection), alpha = 0.75) +
