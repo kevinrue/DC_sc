@@ -42,27 +42,33 @@ This section uses objects defined in previous sections of the website, namely:
 
 ## Preprocessing
 
-For each experimental group of single cells, let us calculate the average
-expression level (`log2(counts+1)`) of each feature.
+For each experimental grou p of single cells, let us calculate the average
+expression level ($log_2(counts+1)$) of each feature.
 
-Let us first initialise a `data.frame`:
+Let us first initialise a `data.frame`,
+and calculate the log~2~-transformed count per million (CPM) after
+adding a default $0.25$ count to all genes, to avoid computing the logarithm
+of $0$:
 
 ```{r bulkSCdata_init}
 bulkSCdata <- data.frame()
+logCPM.cells <- edgeR::cpm(counts(sce.pass), log=TRUE, prior.count=0.25)
+logCPM.bulk <- edgeR::cpm(counts(sce.bulk), log=TRUE, prior.count=0.25)
 ```
 
 That we then progressively populate with data for each experimental group:
 
-```{r bulkSCdata_fill}
+```{r bulkSCdata_fill, message=FALSE}
 for (x_group in levels(sce.pass$Group)){
+  message(x_group)
   time <- gsub("^(.*h)_.*", "\\1", x_group)
   infection <- gsub(".*_(.*)_.*", "\\1", x_group)
   status <- gsub(".*_.*_(.*)", "\\1", x_group)
   treatment <- gsub(".*_(.*_.*)", "\\1", x_group)
   cellIndex <- (sce.pass$Group == x_group)
   featureIndex <- (rowSums(counts(sce.pass)) > 0 | rowSums(counts(sce.bulk)) > 0)
-  cellAvg <- rowMeans(exprs(sce.pass[featureIndex, cellIndex]))
-  bulkExpr <- exprs(sce.bulk)[
+  cellAvg <- rowMeans(logCPM.cells[featureIndex, cellIndex])
+  bulkExpr <- logCPM.bulk[
     featureIndex,
     which(sce.bulk$Time == time & sce.bulk$Infection == infection)
   ]
@@ -80,20 +86,19 @@ for (x_group in levels(sce.pass$Group)){
 }
 ```
 
-Importantly, stimulated bulk samples are expected to be a mixture of
+Stimulated bulk samples are expected to be a mixture of
 `infected` (minority; < 5%) and `exposed` cells (vast majority; > 95%).
 We may therefore compare the average expression
-in each subset of cells against the bulk average, both in log2(CPM),
+in each subset of cells against the bulk average, both in log~2~(CPM),
 to identify potential differences.
-For reference, let us also indicate the identity line $y = x$ in grey:
+For reference, let us also indicate the identity line ($y=x$) in grey:
 
 ```{r bulkSCdata_plot, fig.height=8}
 bulkSCdata$ERCC <- grepl("^ERCC-", bulkSCdata$Gene)
 ggplot(bulkSCdata) +
-  geom_abline(slope = 1, intercept = 0, colour = "grey") +
-  # stat_bin2d(aes(Bulk, Cells, colour = ERCC), bins = 100) +
   geom_hex(aes(Bulk, Cells), subset(bulkSCdata, !ERCC)) +
-  geom_point(aes(Bulk, Cells), subset(bulkSCdata, ERCC),size=0.1,colour="red") +
+  geom_point(aes(Bulk, Cells), subset(bulkSCdata, ERCC),size=0.1,colour="red")+
+  geom_abline(slope = 1, intercept = 0, colour = "grey") +
   coord_fixed(ratio = 1) + labs(y="Cell average") + guides(fill = FALSE) +
   facet_grid(Infection + Status ~ Time) +
   theme_minimal() + theme(
@@ -106,8 +111,9 @@ ggplot(bulkSCdata) +
 ggsave(file.path("04_out/correlation_cells_bulk.pdf"), width = 4, height = 8)
 ```
 
-The figure above displays higher detection levels in bulk samples for a large
-proportion of genes; this demonstrates the higher frequency of dropout
+The figure above displays generally higher detection levels in bulk samples
+for a large proportion of genes;
+this demonstrates the higher frequency of dropout
 events in single cell samples, and the average measurement of bulk
 that rescues detection of rarer transcripts expressed
 stochastically at low levels or in few cells.
@@ -136,10 +142,13 @@ range(colSums(cpm(sce.pass)))
 The `scater::cpm` method is an *accessor* to the corresponding slot of
 `SCESet` objects, while the `edgeR::cpm` method *calculates* normalised
 counts per million for given a matrix of read counts.
+Furthermore, in the absence of _size factors_, CPM are computed using the
+total count of read (*i.e.*, library size) for each sample,
+without further normalisation of library sizes between samples.
 
 ## Detection frequency and mean expression level
 
-For this purpose, let us first calculate updated QC metrics--in the subsetted
+For this purpose, let us first calculate updated QC metrics--in the subset
 of cells that *passed* quality control in the
 [previous section](#03_sample_QC.html)--using once more the
 [scater](http://bioconductor.org/packages/scater) `calculateQCMetrics` method:
@@ -168,7 +177,7 @@ Let us compare the expected number of spike-in molecules introduced in each
 sample
 (calculated in this [earlier section](00b_moleculesERCC.html)) against the
 average count detected across all single cells, while indicating the identity
-relationship $y = x$ as a solid black line:
+relationship ($y=x$) as a solid black line:
 
 ```{r ERCCcorrelation, warning=FALSE, fig.height=6}
 mixC$avgCount <- rowMeans(counts(sce.pass)[mixC$ID,])
@@ -272,7 +281,7 @@ ggsave("04_out/countFeaturesByAvgLogCPM.pdf", height = 8, width = 6)
 
 ### Violin
 
-Alternatively, we may also display the distribution of  average log~10~(CPM)
+Alternatively, we may also display the distribution of average log~10~(CPM)
 within each experimental group of single cells as a violin plot.
 
 Let us first identify the count of detected features in each experimental
@@ -331,7 +340,7 @@ Note that the detailed count of cells per group was reported
 [here](03_sample_QC.html#cellSelection).
 
 First, let us obtain---for each feature---the proportion of cells within each
-experimental group of cells that display an expression level above **20** CPM:
+experimental group of cells that display an expression level above $20$ CPM:
 
 ```{r propOver10byGroup}
 propOver10byGroup <- apply(
@@ -381,7 +390,7 @@ And visualise the count of feature detected above **10** CPM
 of at least **25%** of cells in each group, while indicating
 the count of groups in which each feature passed the above detection cut-offs:
 
-```{r detectedCPMandProp_bar, echo=FALSE}
+```{r detectedCPMandProp_bar, echo=FALSE, fig.height=6}
 countPerGroup <- as.data.frame(with(pData(sce.pass), table(Time, Treatment)))
 detectedCPMandProp$Time <- gsub("(.*)_.*_.*", "\\1", detectedCPMandProp$Group)
 detectedCPMandProp$Infection<-gsub(".*_(.*)_.*","\\1",detectedCPMandProp$Group)
@@ -405,8 +414,8 @@ ggsave("04_out/countFeatures_10CPM_25percent_byGroup.pdf", width = 6, height = 6
 
 Let us now retain for further analysis:
 
-* endogenous features detected above **10** CPM in at least **25%** of at least
-  **1** experimental group of cells
+* endogenous features detected above **10** CPM in at least **25%** of
+  at least **1** experimental group of cells
 * ERCC spike-in features detected at an average level greater than **1** count
   across all cells:
 
