@@ -1044,6 +1044,12 @@ draw(ht_gene_list)
 dev.off()
 ```
 
+```{r ht_gene_list_pdf, include=FALSE}
+pdf("06_out/heatmap_genes_tSNE_noLegend.pdf", height = 4, width = 8)
+draw(ht_gene_list, show_annotation_legend = FALSE)
+dev.off()
+```
+
 
 ### 2h
 
