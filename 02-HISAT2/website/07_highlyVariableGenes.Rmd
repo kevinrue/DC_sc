@@ -97,7 +97,7 @@ We do not block on the key experimental factors `Time`, `Infection`, and
 `Status`, as doing so may regress out biological effects of interest.
 
 ```{r model.matrix_technical}
-dm <- model.matrix(~Plate+Lane, data = pData(sce.norm))
+dm <- model.matrix(~Plate, data = pData(sce.norm))
 colnames(dm)
 ```
 
@@ -106,8 +106,8 @@ gene-specific variances in the data set:
 
 ```{r trendVar_ercc}
 var.fit.ercc <- trendVar(
-  sce.norm, assay = "norm_exprs", trend = "loess", design = dm,
-  span = 0.4
+  sce.norm, assay = "norm_exprs", method = "loess", parametric = TRUE,
+  design = dm, span = 0.4
 )
 names(var.fit.ercc)
 ```
@@ -149,8 +149,8 @@ accouting for the same technical factors of the experimental design:
 
 ```{r trendVar_endo}
 var.fit.endo <- trendVar(
-  sce.norm, assay = "norm_exprs", trend = "loess", design = dm,
-  use.spikes = FALSE, span = 0.1
+  sce.norm, assay = "norm_exprs", method = "loess", parametric = TRUE,
+  design = dm, span = 0.1, use.spikes = FALSE
 )
 names(var.fit.endo)
 ```
@@ -284,6 +284,10 @@ hvg.out <- cbind(
   gene_name = fData(sce.norm)[rownames(hvg.out), "gene_name"],
   hvg.out
 )
+```
+
+```{r write_hvg.out, include=FALSE}
+write.csv(hvg.out, "07_out/hvg.out.csv")
 ```
 
 For convenience, let us create a copy of the table
