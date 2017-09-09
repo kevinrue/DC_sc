@@ -2,11 +2,11 @@ require(ggplot2)
 
 library(RColorBrewer)
 col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
-col.infection <- brewer.pal(12, "Paired")[c(9,2,4)]
-col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+col.infection <- brewer.pal(12, "Paired")[c(2,4,7)]
+# col.status <- brewer.pal(12, "Paired")[c(7,1,7)]
 names(col.time) <- paste0(seq(2,6,2), "H")
-names(col.infection) <- c()
-names(col.status) <- levels(sce.norm$Status)
+names(col.infection) <- c("Ty2","STM-D23580","STM-LT2")
+# names(col.status) <- levels(sce.norm$Status)
 
 dirIn <- "~/Downloads/Spectra 2/"
 
@@ -69,13 +69,22 @@ dim(data_300_1900)
 
 dataLong <- reshape2::melt(data_300_1900, id.vars="Wavelength")
 dataLong <- dplyr::mutate(dataLong, group = gsub("_.*", "", variable))
+dataLong <- dplyr::mutate(
+  dataLong,
+  Group = factor(
+    group,
+    levels = c("d23", "lt2", "ty2"),
+    labels = c("STM-D23580", "STM-LT2", "Ty2")
+  )
+)
 ggplot(dataLong) +
   geom_line(aes(Wavelength, value, colour = variable)) +
   guides(colour = "none") +
   theme_bw()
 
 ggplot(dataLong) +
-  geom_smooth(aes(Wavelength, value, colour = group)) +
+  geom_smooth(aes(Wavelength, value, colour = Group)) +
+  scale_colour_manual(values = col.infection) +
   theme_bw()
 ggsave("08_Spectra/02_smooth.pdf", width = 6, height = 4)
 
@@ -102,6 +111,7 @@ pcaData <- dplyr::mutate(
 
 ggplot(pcaData) +
   geom_point(aes(PC1, PC2, colour = Group, shape = Group), size = 2) +
+  scale_colour_manual(values = col.infection) +
   theme_bw()
 
 ggsave("08_Spectra/02_PCA_unscaled.pdf", height = 4, width = 6)
