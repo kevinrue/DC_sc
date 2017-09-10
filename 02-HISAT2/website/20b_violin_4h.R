@@ -106,10 +106,9 @@ ggsave(sprintf("20b_out/violin_all_%s.pdf", geneName), height = 6, width = 8)
 t_h <- "4h"
 
 ggplot(
-  subset(gene.plot, Time == t_h & Infection != "Mock"),
-  aes(Status, norm_exprs)
+  subset(gene.plot, Time == t_h),
+  aes(interaction(Status, Infection, sep = "\n"), norm_exprs)
 ) +
-  facet_grid(~Infection) +
   geom_violin(
     aes(fill = Infection),
     draw_quantiles = c(0.25, 0.5, 0.75),
@@ -127,7 +126,6 @@ ggplot(
   theme_minimal()
 
 ggsave(sprintf("20b_out/violin_%s_%s.pdf", t_h, geneName), height = 4, width = 8)
-
 
 # EBI3 ----
 
@@ -165,10 +163,9 @@ ggsave(sprintf("20b_out/violin_all_%s.pdf", geneName), height = 6, width = 8)
 t_h <- "4h"
 
 ggplot(
-  subset(gene.plot, Time == t_h & Infection != "Mock"),
-  aes(Status, norm_exprs)
+  subset(gene.plot, Time == t_h),
+  aes(interaction(Status, Infection, sep = "\n"), norm_exprs)
 ) +
-  facet_grid(~Infection) +
   geom_violin(
     aes(fill = Infection),
     draw_quantiles = c(0.25, 0.5, 0.75),
@@ -186,7 +183,6 @@ ggplot(
   theme_minimal()
 
 ggsave(sprintf("20b_out/violin_%s_%s.pdf", t_h, geneName), height = 4, width = 8)
-
 
 # CTSL ----
 
@@ -224,10 +220,9 @@ ggsave(sprintf("20b_out/violin_all_%s.pdf", geneName), height = 6, width = 8)
 t_h <- "4h"
 
 ggplot(
-  subset(gene.plot, Time == t_h & Infection != "Mock"),
-  aes(Status, norm_exprs)
+  subset(gene.plot, Time == t_h),
+  aes(interaction(Status, Infection, sep = "\n"), norm_exprs)
 ) +
-  facet_grid(~Infection) +
   geom_violin(
     aes(fill = Infection),
     draw_quantiles = c(0.25, 0.5, 0.75),
@@ -245,7 +240,6 @@ ggplot(
   theme_minimal()
 
 ggsave(sprintf("20b_out/violin_%s_%s.pdf", t_h, geneName), height = 4, width = 8)
-
 
 # MS4A4A ----
 
@@ -283,10 +277,9 @@ ggsave(sprintf("20b_out/violin_all_%s.pdf", geneName), height = 6, width = 8)
 t_h <- "4h"
 
 ggplot(
-  subset(gene.plot, Time == t_h & Infection != "Mock"),
-  aes(Status, norm_exprs)
+  subset(gene.plot, Time == t_h),
+  aes(interaction(Status, Infection, sep = "\n"), norm_exprs)
 ) +
-  facet_grid(~Infection) +
   geom_violin(
     aes(fill = Infection),
     draw_quantiles = c(0.25, 0.5, 0.75),
