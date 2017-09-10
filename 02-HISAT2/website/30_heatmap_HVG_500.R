@@ -1,4 +1,7 @@
 
+# Make sure we use scater prior to SingleCellExperiment release
+stopifnot(packageVersion("scater") < package_version("1.5.11"))
+
 # Load required packages ----
 
 stopifnot(
@@ -116,7 +119,7 @@ ht_2h <- Heatmap(
   top_annotation = ha_2h,
   row_order = hvg.endo.clust$order, column_order = NULL,
   cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
-  show_row_names = FALSE, show_column_names = FALSE
+  show_row_names = FALSE, show_column_names = FALSE, width = unit(4, "inches")
 )
 ht_4h <- Heatmap(
   norm_exprs(sce.4h), col = colorMap,
@@ -125,7 +128,7 @@ ht_4h <- Heatmap(
   row_order = hvg.endo.clust$order, column_order = NULL,
   cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
   show_row_names = FALSE, show_column_names = FALSE,
-  show_heatmap_legend = FALSE
+  show_heatmap_legend = FALSE, width = unit(4, "inches")
 )
 ht_6h <- Heatmap(
   norm_exprs(sce.6h), col = colorMap,
@@ -134,11 +137,80 @@ ht_6h <- Heatmap(
   row_order = hvg.endo.clust$order, column_order = NULL,
   cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
   show_row_names = FALSE, show_column_names = FALSE,
-  show_heatmap_legend = FALSE
+  show_heatmap_legend = FALSE , width = unit(4, "inches")
 )
 
 # Draw heat map ----
 
 pdf("30_out/heatmap_split_time.pdf", height = 6, width = 12)
 draw(ht_2h + ht_4h + ht_6h)
+dev.off()
+
+# Cut the tree of 500 into blocks ----
+
+hvg.endo.clust
+class(hvg.endo.clust)
+plot(hvg.endo.clust)
+abline(h=100, col="red")
+
+h_100 <- cutree(hvg.endo.clust, h = 100)
+table(h_100) # 33 clusters at height 100
+
+k_10 <- cutree(hvg.endo.clust, k = 10)
+table(k_10)
+
+# heat map augmented with cluster membership
+ht_tree <- Heatmap(
+  as.character(k_10), col = brewer.pal(10, "Paired"),
+  name = "k", column_title = "k",
+  row_order = hvg.endo.clust$order, column_order = NULL,
+  cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE,
+  width = unit(1/2, "inches")
+)
+pdf("30_out/heatmap_split_time_k.pdf", height = 6, width = 12)
+draw(ht_2h + ht_4h + ht_6h + ht_tree)
+dev.off()
+
+# Table of cluster membership for each gene
+gene_k <- data.frame(
+  fData(sce.6h)[
+    hvg.endo.clust$order,c("gene_id","gene_name")],
+  k_10 = k_10[hvg.endo.clust$order]
+)
+write.csv(gene_k, "30_out/gene_k_10.csv", row.names = FALSE)
+
+# Annotate selected genes from each cluster -----
+
+# Test: genes from cluster 4
+k_10.4 <- c("IRF8","OAS2","OAS3")
+
+# anno.names <- c(
+#   k_10.4
+# )
+
+anno.names <- c(
+  "IFIT2","IFIT3","ISG20","IL1B","ISG15","SOD2","CCL3","CCL4","CXCL8","TNF",
+  "CCL22","CD80","TAP1","STAT2","IRF7","STAT1","IDO1","IL27","IRF8","CD274",
+  "IL10RA","CD40","SOCS3","TFRC","CD1A","CD1B","DUSP2","DUSP1","CD1C","TGFBI",
+  "ALOX15","CD209","CLEC4G","CLEC4A","CLEC10A","HLA-DMB","IER3","IRF4",
+  "STAT5A","IFNB1","CCL8","CCL1","LAMP3","IL6","IL1A","CCL2","DUSP6","PNP",
+  "CCL26","CCL18","LGMN","CTSL","CD1E","CORO1B","PTGS1","SLC7A8","SLC25A11",
+  "SLC25A1","SLC35A4","SLC25A39","SOCS1","CCR7","IL12A","PLAT","EBI3","IL12B",
+  "IL36G","BATF","CCL24","NLRP3","MYD88"
+)
+
+anno.ids <- with(fData(sce.endo), gene_id[match(anno.names, gene_name)])
+
+gene.idx = match(anno.ids, rownames(sce.6h))
+
+ra <- rowAnnotation(
+  link = row_anno_link(
+    at = gene.idx, labels = anno.names,
+    labels_gp = gpar(cex=2/3), link_width = unit(0.5, "inches")
+    ), width = max_text_width(labels)
+)
+
+pdf("30_out/heatmap_split_time_anno.pdf", height = 10, width = 17)
+draw(ht_2h + ht_4h + ht_6h + ht_tree + ra)
 dev.off()
