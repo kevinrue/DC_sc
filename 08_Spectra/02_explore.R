@@ -2,10 +2,10 @@ require(ggplot2)
 
 library(RColorBrewer)
 col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
-col.infection <- brewer.pal(12, "Paired")[c(2,4,7)]
+col.infection <- brewer.pal(12, "Paired")[c(2,4,6)]
 # col.status <- brewer.pal(12, "Paired")[c(7,1,7)]
 names(col.time) <- paste0(seq(2,6,2), "H")
-names(col.infection) <- c("Ty2","STM-D23580","STM-LT2")
+names(col.infection) <- c("STM-D23580","STM-LT2","ST-Ty2")
 # names(col.status) <- levels(sce.norm$Status)
 
 dirIn <- "~/Downloads/Spectra 2/"
@@ -74,11 +74,11 @@ dataLong <- dplyr::mutate(
   Group = factor(
     group,
     levels = c("d23", "lt2", "ty2"),
-    labels = c("STM-D23580", "STM-LT2", "Ty2")
+    labels = c("STM-D23580", "STM-LT2", "ST-Ty2")
   )
 )
 ggplot(dataLong) +
-  geom_line(aes(Wavelength, value, colour = variable)) +
+  geom_line(aes(Wavelength, value, colour = variable), alpha=0.1) +
   guides(colour = "none") +
   theme_bw()
 
@@ -86,11 +86,35 @@ ggplot(dataLong) +
   geom_smooth(aes(Wavelength, value, colour = Group)) +
   scale_colour_manual(values = col.infection) +
   theme_bw()
-ggsave("08_Spectra/02_smooth.pdf", width = 6, height = 4)
+ggsave("02_smooth.pdf", width = 6, height = 4)
 
-ggplot(dataLong) +
-  geom_point(aes(Wavelength, value, colour = group), size=0.2) +
+# ggplot(dataLong) +
+#   # geom_smooth(aes(Wavelength, value, colour = Group)) +
+#   stat_smooth(
+#     aes(Wavelength, value, colour = Group),
+#     span = 0.1, n = 200,
+#     method = "loess") +
+#   scale_colour_manual(values = col.infection) +
+#   theme_bw()
+# ggsave("02_smooth_loess.pdf", width = 6, height = 4)
+
+# ggplot(dataLong) +
+#   geom_point(aes(Wavelength, value, colour = group), size=0.2) +
+#   theme_bw()
+
+head(dataLong)
+
+dataMean <- aggregate(value ~ Wavelength + Group, dataLong, "mean")
+View(dataMean)
+
+ggplot(dataMean) +
+  geom_line(aes(Wavelength, value, colour = Group)) +
+  scale_colour_manual(values = col.infection) +
+  scale_x_continuous(breaks = seq(from = 400, to = 1800, by = 200)) +
+  scale_y_continuous(breaks = seq(from = 0, to = 0.2, by = 0.05), limits=c(0,0.2)) +
+  labs(y="Intensity", x=expression("Raman shift (cm"^-1*")")) +
   theme_bw()
+ggsave("02_mean_spectrum.pdf", width=10, height = 4)
 
 pca <- prcomp(t(dataIn[waveIn > 300 & waveIn < 1900,]), scale. = FALSE)
 plot(pca)
@@ -105,7 +129,7 @@ pcaData <- dplyr::mutate(
   Group = factor(
     group,
     levels = c("d23", "lt2", "ty2"),
-    labels = c("STM-D23580", "STM-LT2", "Ty2")
+    labels = c("STM-D23580", "STM-LT2", "ST-Ty2")
   )
 )
 
@@ -114,4 +138,4 @@ ggplot(pcaData) +
   scale_colour_manual(values = col.infection) +
   theme_bw()
 
-ggsave("08_Spectra/02_PCA_unscaled.pdf", height = 4, width = 6)
+ggsave("02_PCA_unscaled.pdf", height = 4, width = 6)
