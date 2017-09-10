@@ -159,18 +159,21 @@ table(h_100) # 33 clusters at height 100
 k_10 <- cutree(hvg.endo.clust, k = 10)
 table(k_10)
 
-# heat map augmented with cluster membership
+# Draw heat map augmented with cluster membership ----
+
 ht_tree <- Heatmap(
-  as.character(k_10), col = brewer.pal(10, "Paired"),
+  sprintf("%2d", k_10), col = brewer.pal(10, "Paired"),
   name = "k", column_title = "k",
   row_order = hvg.endo.clust$order, column_order = NULL,
   cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
   show_row_names = FALSE, show_column_names = FALSE,
   width = unit(1/2, "inches")
 )
-pdf("30_out/heatmap_split_time_k.pdf", height = 6, width = 12)
+pdf("30_out/heatmap_split_time_k.pdf", height = 6, width = 15)
 draw(ht_2h + ht_4h + ht_6h + ht_tree)
 dev.off()
+
+# Select representativ genes by cluster ----
 
 # Table of cluster membership for each gene
 gene_k <- data.frame(
@@ -189,28 +192,25 @@ k_10.4 <- c("IRF8","OAS2","OAS3")
 #   k_10.4
 # )
 
-anno.names <- c(
-  "IFIT2","IFIT3","ISG20","IL1B","ISG15","SOD2","CCL3","CCL4","CXCL8","TNF",
-  "CCL22","CD80","TAP1","STAT2","IRF7","STAT1","IDO1","IL27","IRF8","CD274",
-  "IL10RA","CD40","SOCS3","TFRC","CD1A","CD1B","DUSP2","DUSP1","CD1C","TGFBI",
-  "ALOX15","CD209","CLEC4G","CLEC4A","CLEC10A","HLA-DMB","IER3","IRF4",
-  "STAT5A","IFNB1","CCL8","CCL1","LAMP3","IL6","IL1A","CCL2","DUSP6","PNP",
-  "CCL26","CCL18","LGMN","CTSL","CD1E","CORO1B","PTGS1","SLC7A8","SLC25A11",
-  "SLC25A1","SLC35A4","SLC25A39","SOCS1","CCR7","IL12A","PLAT","EBI3","IL12B",
-  "IL36G","BATF","CCL24","NLRP3","MYD88"
-)
+anno.xlsx <- "30_out/gene_k_10.xlsx"
 
-anno.ids <- with(fData(sce.endo), gene_id[match(anno.names, gene_name)])
+anno.data <- xlsx::read.xlsx(anno.xlsx, sheetName = "gene_k_10")
+dim(anno.data)
 
-gene.idx = match(anno.ids, rownames(sce.6h))
+anno.subset <- subset(anno.data, Heatmap == "x", select=c("gene_name","gene_id"))
+dim(anno.subset)
+
+gene.idx = match(anno.subset$gene_id, rownames(sce.6h))
 
 ra <- rowAnnotation(
   link = row_anno_link(
-    at = gene.idx, labels = anno.names,
+    at = gene.idx, labels = as.character(anno.subset$gene_name),
     labels_gp = gpar(cex=2/3), link_width = unit(0.5, "inches")
     ), width = max_text_width(labels)
 )
 
-pdf("30_out/heatmap_split_time_anno.pdf", height = 10, width = 17)
+pdf("30_out/heatmap_split_time_anno2.pdf", height = 10, width = 17)
+# draw(ht_2h + ht_4h + ht_6h + ra)
 draw(ht_2h + ht_4h + ht_6h + ht_tree + ra)
 dev.off()
+
