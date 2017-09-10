@@ -289,7 +289,7 @@ ggsave(
   "13_out/cluster_count_2h_wrap.pdf",
   ggplot(pData(sce.ifm.2h)) +
     stat_count(aes(
-      x = gsub("_", "\n", Treatment),
+      x = interaction(Infection, Status, sep = "\n"),
       fill = quickCluster
     )) +
     facet_wrap(~ ifelse(
@@ -353,7 +353,7 @@ ggsave(
   "13_out/cluster_count_4h_wrap.pdf",
   ggplot(pData(sce.ifm.4h)) +
     stat_count(aes(
-      x = gsub("_", "\n", Treatment),
+      x = interaction(Infection, Status, sep = "\n"),
       fill = quickCluster
     )) +
     facet_wrap(~ ifelse(
@@ -372,7 +372,7 @@ ggsave(
   "13_out/cluster_count_4h_vertical.pdf",
   ggplot(pData(sce.ifm.4h)) +
     stat_count(aes(
-      x = gsub("_", "\n", Treatment),
+      x = interaction(Infection, Status, sep = "\n"),
       fill = quickCluster
     )) +
     facet_wrap(~ ifelse(
@@ -429,7 +429,7 @@ ggsave(
   "13_out/cluster_count_6h_wrap.pdf",
   ggplot(pData(sce.ifm.6h)) +
     stat_count(aes(
-      x = gsub("_", "\n", Treatment),
+      x = interaction(Infection, Status, sep = "\n"),
       fill = quickCluster
     )) +
     facet_wrap(~ ifelse(
