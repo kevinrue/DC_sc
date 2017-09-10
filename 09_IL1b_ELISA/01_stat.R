@@ -13,7 +13,7 @@ excelFile <- "IL1b.xlsx"
 
 # Load 24h data
 data_24h <- read_excel(
-  path = "~/git/DC_sc/09_IL1b_ELISA/IL1b.xlsx", range = "R_24!B1:F16")
+  path = "IL1b.xlsx", range = "R_24!B1:F16")
 if (interactive()){
   View(data_24h)
 }
@@ -56,7 +56,7 @@ if (interactive()){
 # Test 24h and plot ----
 
 with(t_24h, t.test(x = `STM-D23580`, y = `STM-LT2`, paired = TRUE))
-with(t_24h, t.test(x = `STM-D23580` / `STM-LT2`))
+with(t_24h, t.test(x = log(`STM-D23580` / `STM-LT2`)))
 
 ggplot(t_24h) +
   facet_grid(~ Donor) +
@@ -71,6 +71,16 @@ ggplot(t_24h) +
   scale_y_continuous(limits=with(
     t_24h,
     c(0,ceiling(max(`STM-D23580`/`STM-LT2`)))
+  )) +
+  theme_bw()
+
+ggplot(t_24h) +
+  facet_grid(~ Donor) +
+  geom_hline(yintercept = 0, colour="black", linetype="dashed", alpha=0.5) +
+  geom_point(aes(Concentration, log2(`STM-D23580`/`STM-LT2`)), colour = "red") +
+  scale_y_continuous(limits=with(
+    t_24h,
+    ceiling(max(`STM-D23580`/`STM-LT2`)) * c(-1,1)
   )) +
   theme_bw()
 
@@ -113,6 +123,7 @@ ggplot(t_24h) +
     max(ceiling(abs(`STM-D23580`-`STM-LT2`)))*c(-1,1)*1.5
   )) +
   theme_bw()
+ggsave("24h_difference.pdf", height = 4, width = 10)
 
 ggplot(t_24h) +
   geom_density(aes(`STM-D23580`-`STM-LT2`, colour=Donor), size=1.5) +
@@ -127,7 +138,7 @@ ggplot(t_24h) +
 # Test 48h and plot ----
 
 with(t_48h, t.test(x = `STM-D23580`, y = `STM-LT2`, paired = TRUE))
-with(t_48h, t.test(x = `STM-D23580` / `STM-LT2`))
+with(t_48h, t.test(x = log(`STM-D23580` / `STM-LT2`)))
 
 ggplot(t_48h) +
   facet_grid(~ Donor) +
@@ -184,6 +195,7 @@ ggplot(t_48h) +
     max(ceiling(abs(`STM-D23580`-`STM-LT2`)))*c(-1,1)*1.5
   )) +
   theme_bw()
+ggsave("48h_difference.pdf", height = 4, width = 10)
 
 ggplot(t_48h) +
   geom_density(aes(`STM-D23580`-`STM-LT2`, colour=Donor), size=1.5) +
@@ -212,3 +224,17 @@ tidy(
 # tidy(
 #   with(t_48h, t.test(x = `STM-D23580` / `STM-LT2`))
 # )
+
+# Summary plot ----
+head(t_24h)
+
+with(t_24h, `STM-D23580`-`STM-LT2`)
+
+ggplot(t_24h) +
+  geom_histogram(aes(`STM-D23580`-`STM-LT2`))
+
+ggplot(t_24h) +
+  geom_bar(aes(`STM-D23580`-`STM-LT2`))
+
+ggplot(t_24h) +
+  geom_density(aes(`STM-D23580`-`STM-LT2`))
