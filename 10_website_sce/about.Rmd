@@ -1,0 +1,182 @@
+---
+title: "About This Project"
+author:
+  - name: Anna Aulicino
+    email: anna.aulicino@ndm.ox.ac.uk
+    affiliation: MRC, Human Immunology Unit, Weatherall Institute of Molecular
+        Medicine, NIHR Biomedical research centre, University of Oxford,
+        John Radcliffe Hospital, Oxford, UK.
+  - name: Kévin Rue-Albrecht
+    email: kevin.rue-albrecht@ndm.ox.ac.uk
+    affiliation: Target Discovery Institute, University of Oxford,
+        Oxford OX3 7FZ, UK.
+---
+
+# Authors and contributions
+
+Corresponding authors of the analysis presented in this website are listed
+above. Respective contributions include:
+
+## Dr. Anna Aulicino
+
+Project conception, experimental design, experimental work,
+manuscript preparation and editing.
+
+## Dr. Kévin Rue-Albrecht
+
+Computational analyses, manuscript preparation and editing.
+
+## Dr. Lorena Preciado-Lianes
+
+Project conception, experimental design, experimental work, and manuscript editing.
+
+## Dr. Adam Cribbs
+
+Computational analysis support.
+
+## Dr. David Sims
+
+Computational analysis support.
+
+## Dr. Neil Ashley
+
+Experimental work.
+
+## Dr. Giorgio Napolitani
+
+Experimental design and support.
+
+## Prof. Alison Simmons
+
+Project conception, experimental design, and supervision.
+
+# Resources
+
+## [GitHub](https://github.com)
+
+The source code for this project is available on
+[GitHub](https://github.com/kevinrue/DC_sc)
+
+## High-throughput sequencing (HTS)
+
+### [Trim Galore!](http://www.bioinformatics.babraham.ac.uk/projects/trim_galore)
+
+A wrapper script to automate quality and adapter trimming as well as quality
+control.
+
+### [FastQC](http://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
+
+A simple way to do some quality control checks on raw sequence data coming from
+HTS pipelines.
+
+### [MultiQC](http://multiqc.info)
+
+Aggregate results from bioinformatics analyses across many samples into a
+single report.
+
+### [HISAT2](https://ccb.jhu.edu/software/hisat2)
+
+A fast and sensitive alignment program for mapping HTS reads (both DNA and RNA)
+to a population of human genomes (as well as to a single reference genome).
+
+### [featureCounts](http://bioinf.wehi.edu.au/featureCounts)
+
+A highly efficient general-purpose read summarization program that counts
+mapped reads for genomic features such as genes, exons, promoter, gene bodies,
+genomic bins and chromosomal locations.
+
+### [Ensembl](http://www.ensembl.org/index.html)
+
+A genome browser for vertebrate
+genomes that supports research in comparative genomics, evolution, sequence
+variation and transcriptional regulation.
+
+For this analysis the following data was obtained from the
+[Ensembl FTP (release 86)](http://www.ensembl.org/info/data/ftp/index.html)
+server:
+
+  + Homo sapiens genome build, primary assembly sequence
+  + Genomic feature annotations
+  
+  
+### [ThermoFisher](https://www.thermofisher.com)
+
+Supplier of analytical instruments, lab equipment and specialty diagnostics.
+For this analysis, the following information was obtained from the product
+web page:
+
+  + [ERCC RNA Spike-In Mix](https://www.thermofisher.com/order/catalog/product/4456739):
+    sequences, annotations, and concentrations
+
+## [Bioconductor](https://www.bioconductor.org)
+
+This community project provides tools for the analysis and comprehension of
+high-throughput genomic data. 
+
+### [edgeR](http://bioconductor.org/packages/edgeR)
+
+Differential expression analysis of RNA-seq expression profiles with biological
+replication. Used here to import raw counts for all samples (including
+bulks, blanks, and single cells).
+
+### [scater](http://bioconductor.org/packages/scater)
+
+A collection of tools for doing various analyses of single-cell RNA-seq gene
+expression data, with a focus on quality control.
+
+### [scran](http://bioconductor.org/packages/scran)
+
+Implements a variety of low-level analyses of single-cell RNA-seq data.
+Methods are provided for normalization of cell-specific biases, assignment of
+cell cycle phase, and detection of highly variable and significantly correlated
+genes.
+
+### [scde](http://bioconductor.org/packages/scde)
+
+The `scde` package implements a set of statistical methods for analysing
+single-cell RNA-seq data. `scde` fits individual error models for single-cell
+RNA-seq measurements. These models can then be used for assessment of
+differential expression between groups of cells, as well as other types of
+analysis.
+
+## [R Studio](https://www.rstudio.com)
+
+This interactive website was created as an
+[R Markdown Website](http://rmarkdown.rstudio.com/rmarkdown_websites.html)
+
+## [CRAN](https://cran.r-project.org/)
+
+A network of ftp and web servers around the world that store identical, up-to-date, versions of code and documentation for `R`.
+
+### [ggplot2](http://ggplot2.org)
+
+A plotting system for R, based on the grammar of graphics.
+
+## Independent R packages
+
+### [BASiCS](https://github.com/catavallejos/BASiCS)
+
+An integrated Bayesian hierarchical model where:
+
+* Cell-specific normalization constants are estimated as part of the model
+  parameters.
+* Technical variability is quantified based on spike-in genes that are
+  artificially introduced to each analysed cells lysate.
+* The total variability of the expression counts is decomposed into technical
+  and biological components.
+  
+### [SCPattern](https://github.com/lengning/SCPattern)
+
+Identify and characterize expression changes in a single cell RNA-seq
+experiment with ordered conditions.
+
+### [WaveCrest](https://github.com/lengning/WaveCrest)
+
+Reconstruct gene expression trajectory in single cell RNA-seq experiments with
+ordered conditions.
+
+# Session info
+
+```{r sessionInfo}
+sessionInfo()
+```
