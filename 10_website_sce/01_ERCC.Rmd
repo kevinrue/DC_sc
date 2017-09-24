@@ -1,0 +1,90 @@
+---
+title: "ERCC spike-in content"
+bibliography:
+  bibtex.bib
+---
+
+```{r setup, include=FALSE}
+stopifnot(
+  require(ggplot2),
+  requireNamespace("pander")
+)
+```
+
+# Objective
+
+The input number of spike-in molecules per cell may be calculated
+as described in the
+[BASiCS tutorial](#https://github.com/catavallejos/TutorialBASiCS)
+(*./Material/TutorialBASiCS2016.html*):
+
+\begin{equation*} \mu_{i} = C_i \times 10^{-18} \times (6.022 \times 10^{23})
+\times V \times D \hspace{0.5cm} \mbox{where,} \end{equation*}
+
+* $C_i$ is the concentration of the spike $i$ in the ERCC mix
+* $10^{-18}$ is to convert aM (attomolar) to M (molar)
+* $6.022 \times 10^{23}$ is the Avogadro number (molecules per mole)
+* $V$ is the volume added into each well, here $10\mu{L}$
+* $D$ is a dilution factor, here $1:100,000,000$
+
+# Concentrations in ERCC Mix from the manufacturer {#import}
+
+Let us import the concentration of individual spike-in molecules
+from
+[ThermoFisher](https://www.thermofisher.com/order/catalog/product/4456739):
+
+```{r mixC}
+mixC <- read.table(
+  "../expdata/cms_095046.txt", header = TRUE, sep = "\t",
+  stringsAsFactors = FALSE
+  )[,c("ERCC.ID","concentration.in.Mix.1..attomoles.ul.")]
+rownames(mixC) <- mixC$ERCC.ID
+colnames(mixC) <- c("ID","Concentration_attomoles_ul")
+```
+
+# Number of individual ERCC molecules added to each cell
+
+Let us calculate from the manufacturer's information and our experimental
+protocol:
+
+```{r ERCCmolecules}
+mixC$ERCCmolecules <-
+  mixC$Concentration_attomoles_ul *
+  10^-18 *
+  6.022 * 10^23 *
+  10 *
+  10^-8
+```
+
+We may then display the expected count of ERCC Spike-In injected at various
+levels in each sample; vertical dashed lines indicate levels of **1**,
+**10**, **100**, and **1,000** molecules:
+
+```{r ERCCplotCount, message=FALSE, warning=FALSE, echo=FALSE}
+ggplot(mixC) +
+  geom_dotplot(aes(ERCCmolecules, fill=log10(ERCCmolecules), group=ID), stackgroups = TRUE) +
+  scale_x_log10() +
+  scale_fill_gradient2(low = "blue", mid = "white", high = "red") +
+  xlab("Number of molecules injected in sample") +
+  # guides(fill="none") + 
+  theme_bw() +
+  theme(legend.position = "bottom")
+```
+
+We may also examine the count individual ERCC Spike-In expected
+above different thresholds of $molecules / well$:
+
+```{r threshold_ERCC, results='asis', echo=FALSE}
+pander::pandoc.table(data.frame(
+  "log10(molecules) cutoff" = 10^(0:3),
+  "ERCC features detected" = sapply(0:3, function(x){sum(mixC$ERCCmolecules > 10^x)}),
+  check.names = FALSE
+  ), rownames = FALSE)
+```
+
+<!-- As HTML pages are built independently, objects need to be saved to disk
+and imported as needed by the other R mardown files -->
+
+```{r save_sce.pass, include=FALSE}
+saveRDS(mixC, "rds/mixC.rds")
+```

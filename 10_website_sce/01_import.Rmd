@@ -1,0 +1,231 @@
+---
+title: "Import of RNA-Sequencing read counts and associated metadata"
+---
+
+<!-- Enable caching -->
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+stopifnot(
+  packageVersion("scater") >= package_version("1.5.12"),
+  require(scater),
+  require(edgeR),
+  require(rtracklayer),
+  requireNamespace("DT"),
+  requireNamespace("xlsx"),
+  dir.exists("rds")
+)
+```
+
+# Phenotype information {#phenotypes}
+
+Phenotype information is central to all aspects of the analysis.
+In the broad sense, it encompasses sample-level information beyond the
+experimental design (*e.g.*, files of read counts, quality control metrics)
+to coordinate statistical analyses and data visualisation
+throughout downstream analyses.
+Defined in the earliest steps of an analytical workflow,
+it ensures traceability of sample data from files of raw data to
+every output and result.
+
+Let us import experimental information:
+
+```{r importPheno}
+pheno <- xlsx::read.xlsx("../expdata/samples.xlsx", sheetName = "pheno")
+colnames(pheno)
+```
+
+To facilitate later use, let us retype some fields, reorder some factor levels,
+and add a set of additional fields:
+
+* `Sample`: contains a shortened unique identifier derived from the count
+  file name for each sample,
+* `Treatment`: contains a factor that combines `Infection` and `Status`
+  phenotypes
+* `Group`: contains a factor that combines all experimental phenotypes
+  (*i.e.*, `Time`, `Infection` and `Status`)
+
+```{r editPheno}
+pheno$File <- as.character(pheno$File)
+pheno$Infection <-
+  factor(pheno$Infection, c("Mock","STM-LT2","STM-D23580","Blank"))
+pheno$Status <-
+  factor(pheno$Status, c("Uninfected","Exposed","Violet +","Blank","Bulk"))
+pheno$Lane <- as.factor(pheno$Lane)
+pheno$Sample <- gsub("WTCHG_[[:digit:]]+_", "Cell_", pheno$File) # character
+pheno$Treatment <-
+  droplevels(interaction(pheno$Infection, pheno$Status, sep = "_")) # factor
+pheno$Group <-
+  droplevels(interaction(pheno$Time, pheno$Treatment, sep = "_")) # factor
+```
+
+# QC metrics {#QC}
+
+Importantly, [MultiQC](http://multiqc.info) was used to collate metrics
+for each sample at each step of preprocessing---from raw reads to assigned
+read counts---; those QC metrics provide key information to identify
+technical issues and sample outliers.
+
+Let us import the QC metrics produced by [MultiQC](http://multiqc.info):
+
+```{r importMultiQC}
+multiqc <- read.delim("MultiQC/final_pipeline_data/multiqc_general_stats.txt")
+colnames(multiqc)
+```
+
+Let us shorten the sample identifier used by [MultiQC](http://multiqc.info)
+to a minimal unique identifier
+(as done [above](#phenotypes) for experimental phenotype information):
+
+```{r gsub_Sample}
+multiqc$Sample <- gsub("WTCHG_[[:digit:]]+_", "Cell_", multiqc$Sample)
+rownames(multiqc) <- multiqc$Sample
+colnames(multiqc)
+```
+
+Let us append those QC metrics to the phenotype information,
+that will [later](#SingleCellExperiment) be attached to the read counts in a `SingleCellExperiment`
+([SingleCellExperiment](http://bioconductor.org/packages/SingleCellExperiment)):
+
+```{r addPhenoMultiQC}
+pheno <- merge(pheno, multiqc, by = "Sample", sort = FALSE)
+```
+
+# Counts {#Counts}
+
+To import count data that is stored in a separate file for each sample,
+let us use the [edgeR](http://bioconductor.org/packages/edgeR)
+`readDGE` method and the phenotype information prepared [above](#phenotypes):
+
+```{r readDGE}
+RG <- with(
+  pheno,
+  readDGE(File, "../expdata/counts", c(1, 3), Group, Sample)
+)
+dim(RG)
+```
+
+# Gene annotations {.tabset}
+
+To ensure coherence between gene annotations and gene expression data,
+let us also import the records for genes and ERCC spike-ins molecules
+from the same GTF file that was supplied to *featureCounts*,
+as `GRanges` of the
+[GenomicRanges](http://bioconductor.org/packages/GenomicRanges) package;
+in the next section, those annotations will be attached to the corresponding
+read counts in a `SingleCellExperiment` object
+([SingleCellExperiment](http://bioconductor.org/packages/SingleCellExperiment)).
+
+First we import all the records from the composite GFF file that includes
+both endogenous gene features and ERCC spike-in molecules:
+
+```{r import.gff}
+gtfData <- import.gff("../expdata/genes_with_ERCC.gtf")
+colnames(as.data.frame(gtfData))
+```
+
+We may then extract records associated with endogenous gene features:
+
+```{r gtfGenes}
+gtf.genes <- subset(gtfData, type == "gene"); length(gtf.genes)
+```
+
+Similarly, records associated with ERCC spike-in molecules:
+
+```{r gtf.ERCC}
+gtf.ERCC <- subset(gtfData, source == "ERCC"); length(gtf.ERCC)
+```
+
+Finally, let us combine the two types of feature annotations,
+and reorder them to ensure that they match the order of features imported
+[above](#Counts):
+
+```{r gtf.final}
+gtf.final <- c(gtf.genes, gtf.ERCC)
+stopifnot(all(rownames(RG) %in% gtf.final$gene_id))
+gtf.order <- match(rownames(RG), gtf.final$gene_id)
+gtf.final <- gtf.final[gtf.order]
+stopifnot(all(rownames(RG) == gtf.final$gene_id))
+```
+
+# SingleCellExperiment {#SingleCellExperiment .tabset}
+
+Let us assemble the count data, phenotype information, and feature information
+prepared above into `SingleCellExperiment` objects
+([SingleCellExperiment](http://bioconductor.org/packages/SingleCellExperiment)):
+
+* one object that contains all samples together
+* one for the blank samples
+* one for the bulk samples
+* one for the single cells
+
+**Note:**
+This distinction will be important later, to compute and compared QC metrics
+within each sets of samples.
+
+First, let us set the `rownames` of the phenotypes information `data.frame` to
+the unique sample identifier for consistency with the sample identifier
+associated with the count data imported [above](#Counts):
+
+```{r renamePheno}
+rownames(pheno) <- pheno$Sample
+```
+
+Similarly, we let us also prepare an `AnnotatedDataFrame` with appropriate
+`rownames` to describe the feature meta-information:
+
+```{r fdata}
+rowdata <- DataFrame(as.data.frame(gtfData))
+rownames(rowdata) <- rowdata$gene_id
+```
+
+We may then create the four data sets:
+
+## All samples
+
+```{r sce.all}
+pd.all <- DataFrame(pheno)
+sce.all <- SingleCellExperiment(
+  assays=list(counts=RG$counts), colData=pd.all, rowData=rowdata)
+dim(sce.all)
+```
+
+## Blanks
+
+```{r sce.blank}
+idx.blank <- pheno$Status == "Blank"
+pd.blank <- DataFrame(droplevels(pheno[idx.blank,]))
+sce.blank <- SingleCellExperiment(
+  assays=list(counts=RG$counts[,idx.blank]), colData=pd.blank, rowData=rowdata)
+dim(sce.blank)
+```
+
+## Bulks
+
+```{r sce.bulk}
+idx.bulk<- pheno$Status == "Bulk"
+pd.bulk <- DataFrame(droplevels(pheno[idx.bulk,]))
+sce.bulk <- SingleCellExperiment(
+  assays=list(counts=RG$counts[,idx.bulk]), colData=pd.bulk, rowData=rowdata)
+dim(sce.bulk)
+```
+
+## Single cells
+
+```{r sce.sc}
+idx.sc <- pheno$Status %in% c("Exposed", "Violet +", "Uninfected")
+pd.sc <- DataFrame(droplevels(pheno[idx.sc,]))
+sce.sc <- SingleCellExperiment(
+  assays=list(counts=RG$counts[,idx.sc]), colData=pd.sc, rowData=rowdata)
+dim(sce.sc)
+```
+
+<!-- As HTML pages are built independently, objects need to be saved to disk
+and imported as needed by the following R mardown files -->
+
+```{r saveRDS, include=FALSE}
+saveRDS(sce.all, "rds/sce.all.SCE.rds")
+saveRDS(sce.blank, "rds/sce.blank.SCE.rds")
+saveRDS(sce.bulk, "rds/sce.bulk.SCE.rds")
+saveRDS(sce.sc, "rds/sce.sc.SCE.rds")
+saveRDS(gtfData, "rds/gtfData.SCE.rds")
+```
