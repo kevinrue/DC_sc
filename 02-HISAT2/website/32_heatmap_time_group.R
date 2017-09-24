@@ -20,6 +20,8 @@ sce.norm.SCE <- SingleCellExperiment(
   colData = DataFrame(pData(sce.norm@phenoData))
 )
 
+saveRDS(sce.norm.SCE, "rds/sce.norm.SCE_32.rds")
+
 # Error in validObject(.Object) :
 #   invalid class “GRangesList” object: 'mcols(x)' cannot have columns named "seqnames",  "ranges", "strand", "start", "end", "width",  or "element"
 
