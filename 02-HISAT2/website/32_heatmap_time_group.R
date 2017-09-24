@@ -1,4 +1,7 @@
 
+library(RColorBrewer)
+library(ComplexHeatmap)
+
 dir.create("32_out", showWarnings = FALSE)
 
 # Make a simple SCE from the SCESet ----
@@ -98,7 +101,7 @@ drawHeatMap <- function(geneNames, x, time){
   stopifnot(nrow(sce.genes) > 0)
 
   # Refine colour map for expression
-  exprsRange <- range(norm_exprs(sce.genes)) * 1.25
+  exprsRange <- range(assay(sce.genes, "norm_exprs")) * 1.25
   colorMap <- circlize::colorRamp2(
     c(min(exprsRange), median(exprsRange), max(exprsRange)),
     c("blue","white","red"))
@@ -167,4 +170,11 @@ drawHeatMap(
   c("ELOVL7","FABP5","APOL1","APOL2","APOL6","ACSL3","HCAR2","ABHD6",
     "NR1H3"),
   sce.endo, "4h")
+dev.off()
+
+pdf("32_out/6h_01.pdf", height = 5, width = 8)
+drawHeatMap(
+  c("ELOVL7","APOL2","CYB5R1","ALOX15","FABP5","ABHD6","APOE","APOL6",
+    "APOO"),
+  sce.endo, "6h")
 dev.off()
