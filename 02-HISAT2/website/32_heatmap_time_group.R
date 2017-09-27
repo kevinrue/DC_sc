@@ -1,4 +1,5 @@
 
+library(Biobase)
 library(RColorBrewer)
 library(ComplexHeatmap)
 
@@ -160,10 +161,10 @@ pdf("32_out/2h_01_DHRS9.pdf", height = 2, width = 8)
 drawHeatMap(c("DHRS9"), sce.endo, "2h")
 dev.off()
 
-drawHeatMap(
-  c("ELOVL7","FABP5","APOL1","APOL2","APOL6","ACSL3","HCAR2","ABHD6",
-    "CH25H","NR1H3","FFAR4"),
-  sce.endo, "4h")
+# drawHeatMap(
+#   c("ELOVL7","FABP5","APOL1","APOL2","APOL6","ACSL3","HCAR2","ABHD6",
+#     "CH25H","NR1H3","FFAR4"),
+#   sce.endo, "4h")
 
 pdf("32_out/4h_01.pdf", height = 5, width = 8)
 drawHeatMap(
@@ -172,9 +173,23 @@ drawHeatMap(
   sce.endo, "4h")
 dev.off()
 
+pdf("32_out/4h_02.pdf", height = 5, width = 8)
+drawHeatMap(
+  c("ELOVL7","APOL1","APOL2","APOL6","ACSL3","HCAR2","ABHD6",
+    "NR1H3"),
+  sce.endo, "4h")
+dev.off()
+
 pdf("32_out/6h_01.pdf", height = 5, width = 8)
 drawHeatMap(
   c("ELOVL7","APOL2","CYB5R1","ALOX15","FABP5","ABHD6","APOE","APOL6",
+    "APOO"),
+  sce.endo, "6h")
+dev.off()
+
+pdf("32_out/6h_02.pdf", height = 5, width = 8)
+drawHeatMap(
+  c("ELOVL7","APOL2","CYB5R1","ABHD6","APOE","APOL6",
     "APOO"),
   sce.endo, "6h")
 dev.off()
