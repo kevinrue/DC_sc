@@ -123,28 +123,15 @@ gtfData <- import.gff("../expdata/genes_with_ERCC.gtf")
 colnames(as.data.frame(gtfData))
 ```
 
-We may then extract records associated with endogenous gene features:
-
-```{r gtfGenes}
-gtf.genes <- subset(gtfData, type == "gene"); length(gtf.genes)
-```
-
-Similarly, records associated with ERCC spike-in molecules:
-
-```{r gtf.ERCC}
-gtf.ERCC <- subset(gtfData, source == "ERCC"); length(gtf.ERCC)
-```
-
 Finally, let us combine the two types of feature annotations,
 and reorder them to ensure that they match the order of features imported
 [above](#Counts):
 
 ```{r gtf.final}
-gtf.final <- c(gtf.genes, gtf.ERCC)
-stopifnot(all(rownames(RG) %in% gtf.final$gene_id))
-gtf.order <- match(rownames(RG), gtf.final$gene_id)
-gtf.final <- gtf.final[gtf.order]
-stopifnot(all(rownames(RG) == gtf.final$gene_id))
+names(gtfData) <- gtfData$gene_id
+stopifnot(all(rownames(RG) %in% names(gtfData)))
+gtfData <- gtfData[match(rownames(RG), names(gtfData))]
+stopifnot(all(rownames(RG) == names(gtf.final)))
 ```
 
 # SingleCellExperiment {#SingleCellExperiment .tabset}
@@ -170,14 +157,6 @@ associated with the count data imported [above](#Counts):
 rownames(pheno) <- pheno$Sample
 ```
 
-Similarly, we let us also prepare an `AnnotatedDataFrame` with appropriate
-`rownames` to describe the feature meta-information:
-
-```{r fdata}
-rowdata <- DataFrame(as.data.frame(gtfData))
-rownames(rowdata) <- rowdata$gene_id
-```
-
 We may then create the four data sets:
 
 ## All samples
@@ -185,7 +164,7 @@ We may then create the four data sets:
 ```{r sce.all}
 pd.all <- DataFrame(pheno)
 sce.all <- SingleCellExperiment(
-  assays=list(counts=RG$counts), colData=pd.all, rowData=rowdata)
+  assays=list(counts=RG$counts), colData=pd.all, rowRanges=rowranges)
 dim(sce.all)
 ```
 
@@ -195,7 +174,8 @@ dim(sce.all)
 idx.blank <- pheno$Status == "Blank"
 pd.blank <- DataFrame(droplevels(pheno[idx.blank,]))
 sce.blank <- SingleCellExperiment(
-  assays=list(counts=RG$counts[,idx.blank]), colData=pd.blank, rowData=rowdata)
+  assays=list(counts=RG$counts[,idx.blank]),
+  colData=pd.blank, rowRanges=rowranges)
 dim(sce.blank)
 ```
 
@@ -205,7 +185,8 @@ dim(sce.blank)
 idx.bulk<- pheno$Status == "Bulk"
 pd.bulk <- DataFrame(droplevels(pheno[idx.bulk,]))
 sce.bulk <- SingleCellExperiment(
-  assays=list(counts=RG$counts[,idx.bulk]), colData=pd.bulk, rowData=rowdata)
+  assays=list(counts=RG$counts[,idx.bulk]),
+  colData=pd.bulk, rowRanges=rowranges)
 dim(sce.bulk)
 ```
 
@@ -215,7 +196,8 @@ dim(sce.bulk)
 idx.sc <- pheno$Status %in% c("Exposed", "Violet +", "Uninfected")
 pd.sc <- DataFrame(droplevels(pheno[idx.sc,]))
 sce.sc <- SingleCellExperiment(
-  assays=list(counts=RG$counts[,idx.sc]), colData=pd.sc, rowData=rowdata)
+  assays=list(counts=RG$counts[,idx.sc]),
+  colData=pd.sc, rowRanges=rowranges)
 dim(sce.sc)
 ```
 
