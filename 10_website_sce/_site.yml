@@ -3,14 +3,17 @@ navbar:
   title: "SC/DC"
   right:
     - text: "Home"
+      icon: fa-home
       href: index.html
     - text: "Experiment"
       icon: fa-flask
       menu:
         - text: "Background"
         - text: "Invasive Salmonelloses"
+          icon: fa-bug
           href: 00_Introduction_Salmonella.html
         - text: "Dendritic Cells"
+          icon: fa-certificate
           href: 00_Introduction_DC.html
         - text: "-------------"
         - text: "Methods"
@@ -25,15 +28,22 @@ navbar:
       menu:
         - text: "SingleCellExperiment"
           href: 01_import.html
+          icon: fa-circle-o
         - text: "ERCC"
           href: 01_ERCC.html
+          icon: fa-eyedropper
     - text: "QC"
-      icon: fa-check-square-o
+      icon: fa-filter
       menu:
         - text: "Samples"
           href: 02_QC_sample.html
+          icon: fa-check-square-o
+        - text: "Features"
+          href: 03_QC_feature.html
+          icon: fa-signal
     - text: "About"
       href: about.html
+      icon: fa-info
 output:
   html_document:
     fig_caption: yes

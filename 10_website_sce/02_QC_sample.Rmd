@@ -452,13 +452,11 @@ The following sections require the estimation of several QC metrics that
 leverage control features and control samples,
 as means to identify outliers among single cells.
 
-Let us extract from the `featureData` slot of the
-`SingleCellExperiment` object,
-the identifier of mitochondrial gene features;
+Let us extract the identifier of mitochondrial gene features;
 those will be used for quality control in an [upcoming section](#MTcontent):
 
 ```{r MT_ids}
-MTs <- subset(rowData(sce.sc), seqnames == "MT", "gene_id", drop = TRUE)
+MTs <- names(rowRanges(sce.sc)[seqnames(sce.sc) == "MT",])
 length(MTs)
 ```
 
