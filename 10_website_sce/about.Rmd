@@ -7,9 +7,11 @@ author:
         Medicine, NIHR Biomedical research centre, University of Oxford,
         John Radcliffe Hospital, Oxford, UK.
   - name: Kévin Rue-Albrecht
-    email: kevin.rue-albrecht@ndm.ox.ac.uk
-    affiliation: Target Discovery Institute, University of Oxford,
-        Oxford OX3 7FZ, UK.
+    email: kevin.rue-albrecht@kennedy.ox.ac.uk
+    affiliation: Kennedy Institute of Rheumatology,
+        Nuffield Department of Orthopaedics,
+        Rheumatology and Musculoskeletal Sciences, University of Oxford,
+        Headington, Oxford OX3 7FY, UK.
 ---
 
 # Authors and contributions
@@ -28,7 +30,8 @@ Computational analyses, manuscript preparation and editing.
 
 ## Dr. Lorena Preciado-Lianes
 
-Project conception, experimental design, experimental work, and manuscript editing.
+Project conception, experimental design, experimental work,
+and manuscript editing.
 
 ## Dr. Adam Cribbs
 
@@ -66,7 +69,7 @@ control.
 
 ### [FastQC](http://www.bioinformatics.babraham.ac.uk/projects/fastqc/)
 
-A simple way to do some quality control checks on raw sequence data coming from
+A simple way to perform quality control checks on raw sequence data coming from
 HTS pipelines.
 
 ### [MultiQC](http://multiqc.info)

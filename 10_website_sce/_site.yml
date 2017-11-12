@@ -62,6 +62,12 @@ navbar:
     - text: Markers
       href: 06_markers.html
       icon: fa-map-marker
+  - text: Extras
+    icon: fa-rocket
+    menu:
+    - text: GoT (Gene on TSNE)
+      href: 06_gene_TSNE.html
+      icon: fa-spinner
   - text: About
     href: about.html
     icon: fa-info

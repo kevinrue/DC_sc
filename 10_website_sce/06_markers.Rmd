@@ -244,16 +244,20 @@ for (contrastName in c2h){
   clusterName <- gsub("2h_cluster(.)-Others", "\\1", contrastName)
   markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
 }
-rownames(markersMatrix) <- scde.table[rownames(markersMatrix), "GENENAME"]
+rownames(markersMatrix) <-
+  with(rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
 ht <- Heatmap(
   matrix = markersMatrix,
   cluster_rows = FALSE, cluster_columns = FALSE,
   row_names_gp = gpar(cex=0.4)
   )
+draw(ht)
+```
+
+```{r markers_FC_2h_pdf, include=FALSE}
 pdf(file.path(outdir, "2h_markers_heatmap.pdf"), width = 8, height = 15)
 draw(ht)
 dev.off()
-draw(ht)
 ```
 
 ## 4h
@@ -284,16 +288,20 @@ for (contrastName in c4h){
   clusterName <- gsub("4h_cluster(.)-Others", "\\1", contrastName)
   markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
 }
-rownames(markersMatrix) <- scde.table[rownames(markersMatrix), "GENENAME"]
+rownames(markersMatrix) <-
+  with(rowData(sce.4h), gene_name[match(rownames(markersMatrix), gene_id)])
 ht <- Heatmap(
   matrix = markersMatrix,
   cluster_rows = FALSE, cluster_columns = FALSE,
   row_names_gp = gpar(cex=0.4)
   )
+draw(ht)
+```
+
+```{r markers_FC_4h_pdf, include=FALSE}
 pdf(file.path(outdir, "4h_markers_heatmap.pdf"), width = 8, height = 15)
 draw(ht)
 dev.off()
-draw(ht)
 ```
 
 ## 6h
@@ -324,16 +332,20 @@ for (contrastName in c6h){
   clusterName <- gsub("6h_cluster(.)-Others", "\\1", contrastName)
   markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
 }
-rownames(markersMatrix) <- scde.table[rownames(markersMatrix), "GENENAME"]
+rownames(markersMatrix) <-
+  with(rowData(sce.6h), gene_name[match(rownames(markersMatrix), gene_id)])
 ht <- Heatmap(
   matrix = markersMatrix,
   cluster_rows = FALSE, cluster_columns = FALSE,
   row_names_gp = gpar(cex=0.4)
   )
+draw(ht)
+```
+
+```{r markers_FC_6h_pdf, include=FALSE}
 pdf(file.path(outdir, "6h_markers_heatmap.pdf"), width = 8, height = 15)
 draw(ht)
 dev.off()
-draw(ht)
 ```
 
 # Heat map of top 50 markers log-counts {.tabset}
@@ -346,23 +358,108 @@ for (clusterId in levels(sce.ifm.2h$quickCluster.2h)){
   markersMatrix <- assay(sce.ifm.2h, "logcounts")[
     markers_2h, sce.ifm.2h$quickCluster.2h == clusterId
   ]
-  rownames(markersMatrix) <- scde.table[rownames(markersMatrix), "GENENAME"]
+  rownames(markersMatrix) <-
+    with(rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
   ht_list[[clusterId]] <- Heatmap(
     matrix = markersMatrix,
     row_names_gp = gpar(cex=0.4),
     show_row_names = clusterId == levels(sce.ifm.2h$quickCluster.2h)[1],
-    show_column_names = FALSE,
+    cluster_rows = FALSE,
+    show_column_names = FALSE, show_column_dend = FALSE,
     row_names_side = "left",
     split = markers_2h.cluster
     )
 }
 ht_final <- ht_list[["0"]] + ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]]
+draw(ht_final)
+```
+
+```{r markers_logcounts_2h_pdf, include=FALSE}
 pdf(
   file.path(outdir, "2h_markers_heatmap_logcounts.pdf"),
   width = 10, height = 15)
 draw(ht_final)
 dev.off()
+```
+
+## 2h (w/out '0')
+
+```{r markers_logcounts_2h_no0, echo=FALSE, fig.height=10, message=FALSE}
+ht_list <- list()
+excludeMarkers <- which(markers_2h.cluster == "0")
+markers_2h_no0 <- markers_2h[-excludeMarkers]
+markers_2h.cluster_no0 <- markers_2h.cluster[-excludeMarkers]
+for (clusterId in levels(sce.ifm.2h$quickCluster.2h)){
+  markersMatrix <- assay(sce.ifm.2h, "logcounts")[
+    markers_2h_no0, sce.ifm.2h$quickCluster.2h == clusterId
+  ]
+  rownames(markersMatrix) <-
+    with(rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
+  ht_list[[clusterId]] <- Heatmap(
+    matrix = markersMatrix,
+    row_names_gp = gpar(cex=0.4),
+    show_row_names = clusterId == "1",
+    cluster_rows = FALSE,
+    show_column_names = FALSE, show_column_dend = FALSE,
+    row_names_side = "left",
+    split = markers_2h.cluster_no0
+    )
+}
+ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]]
 draw(ht_final)
+```
+
+```{r markers_logcounts_2h_no0_pdf, include=FALSE}
+pdf(
+  file.path(outdir, "2h_markers_heatmap_logcounts_no0.pdf"),
+  width = 10, height = 15)
+draw(ht_final)
+dev.off()
+```
+
+```{r markers_logcounts_2h_no0_annolink, include=FALSE}
+ht_list <- list()
+excludeMarkers <- which(markers_2h.cluster == "0")
+markers_2h_no0 <- markers_2h[-excludeMarkers]
+markers_2h.cluster_no0 <- markers_2h.cluster[-excludeMarkers]
+for (clusterId in levels(sce.ifm.2h$quickCluster.2h)){
+  markersMatrix <- assay(sce.ifm.2h, "logcounts")[
+    markers_2h_no0, sce.ifm.2h$quickCluster.2h == clusterId
+  ]
+  rownames(markersMatrix) <-
+    with(rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
+  ht_list[[clusterId]] <- Heatmap(
+    matrix = markersMatrix,
+    row_names_gp = gpar(cex=0.4),
+    show_row_names = FALSE,
+    cluster_rows = FALSE,
+    show_column_names = FALSE, show_column_dend = FALSE,
+    row_names_side = "left",
+    split = markers_2h.cluster_no0
+    )
+}
+geneNames <- c(
+  "CCL24","CYBB","CCL7","CMKLR1","ME1","MMP19","MAFB","SERPINB2","IL10","GSDMA",
+  "DDX60L","TMEM158","CD163","FAM83G","RNASE1","FAM107B","IRAK3","KLHL21",
+  "CHST13","CTSL","CXCL2","FOXO3","SPSB1","MAPK13","LAMP1","MS4A4A","CHST15",
+  "MMP9","AGPAT4","CCL26","LGMN","SERPINE1","CD1A","TNF","GOLGA8B","ADAM19",
+  "GOLGA8A","CD40","CD1C","CLEC10A","TUBA1A","IER3","CLEC4A","SLC25A6","SOCS1",
+  "CD1A","LIPA","SLC25A5","CD1C","CACYBP","TUBA1A","ALOX15","ATP5G3","ARHGDIB"
+)
+ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]] + rowAnnotation(
+  link = row_anno_link(
+    at = which(rownames(markersMatrix) %in% geneNames),
+    labels = geneNames,
+    labels_gp = gpar(cex=2/3),
+    link_width = unit(0.5, "inches")
+  ),
+  width = unit(1, "cm") + max_text_width(labels)
+)
+pdf(
+  file.path(outdir, "2h_markers_heatmap_logcounts_no0_rowLink.pdf"),
+  width = 10, height = 10)
+draw(ht_final)
+dev.off()
 ```
 
 ## 4h
@@ -373,23 +470,28 @@ for (clusterId in levels(sce.ifm.4h$quickCluster.4h)){
   markersMatrix <- assay(sce.ifm.4h, "logcounts")[
     markers_4h, sce.ifm.4h$quickCluster.4h == clusterId
   ]
-  rownames(markersMatrix) <- scde.table[rownames(markersMatrix), "GENENAME"]
+  rownames(markersMatrix) <-
+    with(rowData(sce.4h), gene_name[match(rownames(markersMatrix), gene_id)])
   ht_list[[clusterId]] <- Heatmap(
     matrix = markersMatrix,
     row_names_gp = gpar(cex=0.4),
     show_row_names = clusterId == levels(sce.ifm.4h$quickCluster.4h)[1],
-    show_column_names = FALSE,
+    cluster_rows = FALSE,
+    show_column_names = FALSE, show_column_dend = FALSE,
     row_names_side = "left",
     split = markers_4h.cluster
     )
 }
 ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]]
+draw(ht_final)
+```
+
+```{r markers_logcounts_4h_pdf, include=FALSE}
 pdf(
   file.path(outdir, "4h_markers_heatmap_logcounts.pdf"),
   width = 10, height = 15)
 draw(ht_final)
 dev.off()
-draw(ht_final)
 ```
 
 ## 6h
@@ -400,21 +502,26 @@ for (clusterId in levels(sce.ifm.6h$quickCluster.6h)){
   markersMatrix <- assay(sce.ifm.6h, "logcounts")[
     markers_6h, sce.ifm.6h$quickCluster.6h == clusterId
   ]
-  rownames(markersMatrix) <- scde.table[rownames(markersMatrix), "GENENAME"]
+  rownames(markersMatrix) <-
+    with(rowData(sce.6h), gene_name[match(rownames(markersMatrix), gene_id)])
   ht_list[[clusterId]] <- Heatmap(
     matrix = markersMatrix,
     row_names_gp = gpar(cex=0.4),
     show_row_names = clusterId == levels(sce.ifm.6h$quickCluster.6h)[1],
-    show_column_names = FALSE,
+    cluster_rows = FALSE,
+    show_column_names = FALSE, show_column_dend = FALSE,
     row_names_side = "left",
     split = markers_6h.cluster
     )
 }
 ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]]
+draw(ht_final)
+```
+
+```{r markers_logcounts_6h_pdf, include=FALSE}
 pdf(
   file.path(outdir, "6h_markers_heatmap_logcounts.pdf"),
   width = 10, height = 15)
 draw(ht_final)
 dev.off()
-draw(ht_final)
 ```
