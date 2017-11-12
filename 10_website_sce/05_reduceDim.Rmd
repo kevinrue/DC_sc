@@ -1,0 +1,1127 @@
+---
+title: "Overview of normalised expression data"
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+stopifnot(
+  require(scater),
+  require(scran),
+  require(ggplot2),
+  require(SummarizedExperiment),
+  require(RColorBrewer),
+  require(circlize),
+  require(ComplexHeatmap)
+)
+sce.norm <- readRDS("rds/sce.norm.rds")
+sce.all <- readRDS("rds/sce.all.SCE.rds")
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,2,4)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.norm$Time)[1:3]
+names(col.infection) <- levels(sce.norm$Infection)
+names(col.status) <- levels(sce.norm$Status)
+outdir <- "05_reduceDim_out"; dir.create(outdir, showWarnings = FALSE)
+```
+
+# Plotting themes
+
+Let us first define theme elements used throughout various figures
+in the following sections:
+
+```{r PCAtheme}
+PCAtheme <- theme_bw() + theme(
+    legend.position = "bottom", legend.box = "vertical"
+  )
+```
+
+
+# Relative importance of experimental factors {#explanatoryVariables .tabset}
+
+Having normalised the expression data for detected features in cells that
+passed quality control, the relative importance of experimental factors---both
+technical and biological---provides insight into uninteresting technical
+factors that may need to be accounted for when explaining variance in the
+expression data.
+
+## Explanatory variables
+
+Let us examine the proportion of variance explained by known experimental
+factors, as well as the total spike-in count in each cell:
+
+```{r plotExplanatoryVariables, echo=FALSE}
+plotExplanatoryVariables(
+  sce.norm,
+  xprs_values = "logcounts",
+  variables = c(
+    "counts_feature_controls_ERCC",
+    "log10_counts_feature_controls_ERCC",
+    "Plate", "Lane", "Time", "Status", "Infection"
+    )
+)
+```
+
+The above figure reinforces the effect of `Time` as the primary source of
+variance in gene expression, with substantial proportion of variance
+explained for a subset of features. Next are `Status` and `Infection`
+factors, while other technical factors share explanation of lower amount
+of the residual variance in the data set.
+
+**Note:**
+Due to technical constraints, the the representation of time points is uneven
+across the four plates used for library preparation.
+In summary, while 75% of each plate is balanced, the remaining 25% are:
+
+* a block of single cells collected at 2h
+* a block of single cells collected at 4h
+* a block of single cells collected at 6h
+* an even mixture of cells from 2h, 4h, and 6h
+
+As a result, some variance is expected to associate with the `Plate` factor,
+as it is partially confounded with the powerful `Time` factor.
+
+For reference, the plate design is shown in the second tab.
+
+## Plate design (full)
+
+```{r plateDesign_full, echo=FALSE}
+plateDesign <-
+  dplyr::mutate(
+    as.data.frame(colData(sce.all)[,c("Plate","Well","Time","Infection","Status")]),
+    Row = as.factor(gsub("([[:alpha:]])[[:digit:]]*", "\\1", Well)),
+    Column = as.factor(as.numeric(gsub("[[:alpha:]]([[:digit:]]*)", "\\1", Well))),
+    Plate = gsub("P", "Plate ", Plate)
+  )
+ggplot(plateDesign, aes(Column, Row, fill = Time, colour = Infection, alpha = Status)) +
+  geom_tile(size = 1) + facet_wrap(~ Plate) + labs(x="",y="") +
+  scale_y_discrete(limits = rev(levels(plateDesign$Row))) +
+  theme_minimal() + theme(panel.grid = element_blank()) +
+  scale_color_brewer(palette = "Dark2") + scale_fill_brewer(palette = "Set1") +
+  guides(
+    fill = guide_legend(order = 1),
+    colour = guide_legend(order = 2),
+    shape = guide_legend(order = 3)
+  )
+```
+
+## Plate design (Cells passed QC)
+
+```{r plateDesign_pass, echo=FALSE}
+plateDesign <-
+  dplyr::mutate(
+    as.data.frame(colData(sce.norm)[,c("Plate","Well","Time","Infection","Status")]),
+    Row = as.factor(gsub("([[:alpha:]])[[:digit:]]*", "\\1", Well)),
+    Column = as.factor(as.numeric(gsub("[[:alpha:]]([[:digit:]]*)", "\\1", Well))),
+    Plate = gsub("P", "Plate ", Plate)
+  )
+ggplot(plateDesign, aes(Column, Row, fill = Time, colour = Infection, alpha = Status)) +
+  geom_tile(size = 1) + facet_wrap(~ Plate) + labs(x="",y="") +
+  scale_y_discrete(limits = rev(levels(plateDesign$Row))) +
+  theme_minimal() + theme(panel.grid = element_blank()) +
+  scale_color_brewer(palette = "Dark2") + scale_fill_brewer(palette = "Set1") +
+  scale_alpha_discrete(range = c(0.1, 3/5)) +
+  guides(
+    fill = guide_legend(order = 1),
+    colour = guide_legend(order = 2),
+    shape = guide_legend(order = 3)
+  )
+```
+
+# Dimensionality reduction methods
+
+Let us examine the qualitatite distribution of cells using different
+dimensionality reduction approaches.
+
+## Principal component analysis (PCA) {#PCA}
+
+### All cells
+
+Let us initially focus our attention on the two principal components that
+explain the largest amount of variance in the endogenous features.
+
+**Note 1:** Some important *default* values are:
+
+* `ntop=500`: only the `500` most variable features are used
+* `scale_features=TRUE`: standardises expression values so that each feature
+  has unit variance; this procedure normalises the relative importance of
+  features expressed at high and low levels in the calculation of principal
+  components.
+
+**Note 2:** Some important *non-default* values are:
+
+* `exprs_values="norm_exprs"`:
+  the normalised log~2~-transformed CPM are used.
+* `feature_set=!isSpike(sce.norm)`:
+  ERCC spike-in features are not considered
+  (see this [earlier section](05_normalisation.html#setSpike) where the
+  set of spike-in features is defined).
+
+```{r plotPCASCESet}
+sce.norm <- runPCA(sce.norm, ncomponents = 3, exprs_values = "logcounts",
+  feature_set = NULL, scale_features = TRUE, pca_data_input = "logcounts")
+```
+
+#### Principal components 1 and 2 {.tabset}
+
+##### Treatment
+
+```{r plotPCASCESet_Group, fig.height=6, echo=FALSE}
+ggPCA <- data.frame(
+  reducedDim(sce.norm, "PCA")[,paste0("PC", 1:2)],
+  colData(sce.norm)[,c("Group","Time","Infection","Status","Treatment","Plate")]
+)
+ggplot(ggPCA, aes(PC1, PC2)) +
+  geom_point(aes(colour = Treatment, shape = Time)) + geom_rug() +
+  PCAtheme + theme(legend.text = element_text(size = 6))
+```
+
+The above figure emphasises the importance of the `Time` factor, significantly
+associated with `PC1`; in the figure, cells progress from the earliest time
+points at the lowest coordinates on `PC1` to the latest time points at the
+highest coordinates of `PC1`.
+
+In addition, `PC2` contributes to the increasingly marked separation of
+stimulated cells (*i.e.*, `infected` and `stimulated`,
+in orange, green, red, and blue) from `uninfected` cells (in blue);
+`uninfected` cells generally appear at lower coordinates than their `infected`
+and `exposed` counterparts on both `PC2` and `PC1`, with this trend becoming
+increasingly apparent over time.
+
+Overall, the observations above suggest different transcriptional trajectories
+taken by cells in response to experimental stimuli.
+
+##### Time
+
+```{r plotPCASCESet_Time, fig.height=6, echo=FALSE}
+ggPCA <- data.frame(
+  reducedDim(sce.norm, "PCA")[,paste0("PC", 1:2)],
+  colData(sce.norm)[,c("Group","Time","Infection","Status","Treatment","Plate")]
+)
+ggplot(ggPCA, aes(PC1, PC2)) +
+  geom_point(aes(colour = Time, shape = Infection)) +
+  scale_color_manual(values = col.time) + geom_rug() +
+  PCAtheme + theme(legend.text = element_text(size = 6))
+```
+
+##### Infection
+
+```{r plotPCASCESet_Infection, fig.height=6, echo=FALSE}
+ggPCA <- data.frame(
+  reducedDim(sce.norm, "PCA")[,paste0("PC", 1:2)],
+  colData(sce.norm)[,c("Group","Time","Infection","Status","Treatment","Plate")]
+)
+ggplot(ggPCA, aes(PC1, PC2)) +
+  geom_point(aes(colour = Infection, shape = Time)) +
+  scale_color_manual(values = col.infection) + geom_rug() +
+  PCAtheme + theme(legend.text = element_text(size = 6))
+```
+
+##### Status
+
+```{r plotPCASCESet_Status, fig.height=6, echo=FALSE}
+ggPCA <- data.frame(
+  reducedDim(sce.norm, "PCA")[,paste0("PC", 1:2)],
+  colData(sce.norm)[,c("Group","Time","Infection","Status","Treatment","Plate")]
+)
+ggplot(ggPCA, aes(PC1, PC2)) +
+  geom_point(aes(colour = Status, shape = Time)) +
+  scale_color_manual(values = col.status) + geom_rug() +
+  PCAtheme + theme(legend.text = element_text(size = 6))
+```
+
+```{r plotPCASCESet_Status_pdf, include=FALSE}
+ggPCA <- data.frame(
+  reducedDim(sce.norm, "PCA")[,paste0("PC", 1:2)],
+  colData(sce.norm)[,c("Group","Time","Infection","Status","Treatment","Plate")]
+)
+ggplot(ggPCA, aes(PC1, PC2)) +
+  geom_point(aes(colour = Status, shape = Time)) +
+  scale_color_manual(values = col.status) + geom_rug() +
+  PCAtheme + theme(
+    legend.text = element_text(size = 6),
+    legend.position = "right")
+ggsave(file.path(outdir, "PCA_status.pdf"), height = 5, width = 7)
+```
+
+#### Additional principal components {.tabset}
+
+The analysis may be extended to more principal components; however, by
+definition those principal components will report decreasing amount of variance
+in the data set:
+
+##### Percentage variance explained
+
+Percentage of variance explained by prinicipal components:
+
+```{r PercentVariance_PCA, echo=FALSE}
+ggplot(
+  data.frame(
+    PercentVariance = head(attr(reducedDim(sce.norm, "PCA"), "percentVar"), 10),
+    PC = factor(1:10)
+  )
+) + labs(x = "Principal component", y = "Percentage variance explained") +
+  geom_col(aes(PC, PercentVariance)) + theme_minimal()
+```
+
+```{r PercentVariance_pdf, include=FALSE}
+ggsave(file.path(outdir, "PCA_variance_explained.pdf"), height = 5, width = 7)
+```
+
+
+##### Treatment
+
+```{r plotPCASCESet_PC1to3_Treatment, echo=FALSE}
+plotReducedDim(
+  sce.norm, use_dimred = "PCA", ncomponents = 3, exprs_values = "logcounts",
+  colour_by = "Treatment", shape_by = "Time") +
+  PCAtheme + theme(legend.text = element_text(size = 6))
+```
+
+##### Time
+
+```{r plotPCASCESet_PC1to3_Time, echo=FALSE, warning=FALSE}
+plotReducedDim(
+  sce.norm, use_dimred = "PCA", ncomponents = 3,
+  colour_by = "Time", shape_by = "Plate") +
+  PCAtheme + scale_color_manual(values = col.time)
+```
+
+##### Status
+
+```{r plotPCASCESet_PC1to3_Status, echo=FALSE, warning=FALSE}
+plotReducedDim(
+  sce.norm, use_dimred = "PCA", ncomponents = 3,
+  colour_by = "Status", shape_by = "Time") +
+  PCAtheme + scale_color_manual(values = col.status)
+```
+
+##### Infection
+
+```{r plotPCASCESet_PC1to3_Infection, echo=FALSE, warning=FALSE}
+plotReducedDim(
+  sce.norm, use_dimred = "PCA", ncomponents = 3,
+  colour_by = "Infection", shape_by = "Time") +
+  PCAtheme + scale_color_manual(values = col.infection)
+```
+
+### PCA analyses within time points {.tabset}
+
+In the above [section](#PCA), the overwhelming influence of the `Time` factor
+likely shadows the relatively weaker effect of other biologically relevant
+factors `Infection` and `Status`.
+
+Let us perform PCA at each time point:
+
+```{r time.sce}
+time.sce <- list()
+for (time in levels(sce.norm$Time)){
+  tmp.sce <- sce.norm[,sce.norm$Time == time]
+  keep_feature <- (rowMeans(counts(tmp.sce)) >= 1)
+  tmp.sce <- tmp.sce[keep_feature,]
+  tmp.sce <- runPCA(
+    tmp.sce, ncomponents = 3, exprs_values = "logcounts",
+    feature_set = !isSpike(tmp.sce, "ERCC")
+  )
+  time.sce[[time]] <- tmp.sce
+  rm(tmp.sce)
+}
+rm(time)
+```
+
+**Note:**
+Below, the tab name indicates the experimental factor used to *colour*
+single cells (*i.e.*, `Infection` or `Status`); the other factor is then
+used to *shape* each data point.
+
+#### 2h {.tabset}
+
+##### Infection
+
+```{r 2h-Infection, fig.height=6, echo=FALSE, warning=FALSE}
+plotReducedDim(
+  time.sce[["2h"]], use_dimred = "PCA", ncomponents = 3,
+  colour_by = "Infection", shape_by = "Status") +
+  PCAtheme + scale_color_manual(values = col.infection) +
+  guides(colour = guide_legend(title = "Infection"))
+```
+
+##### Status
+
+```{r 2h-Status, fig.height=6, echo=FALSE, warning=FALSE}
+plotReducedDim(
+  time.sce[["2h"]], use_dimred = "PCA", ncomponents = 3,
+  colour_by = "Status", shape_by = "Infection") +
+  PCAtheme + scale_color_manual(values = col.status) +
+  guides(colour = guide_legend(title = "Status"))
+```
+
+##### Treatment
+
+```{r 2h-Treatment, fig.height=6, echo=FALSE}
+plotReducedDim(
+  time.sce[["2h"]], use_dimred = "PCA", ncomponents = 3,
+  colour_by = "Treatment") +
+  PCAtheme
+```
+
+#### 4h {.tabset}
+
+##### Infection
+
+```{r 4h-Infection, fig.height=6, echo=FALSE, warning=FALSE}
+plotReducedDim(
+  time.sce[["2h"]], use_dimred = "PCA", ncomponents = 3,
+  colour_by = "Infection", shape_by = "Status") +
+  PCAtheme + scale_color_manual(values = col.infection) +
+  guides(colour = guide_legend(title = "Infection"))
+```
+
+##### Status
+
+```{r 4h-Status, fig.height=6, echo=FALSE, warning=FALSE}
+plotReducedDim(
+  time.sce[["2h"]], use_dimred = "PCA", ncomponents = 3,
+  colour_by = "Status", shape_by = "Infection") +
+  PCAtheme + scale_color_manual(values = col.status) +
+  guides(colour = guide_legend(title = "Status"))
+```
+
+##### Treatment
+
+```{r 4h-Treatment, fig.height=6, echo=FALSE}
+plotReducedDim(
+  time.sce[["2h"]], use_dimred = "PCA", ncomponents = 3,
+  colour_by = "Treatment") + PCAtheme
+```
+
+#### 6h {.tabset}
+
+##### Infection
+
+```{r 6h-Infection, fig.height=6, echo=FALSE, warning=FALSE}
+plotReducedDim(
+  time.sce[["2h"]], use_dimred = "PCA", ncomponents = 3,
+  colour_by = "Infection", shape_by = "Status") +
+  PCAtheme + scale_color_manual(values = col.infection) +
+  guides(colour = guide_legend(title = "Infection"))
+```
+
+##### Status
+
+```{r 6h-Status, fig.height=6, echo=FALSE, warning=FALSE}
+plotReducedDim(
+  time.sce[["2h"]], use_dimred = "PCA", ncomponents = 3,
+  colour_by = "Status", shape_by = "Infection") +
+  PCAtheme + scale_color_manual(values = col.status) +
+  guides(colour = guide_legend(title = "Status"))
+```
+
+##### Treatment
+
+```{r 6h-Treatment, fig.height=6, echo=FALSE}
+plotReducedDim(
+  time.sce[["2h"]], use_dimred = "PCA", ncomponents = 3,
+  colour_by = "Treatment") + PCAtheme
+```
+
+## t-distributed stochastic neighbour embedding (t-SNE)
+
+### Experimental factors {.tabset}
+
+Let us apply the t-distributed stochastic neighbour embedding (t-SNE) dimensionality reduction technique on the normalised expression of the
+**500** most variable endogenous features to check for substructure in the data set.
+Importantly, let us set the `perplexity` parameter of the `Rtsne` function to
+half the average size of an experimental group of single cells
+(*i.e.*, `r round(mean(table(sce.norm$Group)) / 2)`; see this
+[earlier section](04_feature_QC.html#selectFeatures) for the count of cells
+per group).
+
+**Note**: "In t-SNE, the perplexity may be viewed as a knob that sets the number
+of effective nearest neighbors. It is comparable with the number of nearest
+neighbors $k$ that is employed in many manifold learners
+(see the GitHub website of
+[Laurens van der Maaten](https://lvdmaaten.github.io/tsne/)).
+As a consequence, an appropriate value of perplexity is necessary to
+allow data points (here, single cells) to form clusters with a reasonable
+number of nearest neighbours;
+instead, excessively large values of perplexity usually result
+in large 'balls' of uniformly distributed points, as all data points attempt to be equidistant from each other:
+
+```{r plotTSNE}
+sce.norm <- plotTSNE(
+  sce.norm, ncomponents = 2, exprs_values = "logcounts",
+  colour_by = "Status", shape_by = "Time",
+  feature_set = !isSpike(sce.norm),
+  perplexity = round(mean(table(sce.norm$Group)) / 2),
+  rand_seed = 1794,
+  return_SCE = TRUE, draw_plot = TRUE
+)
+```
+
+```{r saveRDS, include=FALSE}
+saveRDS(sce.norm, 'rds/sce.norm.tSNE.rds')
+```
+
+```{r postertSNE, include=FALSE}
+posterPCA <- reducedDim(sce.norm, "TSNE")[,1:2]
+colnames(posterPCA) <- paste("Dimension", 1:2)
+posterSamples <- rownames(posterPCA)
+posterPCA <- cbind(
+  posterPCA,
+  data.frame(colData(sce.norm)[posterSamples, c("Status","Infection","Time")])
+  )
+lc <- brewer.pal(3, "Set1")[c(1,3,2)] # RGB
+posterLabels <- data.frame(
+  x = c(-20, -2.5, -5, 10, 15),
+  y = c(-12.5, -5, 10, -2.5, 10),
+  label = c("2h", "4h", "6h", "4h", "6h"),
+  col = c("black", lc[1], lc[1], "black", "black")
+)
+posterPCA <- ggplot(
+  posterPCA,
+  aes_string("`Dimension 1`","`Dimension 2`")) +
+  geom_point(aes(colour = Status, shape = Infection)) + 
+  scale_color_manual(values = col.status) +
+  geom_label(aes(x, y, label = label), posterLabels, inherit.aes = FALSE) +
+  theme_light()
+posterPCA
+ggsave(
+  file.path(outdir, "poster_tSNE_right.pdf"),
+  posterPCA, width = 7, height = 5)
+ggsave(
+  file.path(outdir, "poster_tSNE_bottom.pdf"),
+  posterPCA + theme(
+    legend.position = "bottom", legend.box = "vertical"
+  ),
+  width = 6, height = 6)
+```
+
+#### Status {#tSNEstatus}
+
+```{r plotTSNE_status, echo=FALSE}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2,
+  colour_by="Status",shape_by="Time") + PCAtheme
+```
+
+#### Infection
+
+```{r plotTSNE_infection, echo=FALSE}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2,
+  colour_by="Infection",shape_by="Time") + PCAtheme
+```
+
+#### Treatment
+
+```{r plotTSNE_Treatment, echo=FALSE}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2,
+  colour_by="Treatment",shape_by="Time") + PCAtheme
+```
+
+#### Plate (batch)
+
+We may overlay the plate identifier onto the tSNE coordinates,
+to demonstrate the absence of batch effect associated with the preparation
+of sequencing libraries:
+
+```{r plotTSNE_Plate, echo=FALSE}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2,
+  colour_by="Plate",shape_by="Time") + PCAtheme
+```
+
+#### quickCluster (normalisation)
+
+We may also overlay the clusters identify during
+[normalisation](05_normalisation.html) onto the t-SNE:
+
+```{r plotTSNE_quickCluster, echo=FALSE}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2,
+  colour_by="Cluster",shape_by="Time") + PCAtheme
+```
+
+### Genes {.tabset}
+
+Alternatively, we may also overlay the expression level of a particular gene
+onto the data points as a colour gradient.
+
+For this purpose, let us first set a common colour scale that ranges from
+the lowest to the highest expression values observed in the data set:
+
+```{r exprScale}
+exprScale <- range(assay(sce.norm, "logcounts"))
+colourScale <- rev(brewer.pal(9, "YlGnBu"))
+```
+
+#### TNF
+
+```{r plotTSNE_TNF, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="TNF", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="TNF", limits=exprScale, colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+```
+
+#### IFNB1
+
+```{r plotTSNE_IFNB1, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="IFNB1", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="IFNB1",limits=exprScale,colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+```
+
+#### IL12B
+
+```{r plotTSNE_IL12B, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="IL12B", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="IL12B",limits=exprScale,colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+```
+
+#### IL36G
+
+```{r plotTSNE_IL36G, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="IL36G", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="IL36G",limits=exprScale,colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+```
+
+#### IL1B
+
+```{r plotTSNE_IL1B, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="IL1B", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="IL1B",limits=exprScale,colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+```
+
+#### CD1A
+
+```{r plotTSNE_CD1A, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="CD1A", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="CD1A",limits=exprScale,colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+```
+
+#### CD1B
+
+```{r plotTSNE_CD1B, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="CD1B", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="CD1B",limits=exprScale,colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+```
+
+#### CD1C
+
+```{r plotTSNE_CD1C, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="CD1C", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="CD1C",limits=exprScale,colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+```
+
+#### RAMP1
+
+```{r plotTSNE_RAMP1, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="RAMP1", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="RAMP1",limits=exprScale,colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+```
+
+#### CD40
+
+```{r plotTSNE_CD40, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="CD40", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="CD40",limits=exprScale,colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+```
+
+#### CD80
+
+```{r plotTSNE_CD80, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="CD80", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="CD80",limits=exprScale,colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+```
+
+#### CD83
+
+```{r plotTSNE_CD83, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="CD83", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="CD83",limits=exprScale,colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+```
+
+#### ALOX15
+
+```{r plotTSNE_ALOX15, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="ALOX15", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="ALOX15",limits=exprScale,colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+```
+
+#### CD209
+
+```{r plotTSNE_CD209, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="CD209", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="CD209",limits=exprScale,colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+```
+
+#### CTSB
+
+```{r plotTSNE_CTSB, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="CTSB", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="CTSB",limits=exprScale,colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+```
+
+#### CD86
+
+```{r tSNE_CD86, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="CD86", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="CD86",limits=exprScale,colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+```
+
+```{r tSNE_CD86_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, "20170525_lab-meeting_tSNE_CD86.pdf"),
+  width = 5, height = 5)
+```
+
+#### MARCH1
+
+```{r tSNE_MARCH1, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="MARCH1", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="MARCH1",limits=exprScale,colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1),shape = guide_legend(order = 2))
+```
+
+```{r tSNE_MARCH1_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, "20170525_lab-meeting_tSNE_MARCH1.pdf"),
+  width = 5, height = 5)
+```
+
+#### IL10
+
+```{r tSNE_IL10, message=FALSE, echo=FALSE, fig.height=6}
+plotReducedDim(
+  sce.norm, use_dimred = "TSNE", ncomponents = 2, shape_by = "Time",
+  colour_by = subset(rowData(sce.norm), gene_name=="IL10", "gene_id", drop=TRUE)) +
+  PCAtheme +
+  scale_colour_gradientn(name="IL10",limits=exprScale,colours=colourScale) +
+  guides(colour = guide_colourbar(order = 1), shape = guide_legend(order = 2))
+```
+
+```{r tSNE_IL10_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, "20170525_lab-meeting_tSNE_IL10.pdf"), width = 5, height = 5)
+```
+
+## Diffusion map
+
+Finally, let us also produce a diffusion map plot of two components as a
+dimensionality reduction of the endogenous features:
+
+```{r plotDiffusionMapSCESet}
+plotDiffusionMap(
+  sce.norm,
+  colour_by = "Status", shape_by = "Time",
+  feature_set = !isSpike(sce.norm, "ERCC"),
+  rand_seed = 1794) + PCAtheme
+```
+
+# Pairwise distance beween samples in tSNE
+
+The high-dimensional nature of gene expression data sets presents significant
+challenges for many analytical and visualisation methods.
+In particular, the set of low-dimensional coordinates produced by the tSNE
+technique can greatly facilitate the calculation of distance matrices, and
+the identification of robust clusters of cells in the data set.
+
+## Subset time points {.tabset}
+
+Considering the overwhelming effect of the `Time` factor, let us
+examine pairwise distance and hierarchical clustering of cells within each
+time-point:
+
+### 2h
+
+```{r sce.2h}
+sce.2h <- sce.norm[,sce.norm$Time == '2h']
+dim(sce.2h)
+```
+
+### 4h
+
+```{r sce.4h}
+sce.4h <- sce.norm[,sce.norm$Time == '4h']
+dim(sce.4h)
+```
+
+### 6h
+
+```{r sce.6h}
+sce.6h <- sce.norm[,sce.norm$Time == '6h']
+dim(sce.6h)
+```
+
+## Estimate pairwise Euclidian distance in tSNE {.tabset}
+
+### 2h
+
+```{r d.e_2h}
+d.e.2h <- dist(reducedDim(sce.2h, "TSNE"), diag = TRUE, upper = TRUE)
+mat.e.2h <- as.matrix(d.e.2h)
+h.e.2h <- hclust(d.e.2h)
+ord.mat.2h <- mat.e.2h[h.e.2h$order, h.e.2h$order]
+rm(d.e.2h)
+```
+
+### 4h
+
+```{r d.e_4h}
+d.e.4h <- dist(reducedDim(sce.4h, "TSNE"), diag = TRUE, upper = TRUE)
+mat.e.4h <- as.matrix(d.e.4h)
+h.e.4h <- hclust(d.e.4h)
+ord.mat.4h <- mat.e.4h[h.e.4h$order, h.e.4h$order]
+rm(d.e.4h)
+```
+
+### 6h
+
+```{r d.e_6h}
+d.e.6h <- dist(reducedDim(sce.6h, "TSNE"), diag = TRUE, upper = TRUE)
+mat.e.6h <- as.matrix(d.e.6h)
+h.e.6h <- hclust(d.e.6h)
+ord.mat.6h <- mat.e.6h[h.e.6h$order, h.e.6h$order]
+rm(d.e.6h)
+```
+
+## Prepare heatmaps {.tabset}
+
+Let us first define a colour gradient common to all three time-points:
+
+```{r distRange}
+distRange <- range(c(mat.e.2h, mat.e.4h, mat.e.6h))
+colorMap.eucl <- colorRamp2(
+  c(min(distRange), median(distRange), max(distRange)),
+  c("blue","white","red"))
+```
+
+### 2h
+
+```{r ht_column_2h}
+ht_column <- HeatmapAnnotation(
+  df = data.frame(colData(sce.2h)[,c("Time", "Infection", "Status")]),
+  col = list(Time = col.time, Status = col.status, Infection = col.infection)
+)
+ht.2h <- Heatmap(
+  mat.e.2h, colorMap.eucl, name = "2h", column_title = "2h",
+  top_annotation = ht_column,
+  row_dend_reorder=rev(nrow(mat.e.2h):1),
+  column_dend_reorder=rev(ncol(mat.e.2h):1),
+  show_row_dend = FALSE, show_row_names = FALSE, show_column_names = FALSE
+)
+```
+
+### 4h
+
+```{r ht_column_4h}
+ht_column <- HeatmapAnnotation(
+  df = data.frame(colData(sce.2h)[,c("Time", "Infection", "Status")]),
+  col = list(Time = col.time, Status = col.status, Infection = col.infection)
+)
+ht.4h <- Heatmap(
+  mat.e.4h, colorMap.eucl, name = "4h", column_title = "4h",
+  top_annotation = ht_column,
+  row_dend_reorder=rev(nrow(mat.e.4h):1),
+  column_dend_reorder=rev(ncol(mat.e.4h):1),
+  show_row_dend = FALSE, show_row_names = FALSE, show_column_names = FALSE
+)
+```
+
+### 6h
+
+```{r ht_column_6h}
+ht_column <- HeatmapAnnotation(
+  df = data.frame(colData(sce.6h)[,c("Time", "Infection", "Status")]),
+  col = list(Time = col.time, Status = col.status, Infection = col.infection)
+)
+ht.6h <- Heatmap(
+  mat.e.6h, colorMap.eucl, name = "6h", column_title = "6h",
+  top_annotation = ht_column,
+  row_dend_reorder=rev(nrow(mat.e.6h):1),
+  column_dend_reorder=rev(ncol(mat.e.6h):1),
+  show_row_dend = FALSE, show_row_names = FALSE, show_column_names = FALSE
+)
+```
+
+## Heat maps {.tabset}
+
+### 2h
+
+```{r heatmap.2h, echo=FALSE}
+draw(ht.2h)
+```
+
+```{r heatmap.2h_pdf, include=FALSE}
+pdf(file.path(outdir, "heatmap_pairwise_2h.pdf"), height = 5, width = 5)
+draw(ht.2h, show_heatmap_legend = FALSE)
+dev.off()
+```
+
+### 4h
+
+```{r heatmap.4h, echo=FALSE}
+draw(ht.4h)
+```
+
+```{r heatmap.4h_pdf, include=FALSE}
+pdf(file.path(outdir, "heatmap_pairwise_4h.pdf"), height = 5, width = 5)
+draw(ht.4h, show_heatmap_legend = FALSE)
+dev.off()
+```
+
+### 6h
+
+```{r heatmap.6h, echo=FALSE}
+draw(ht.6h)
+```
+
+```{r heatmap.6h_pdf, include=FALSE}
+pdf(file.path(outdir, "heatmap_pairwise_6h.pdf"), height = 5, width = 5)
+draw(ht.6h, show_heatmap_legend = FALSE)
+dev.off()
+```
+
+# Heat maps of selected marker genes
+
+It is also possible to use the above hierarchical clustering of cells
+(based on tSNE coordinates) to preserve the order of cells in heat maps
+used to display the expression levels of selected genes, thereby
+emphasising particular gene expression differences between clusters of cells
+defined by their broader transcriptome.
+
+Let us first define:
+
+* relevant gene identifiers:
+
+```{r geneIds.ht}
+geneNames.ht <- list(
+  "1. Trans. reprog." = c("DUSP1","DUSP2","SOCS3","IER3","NFKBIZ"),
+  "2. Interm." = c("IL1B","IL1A","IFNB1","CCL7","TNF"),
+  "3. Late" = c("IL6","IL10","IL12B","IL27")
+)
+geneIds.ht <- with(
+  rowData(sce.norm),
+  gene_id[match(unlist(geneNames.ht), gene_name)]
+)
+```
+
+* a colour scale of expression levels common to the individual heat maps:
+
+```{r exprsRange}
+exprsRange <- range(assay(sce.norm, "logcounts"))
+colorMap.exprs <- colorRamp2(
+  c(min(exprsRange), median(exprsRange), max(exprsRange)),
+  c("blue","white","red"))
+```
+
+## Prepare heat maps {.tabset}
+
+### 2h
+
+```{r heatmap_gene_2h}
+ht_column <- HeatmapAnnotation(
+  df = data.frame(colData(sce.2h)[,c("Time", "Infection", "Status")]),
+  col = list(Time = col.time, Status = col.status, Infection = col.infection)
+)
+exprs.2h <- assay(sce.2h, "logcounts")[geneIds.ht,]
+rownames(exprs.2h) <- unlist(geneNames.ht)
+ht_gene_2h <- Heatmap(
+  exprs.2h, colorMap.exprs, name = "2h", column_title = "2h",
+  top_annotation = ht_column, row_names_side = "left",
+  cluster_rows = FALSE, cluster_columns = h.e.2h,
+  show_row_dend = FALSE, show_column_names = FALSE,
+  split = rep(names(geneNames.ht), times = lengths(geneNames.ht))
+)
+```
+
+### 4h
+
+```{r heatmap_gene_4h}
+ht_column <- HeatmapAnnotation(
+  df = data.frame(colData(sce.4h)[,c("Time", "Infection", "Status")]),
+  col = list(Time = col.time, Status = col.status, Infection = col.infection)
+)
+exprs.4h <- assay(sce.4h, "logcounts")[geneIds.ht,]
+rownames(exprs.4h) <- unlist(geneNames.ht)
+ht_gene_4h <- Heatmap(
+  exprs.4h, colorMap.exprs, name = "4h", column_title = "4h",
+  top_annotation = ht_column, row_names_side = "left",
+  cluster_rows = FALSE, cluster_columns = h.e.4h,
+  show_row_dend = FALSE, show_column_names = FALSE,
+  split = rep(names(geneNames.ht), times = lengths(geneNames.ht))
+)
+```
+
+### 6h
+
+```{r heatmap_gene_6h}
+ht_column <- HeatmapAnnotation(
+  df = data.frame(colData(sce.6h)[,c("Time", "Infection", "Status")]),
+  col = list(Time = col.time, Status = col.status, Infection = col.infection)
+)
+exprs.6h <- assay(sce.6h, "logcounts")[geneIds.ht,]
+rownames(exprs.6h) <- unlist(geneNames.ht)
+ht_gene_6h <- Heatmap(
+  exprs.6h, colorMap.exprs, name = "6h", column_title = "6h",
+  top_annotation = ht_column, row_names_side = "left",
+  cluster_rows = FALSE, cluster_columns = h.e.6h,
+  show_row_dend = FALSE, show_column_names = FALSE,
+  split = rep(names(geneNames.ht), times = lengths(geneNames.ht))
+)
+```
+
+## Heat maps {.tabset}
+
+### all
+
+```{r ht_gene_list, echo=FALSE}
+ht_gene_list <-
+  Heatmap(
+    exprs.2h, colorMap.exprs, name = "n.e.", column_title = "2h",
+    top_annotation = HeatmapAnnotation(
+      df = data.frame(colData(sce.2h)[,c("Time", "Status", "Infection")]),
+        col = list(
+          Time = col.time,
+          Status = col.status,
+          Infection = col.infection
+        ),
+      show_legend = TRUE # FALSE
+    ),
+    row_names_side = "left", row_names_gp = gpar(fontsize = 8),
+    row_title_gp=gpar(fontsize=10), cluster_rows=FALSE,
+    cluster_columns=h.e.2h, show_column_names=FALSE,
+    show_row_dend = FALSE, show_row_names = TRUE, show_heatmap_legend=FALSE,
+    split = rep(names(geneNames.ht), times = lengths(geneNames.ht))
+  ) +
+  Heatmap(
+    exprs.4h, colorMap.exprs, name = "4h", column_title = "4h",
+    top_annotation = HeatmapAnnotation(
+      df = data.frame(colData(sce.4h)[,c("Time", "Status", "Infection")]),
+        col = list(
+          Time = col.time,
+          Status = col.status,
+          Infection = col.infection
+        ),
+      show_legend = FALSE
+    ),
+    cluster_rows=FALSE, cluster_columns=h.e.4h, show_column_names = FALSE,
+    show_row_dend = FALSE, show_row_names = FALSE, show_heatmap_legend = FALSE
+  ) +
+  Heatmap(
+    exprs.6h, colorMap.exprs, name = "6h", column_title = "6h",
+    top_annotation = HeatmapAnnotation(
+      df = data.frame(colData(sce.6h)[,c("Time", "Status", "Infection")]),
+        col = list(
+          Time = col.time,
+          Status = col.status,
+          Infection = col.infection
+        ),
+      show_legend = FALSE
+    ),
+    cluster_rows=FALSE, cluster_columns=h.e.6h, show_column_names = FALSE,
+    show_row_dend = FALSE, show_row_names = FALSE, show_heatmap_legend = FALSE
+  )
+draw(ht_gene_list)
+```
+
+```{r ht_gene_list_pdf, include=FALSE}
+pdf(file.path(outdir, "heatmap_genes_tSNE.pdf"), height = 4, width = 8)
+draw(ht_gene_list)
+dev.off()
+```
+
+```{r ht_gene_list_noLegend_pdf, include=FALSE}
+pdf(file.path(outdir, "heatmap_genes_tSNE_noLegend.pdf"), height = 4, width = 8)
+draw(ht_gene_list, show_annotation_legend = FALSE)
+dev.off()
+```
+
+
+### 2h
+
+```{r ht_gene_2h, echo=FALSE}
+draw(ht_gene_2h)
+```
+
+### 4h
+
+```{r ht_gene_4h, echo=FALSE}
+draw(ht_gene_4h)
+```
+
+### 6h
+
+```{r ht_gene_6h, echo=FALSE}
+draw(ht_gene_6h)
+```
+

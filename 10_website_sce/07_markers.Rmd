@@ -1,0 +1,27 @@
+---
+title: "Marker genes for clusters using *scde*"
+bibliography:
+  bibtex.bib
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+stopifnot(
+  require(scde)
+)
+sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,2,4)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.norm$Time)[1:3]
+names(col.infection) <- levels(sce.norm$Infection)
+names(col.status) <- levels(sce.norm$Status)
+outdir <- "07_markers_out"; dir.create(outdir, showWarnings = FALSE)
+o.ifm.2h <- readRDS("rds/o.ifm_2h.rds")
+o.ifm.4h <- readRDS("rds/o.ifm_4h.rds")
+o.ifm.6h <- readRDS("rds/o.ifm_6h.rds")
+scde.res <- readRDS("rds/scde_markers.rds")
+goseq.res <- readRDS("rds/goseq_markers.rds")
+```
+
+

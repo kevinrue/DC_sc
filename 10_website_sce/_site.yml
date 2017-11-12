@@ -1,57 +1,85 @@
-name: "SC / DC"
+name: SC / DC
 navbar:
-  title: "SC/DC"
+  title: SC/DC
   right:
-    - text: "Home"
-      icon: fa-home
-      href: index.html
-    - text: "Experiment"
+  - text: Home
+    icon: fa-home
+    href: index.html
+  - text: Experiment
+    icon: fa-flask
+    menu:
+    - text: Background
+    - text: Invasive Salmonelloses
+      icon: fa-bug
+      href: 00_Introduction_Salmonella.html
+    - text: Dendritic Cells
+      icon: fa-certificate
+      href: 00_Introduction_DC.html
+    - text: '-------------'
+    - text: Methods
+    - text: Experimental
       icon: fa-flask
-      menu:
-        - text: "Background"
-        - text: "Invasive Salmonelloses"
-          icon: fa-bug
-          href: 00_Introduction_Salmonella.html
-        - text: "Dendritic Cells"
-          icon: fa-certificate
-          href: 00_Introduction_DC.html
-        - text: "-------------"
-        - text: "Methods"
-        - text: "Experimental"
-          icon: fa-flask
-          href: 00_experimental_methods.html
-        - text: "RNA-sequencing"
-          icon: fa-laptop
-          href: 00_preprocessing.html
-    - text: "Data"
-      icon: fa-database
-      menu:
-        - text: "SingleCellExperiment"
-          href: 01_import.html
-          icon: fa-circle-o
-        - text: "ERCC"
-          href: 01_ERCC.html
-          icon: fa-eyedropper
-    - text: "QC"
-      icon: fa-filter
-      menu:
-        - text: "Samples"
-          href: 02_QC_sample.html
-          icon: fa-check-square-o
-        - text: "Features"
-          href: 03_QC_feature.html
-          icon: fa-signal
-    - text: "About"
-      href: about.html
-      icon: fa-info
+      href: 00_experimental_methods.html
+    - text: RNA-sequencing
+      icon: fa-list
+      href: 00_preprocessing.html
+  - text: Data
+    icon: fa-database
+    menu:
+    - text: SingleCellExperiment
+      href: 01_import.html
+      icon: fa-dot-circle-o
+    - text: ERCC
+      href: 01_ERCC.html
+      icon: fa-eyedropper
+  - text: QC
+    icon: fa-filter
+    menu:
+    - text: Samples
+      href: 02_QC_sample.html
+      icon: fa-check-square-o
+    - text: Features
+      href: 03_QC_feature.html
+      icon: fa-signal
+    - text: Normalisation
+      href: 04_scran_norm.html
+      icon: fa-bar-chart
+  - text: Analyses
+    icon: fa-pie-chart
+    menu:
+    - text: HVGs
+      href: 05_HVGs.html
+      icon: fa-area-chart
+    - text: Reduced dim.
+      href: 05_reduceDim.html
+      icon: fa-sort-amount-desc
+    - text: SCDE
+      href: 05_SCDE.html
+      icon: fa-line-chart
+    - text: Clusters
+      href: 05_cluster.html
+      icon: fa-paw
+    - text: Markers
+      href: 06_markers.html
+      icon: fa-map-marker
+  - text: About
+    href: about.html
+    icon: fa-info
 output:
   html_document:
     fig_caption: yes
     theme: cosmo
     highlight: textmate
-    toc: true
+    toc: yes
     toc_depth: 2
     toc_float:
-      collapsed: false
-      smooth_scroll: true
-exclude: ["example", "another"]
+      collapsed: no
+      smooth_scroll: yes
+    lib_dir: site_libs
+    self_contained: no
+exclude:
+- rds
+- test_
+- '*_out'
+output_dir: _site
+

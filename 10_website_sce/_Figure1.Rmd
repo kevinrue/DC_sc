@@ -1,0 +1,43 @@
+---
+title: "Figure 1"
+bibliography:
+  bibtex.bib
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+stopifnot(
+  require(SingleCellExperiment),
+  require(RColorBrewer)
+)
+sce.norm <- readRDS("rds/sce.norm.rds")
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,2,4)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.norm$Time)[1:3]
+names(col.infection) <- levels(sce.norm$Infection)[1:3]
+names(col.status) <- levels(sce.norm$Status)
+```
+
+Global data expression range:
+
+```{r}
+exprsRange <- range(assay(sce.norm, "logcounts"))
+colorMap <- circlize::colorRamp2(
+  c(min(exprsRange), median(exprsRange)*0.9, max(exprsRange)*0.9),
+  c("black","purple","yellow")
+)
+```
+
+Order by decreasing biological variance
+
+```{r}
+hvg.out <- hvg.out[order(hvg.out$bio, decreasing = TRUE),]
+sce.hvg <- sce.norm[rownames(hvg.out),]
+sce.hvg
+```
+
+

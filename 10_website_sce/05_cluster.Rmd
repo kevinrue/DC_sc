@@ -1,0 +1,332 @@
+---
+title: "Differential expression between unsupervised clusters using *scde*"
+bibliography:
+  bibtex.bib
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+stopifnot(
+  require(scater),
+  require(scran),
+  require(ggplot2),
+  require(ComplexHeatmap),
+  require(dplyr),
+  require(ggrepel),
+  require(RColorBrewer),
+  require(goseq)
+)
+sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,2,4)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.norm$Time)[1:3]
+names(col.infection) <- levels(sce.norm$Infection)
+names(col.status) <- levels(sce.norm$Status)
+sce.endo <- sce.norm[!isSpike(sce.norm),]
+outdir <- "05_cluster_out"; dir.create(outdir, showWarnings = FALSE)
+# Subset by time point
+sce.2h <- sce.endo[,sce.endo$Time == '2h']
+sce.6h <- sce.endo[,sce.endo$Time == '6h']
+sce.4h <- sce.endo[,sce.endo$Time == '4h']
+# Filter detected genes
+filterCounts <- function(m, counts = 10, cells = 10){
+  apply(m, 1, function(e){
+    return(sum(e >= counts) >= cells)
+  })
+}
+sg.2h <- droplevels(sce.2h$Group)
+keep.2h <- filterCounts(counts(sce.2h))
+cd.2h <- counts(sce.2h)[keep.2h,]; storage.mode(cd.2h) <- 'integer'
+sg.4h <- droplevels(sce.4h$Group)
+keep.4h <- filterCounts(counts(sce.4h))
+cd.4h <- counts(sce.4h)[keep.4h,]; storage.mode(cd.4h) <- 'integer'
+sg.6h <- droplevels(sce.6h$Group)
+keep.6h <- filterCounts(counts(sce.6h))
+cd.6h <- counts(sce.6h)[keep.6h,]; storage.mode(cd.6h) <- 'integer'
+```
+
+<!-- Cleaner code based on 08_SCDE_v8
+Remove ERCC spike-ins
+!! Split cells by time
+!! Retain genes detected at each time (10 counts, 5 cells, 1 group)
+Identify cell clusters @ time
+<!-- Error model: {cells @ time; genes @ time} <- same as 08_SCDE
+Prior @ time
+DE: {group on all cells with NA; no batch correction; P-value < 0.01}
+-->
+
+# Prepare data
+
+**Note:**
+for this analysis, the data is prepared identically to the
+[differential expression between experimental groups using *scde*](05_SCDE.html):
+
+* ERCC spike-in features are removed,
+* Cells in the data set is subsetted by time point,
+* Genes in the data set are subsetted for those detected at sufficient levels
+  within each time point,
+
+# Identify clusters {#identifyClusters .tabset}
+
+This analysis diverges from the differential expression between supervised experimental groups by the unsupervised identification of clusters within
+each time point.
+
+## 2h
+
+```{r clusters.2h}
+clusters <- quickCluster(
+  sce.2h, min.size=min(table(sce.2h$Treatment)),
+  assay.type="counts")
+sce.2h$quickCluster <- clusters
+qc.2h <- rep(NA, ncol(sce.endo)); names(qc.2h) <- colnames(sce.endo)
+qc.2h[colnames(sce.2h)] <- as.numeric(levels(clusters)[clusters])
+sce.endo$quickCluster.2h <- as.factor(qc.2h)
+```
+
+## 4h
+
+```{r clusters.4h}
+clusters <- quickCluster(
+  sce.4h, min.size=min(table(sce.4h$Treatment)),
+  assay.type="counts")
+sce.4h$quickCluster <- clusters
+qc.4h <- rep(NA, ncol(sce.endo)); names(qc.4h) <- colnames(sce.endo)
+qc.4h[colnames(sce.4h)] <- as.numeric(levels(clusters)[clusters])
+sce.endo$quickCluster.4h <- as.factor(qc.4h)
+```
+
+## 6h
+
+```{r clusters.6h}
+clusters <- quickCluster(
+  sce.6h, min.size=min(table(sce.6h$Treatment)),
+  assay.type="counts")
+sce.6h$quickCluster <- clusters
+qc.6h <- rep(NA, ncol(sce.endo)); names(qc.6h) <- colnames(sce.endo)
+qc.6h[colnames(sce.6h)] <- as.numeric(levels(clusters)[clusters])
+sce.endo$quickCluster.6h <- as.factor(qc.6h)
+```
+
+```{r, echo=FALSE, eval=FALSE}
+saveRDS(sce.endo, "rds/sce.endo_clusters.rds")
+```
+
+# tSNE {.tabset}
+
+Let us first define:
+
+* a set of colours used to indicate *cluster membership* consistently
+  across the upcoming sections:
+
+```{r col.sets}
+col.cluster <- brewer.pal(12, "Set3")[c(1,12,3,4,9)]
+names(col.cluster) <- c(1:3,0,"NA")
+```
+
+## 2h
+
+```{r plotReducedDim.2h, echo=FALSE}
+tmpGG <- data.frame(
+  reducedDim(sce.endo, "TSNE"),
+  Cluster = sce.endo$quickCluster.2h,
+  Treatment = gsub("_", " ", sce.endo$Treatment)
+)
+ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
+  geom_point() +
+  theme_bw() +
+  labs(x="Dimension 1",y="Dimension 2",title="2h") +
+  scale_color_manual(values = col.cluster, na.value = col.cluster["NA"])
+```
+
+```{r reducedDimension_pdf.2h, include=FALSE}
+ggsave(file.path(outdir, "tSNE_clusters_2h.pdf"), width = 6, height = 4)
+```
+
+Cross-tabulated counts of cells by cluster and experimental treatment:
+
+```{r table.2h, results='asis', echo=FALSE}
+pander::pandoc.table(
+  with(colData(sce.endo), table(Treatment, quickCluster.2h))
+)
+```
+
+Visualised as a bar plot:
+
+```{r clusterBarplot.2h, echo=FALSE}
+tmpGG <- ggplot(data.frame(colData(sce.2h))) +
+  stat_count(aes(x = gsub("_", " ", Treatment), fill = quickCluster)) +
+  facet_grid(~ ifelse(
+    quickCluster == 0, " No cluster" , gsub("^", "cluster ", quickCluster)
+  )) +
+  scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+  theme_minimal() +
+  theme(
+    axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
+  ) +
+  labs(x = NULL, y = "Cells", fill = "Cluster")
+tmpGG
+ggsave(file.path(outdir, "cluster_count_2h.pdf"), width = 9, height = 4)
+ggsave(
+  file.path(outdir, "cluster_count_2h_wrap.pdf"),
+  ggplot(data.frame(colData(sce.2h))) +
+    stat_count(aes(
+      x = interaction(Infection, Status, sep = "\n"),
+      fill = quickCluster
+    )) +
+    facet_wrap(~ ifelse(
+      quickCluster == 0, " No cluster" , gsub("^", "cluster ", quickCluster)
+    )) +
+    scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+    theme_bw() +
+    theme(
+      axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
+    ) +
+    labs(x = NULL, y = "Cells", fill = "Cluster"),
+  width = 9, height = 8
+)
+```
+
+## 4h
+
+```{r plotReducedDim.4h, echo=FALSE}
+tmpGG <- data.frame(
+  reducedDim(sce.endo, "TSNE"),
+  Cluster = sce.endo$quickCluster.4h,
+  Treatment = gsub("_", " ", sce.endo$Treatment),
+  label = ifelse(
+    sce.endo$Treatment == "LT2_infected" & sce.endo$quickCluster.4h == 2, 2, NA
+  )
+)
+ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
+  geom_point() +
+  theme_bw() +
+  # theme(legend.position = "bottom", legend.box = "vertical") +
+  labs(x="Dimension 1",y="Dimension 2",title="4h") +
+  scale_color_manual(values = col.cluster, na.value = col.cluster["NA"]) #+
+  #geom_point(aes(colour = "red", size = as.numeric(label)), colour = "red", alpha = 0.25) # highlight
+```
+
+```{r reducedDimension_pdf.4h, include=FALSE}
+ggsave(file.path(outdir, "tSNE_clusters_4h.pdf"), width = 6, height = 4)
+```
+
+Cross-tabulated counts of cells by cluster and experimental treatment:
+
+```{r table.4h, results='asis', echo=FALSE}
+pander::pandoc.table(
+  with(colData(sce.endo), table(Treatment, quickCluster.4h))
+)
+```
+
+Visualised as a bar plot:
+
+```{r clusterBarplot.4h, echo=FALSE}
+tmpGG <- ggplot(data.frame(colData(sce.4h))) +
+  stat_count(aes(gsub("_", " ", Treatment), fill = quickCluster)) +
+  facet_grid(~ gsub("^", "Cluster ", quickCluster)) +
+  scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+  theme_minimal() + theme(
+    axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
+  ) + labs(y = "Cells", fill = "Cluster", x = NULL)
+tmpGG
+ggsave(file.path(outdir, "cluster_count_4h.pdf"), width = 9, height = 4)
+ggsave(
+  file.path(outdir, "cluster_count_4h_wrap.pdf"),
+  ggplot(data.frame(colData(sce.4h))) +
+    stat_count(aes(
+      x = interaction(Infection, Status, sep = "\n"),
+      fill = quickCluster
+    )) +
+    facet_wrap(~ ifelse(
+      quickCluster == 0, " No cluster" , gsub("^", "cluster ", quickCluster)
+    ), nrow = 1) +
+    scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+    theme_bw() +
+    theme(
+      axis.text.x = element_text(
+        angle=90,hjust=1,vjust=0.5,face="bold", size = rel(1.25))
+    ) +
+    labs(x = NULL, y = "Cells", fill = "Cluster"),
+  width = 9, height = 5
+)
+ggsave(
+  file.path(outdir, "cluster_count_4h_vertical.pdf"),
+  ggplot(data.frame(colData(sce.4h))) +
+    stat_count(aes(
+      x = interaction(Infection, Status, sep = "\n"),
+      fill = quickCluster
+    )) +
+    facet_wrap(~ ifelse(
+      quickCluster == 0, " No cluster" , gsub("^", "cluster ", quickCluster)
+    ), ncol = 1) +
+    scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+    theme_minimal() +
+    theme(
+      axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
+    ) +
+    labs(x = NULL, y = "Cells", fill = "Cluster"),
+  width = 9, height = 18
+)
+```
+
+## 6h
+
+```{r plotReducedDim.6h, echo=FALSE}
+tmpGG <- data.frame(
+  reducedDim(sce.endo, "TSNE"),
+  Cluster = sce.endo$quickCluster.6h,
+  Treatment = gsub("_", " ", sce.endo$Treatment)
+)
+ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
+  geom_point() + theme_bw() + labs(x="Dimension 1",y="Dimension 2",title="6h") +
+  scale_color_manual(values = col.cluster, na.value = col.cluster["NA"])
+```
+
+```{r reducedDimension_pdf.6h, include=FALSE}
+ggsave(file.path(outdir, "tSNE_clusters_6h.pdf"), width = 6, height = 4)
+```
+
+Cross-tabulated counts of cells by cluster and experimental treatment:
+
+```{r table.6h, results='asis', echo=FALSE}
+pander::pandoc.table(
+  with(colData(sce.endo), table(Treatment, quickCluster.6h))
+)
+```
+
+Visualised as a bar plot:
+
+```{r clusterBarplot.6h, echo=FALSE}
+tmpGG <- ggplot(data.frame(colData(sce.6h))) +
+  stat_count(aes(x = Treatment, fill = quickCluster)) +
+  facet_grid(~ gsub("^", "cluster ", quickCluster)) +
+  scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+  theme_minimal() + theme(
+    axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
+  ) + labs(y = "Cells", fill = "Cluster")
+tmpGG
+ggsave(file.path(outdir, "cluster_count_6h.pdf"), width = 9, height = 4)
+ggsave(
+  file.path(outdir, "cluster_count_6h_wrap.pdf"),
+  ggplot(data.frame(colData(sce.6h))) +
+    stat_count(aes(
+      x = interaction(Infection, Status, sep = "\n"),
+      fill = quickCluster
+    )) +
+    facet_wrap(~ ifelse(
+      quickCluster == 0, " No cluster" , gsub("^", "cluster ", quickCluster)
+    ), nrow = 1) +
+    scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+    theme_bw() +
+    theme(
+      axis.text.x = element_text(
+        angle=90,hjust=1,vjust=0.5,face="bold", size = rel(1.25))
+    ) +
+    labs(x = NULL, y = "Cells", fill = "Cluster"),
+  width = 9, height = 5
+)
+```
