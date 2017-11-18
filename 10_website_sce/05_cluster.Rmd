@@ -72,7 +72,7 @@ for this analysis, the data is prepared identically to the
 
 # Identify clusters {#identifyClusters .tabset}
 
-This analysis diverges from the differential expression between supervised experimental groups by the unsupervised identification of clusters within
+Let us carry out an unsupervised identification of clusters within
 each time point.
 
 ## 2h
