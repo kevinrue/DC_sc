@@ -62,6 +62,9 @@ navbar:
     - text: Markers
       href: 06_markers.html
       icon: fa-map-marker
+    - text: SCDE clusters
+      href: 06_SCDE_cluster.html
+      icon: fa-search-plus
   - text: Extras
     icon: fa-rocket
     menu:
