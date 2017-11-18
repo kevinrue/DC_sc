@@ -85,7 +85,7 @@ plotByName <- function(x){
     geom_point(aes(colour = gene), alpha = 0.75, size = 1.5) +
     scale_color_gradient2(
       low = col.gene[11], mid = col.gene[5], high = col.gene[1],
-      midpoint = mean(range.exprs) / 2,
+      midpoint = mean(range.exprs),
       limits = range.exprs
     ) +
     scale_fill_manual(values = col.treatment) +
