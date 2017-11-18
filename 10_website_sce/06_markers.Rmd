@@ -33,7 +33,6 @@ names(col.status) <- levels(sce.endo$Status)
 outdir <- "06_markers_out"; dir.create(outdir, showWarnings = FALSE)
 scde.res <- readRDS("rds/cluster_scde_res.rds")
 # goseq.res <- readRDS("rds/13_cluster_goseq.res_v2.rds")
-# scde.groupRes <- readRDS("rds/scde.res_v8.rds ")
 # Subset by time point
 sce.2h <- sce.endo[,sce.endo$Time == '2h']
 sce.4h <- sce.endo[,sce.endo$Time == '4h']
@@ -120,7 +119,7 @@ Remove ERCC spike-ins
 !! Split cells by time
 !! Retain genes detected at each time (10 counts, 5 cells, 1 group)
 Identify cell clusters @ time
-<!-- Error model: {cells @ time; genes @ time} <- same as 08_SCDE
+<!-- Error model: {cells @ time; genes @ time}
 Prior @ time
 DE: {group on all cells with NA; no batch correction; P-value < 0.01}
 -->
@@ -208,13 +207,13 @@ for (contrastName in names(scde.res)){
 }
 ```
 
-# Heat map of top 50 markers fold-change {.tabset}
+# Heat map of fold-change for (up to) 50 markers {.tabset}
 
 For each time point, let us display up to 50 marker genes for each cluster,
 selected for having:
 
 * *P*-value less than 0.01
-* *mle* of log fold-change among the 50 largest positive value for a cluster
+* *mle* of log fold-change among the 50 largest positive values for a cluster
 
 ## 2h
 
@@ -348,7 +347,13 @@ draw(ht)
 dev.off()
 ```
 
-# Heat map of top 50 markers log-counts {.tabset}
+# Heat map of log-counts for (up to) 50 markers {.tabset}
+
+Notably, let us use here the same markers as defined in the previous section,
+namely:
+
+* *P*-value less than 0.01
+* *mle* of log fold-change among the 50 largest positive values for a cluster
 
 ## 2h
 
