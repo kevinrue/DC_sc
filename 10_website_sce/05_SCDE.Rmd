@@ -29,7 +29,7 @@ outdir <- "05_SCDE_out"; dir.create(outdir, showWarnings = FALSE)
 o.ifm.2h <- readRDS("rds/o.ifm_2h.rds")
 o.ifm.4h <- readRDS("rds/o.ifm_4h.rds")
 o.ifm.6h <- readRDS("rds/o.ifm_6h.rds")
-scde.res <- readRDS("rds/scde_res.rds")
+scde.res <- readRDS("rds/scde.res.rds")
 goseq.res <- readRDS("rds/goseq_res.rds")
 ```
 
