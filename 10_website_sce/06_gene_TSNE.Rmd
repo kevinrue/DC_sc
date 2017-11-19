@@ -76,7 +76,7 @@ geneDataByName <- function(x){
 
 * to draw the figure
 
-```{r}
+```{r plotByName}
 plotByName <- function(x){
   geneId <- geneNameToID(x)
   ggData <- geneDataByName(x)
