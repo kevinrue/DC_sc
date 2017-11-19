@@ -20,12 +20,12 @@ stopifnot(
 )
 sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
-col.infection <- brewer.pal(12, "Paired")[c(9,2,4)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
 col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
 names(col.time) <- levels(sce.norm$Time)[1:3]
 names(col.infection) <- levels(sce.norm$Infection)
 names(col.status) <- levels(sce.norm$Status)
-outdir <- "06_SCDE_out"; dir.create(outdir, showWarnings = FALSE)
+outdir <- "05_SCDE_out"; dir.create(outdir, showWarnings = FALSE)
 o.ifm.2h <- readRDS("rds/o.ifm_2h.rds")
 o.ifm.4h <- readRDS("rds/o.ifm_4h.rds")
 o.ifm.6h <- readRDS("rds/o.ifm_6h.rds")
@@ -166,8 +166,8 @@ o.ifm.2h <- scde.error.models(
 ```
 
 ```{r save_o.ifm.2h, echo=FALSE, eval=FALSE}
-saveRDS(o.ifm.2h, "rds/o.ifm.2h_v8.rds")
-write.csv(o.ifm.2h, "SCDE_v8/o.ifm.2h.csv")
+saveRDS(o.ifm.2h, "rds/o.ifm.2h.rds")
+write.csv(o.ifm.2h, file.path(outdir, "o.ifm.2h.csv"))
 ```
 
 Particularly poor cells may result in abnormal fits, most commonly showing
@@ -187,8 +187,8 @@ o.ifm.4h <- scde.error.models(
 ```
 
 ```{r save_o.ifm.4h, echo=FALSE, eval=FALSE}
-saveRDS(o.ifm.4h, "rds/o.ifm.4h_v8.rds")
-write.csv(o.ifm.4h, "SCDE_v8/o.ifm.4h.csv")
+saveRDS(o.ifm.4h, "rds/o.ifm.4h.rds")
+write.csv(o.ifm.4h, file.path(outdir, "o.ifm.4h.csv"))
 ```
 
 Particularly poor cells may result in abnormal fits, most commonly showing
@@ -208,8 +208,8 @@ o.ifm.6h <- scde.error.models(
 ```
 
 ```{r save_o.ifm.6h, echo=FALSE, eval=FALSE}
-saveRDS(o.ifm.6h, "rds/o.ifm.6h_v8.rds")
-write.csv(o.ifm.6h, "SCDE_v8/o.ifm.6h.csv")
+saveRDS(o.ifm.6h, "rds/o.ifm.6h.rds")
+write.csv(o.ifm.6h, file.path(outdir, "o.ifm.6h.csv"))
 ```
 
 Particularly poor cells may result in abnormal fits, most commonly showing
@@ -470,7 +470,7 @@ for (contrastNames in contrasts.2h){
   scde.res[[contrastName]] <- scde.expression.difference(
     o.ifm.2h, cd.2h, o.prior.2h, sg.test, n.cores = 4, verbose = 1
   )
-  saveRDS(scde.res, "rds/scde.res_v8.rds") # checkpoint
+  saveRDS(scde.res, "rds/scde.res.rds") # checkpoint
 }
 ```
 
@@ -485,7 +485,7 @@ for (contrastNames in contrasts.4h){
   scde.res[[contrastName]] <- scde.expression.difference(
     o.ifm.4h, cd.4h, o.prior.4h, sg.test, n.cores = 4, verbose = 1
   )
-  saveRDS(scde.res, "rds/scde.res_v8.rds") # checkpoint
+  saveRDS(scde.res, "rds/scde.res.rds") # checkpoint
 }
 ```
 
@@ -500,7 +500,7 @@ for (contrastNames in contrasts.6h){
   scde.res[[contrastName]] <- scde.expression.difference(
     o.ifm.6h, cd.6h, o.prior.6h, sg.test, n.cores = 4, verbose = 1
   )
-  saveRDS(scde.res, "rds/scde.res_v8.rds") # checkpoint
+  saveRDS(scde.res, "rds/scde.res.rds") # checkpoint
 }
 ```
 
@@ -615,7 +615,7 @@ ggplot(sub.data) +
     title = "4h STM-D23580", subtitle = "Violet + / Exposed",
     y = expression(-log[10]*" ("*italic(P)*"-value)")
   )
-ggsave("06_SCDE_out/4h_volcano_D23580_Vogel.pdf", height = 5, width = 6.5)
+ggsave(file.path(outdir, "4h_volcano_D23580_Vogel.pdf"), height=5, width=6.5)
 ```
 
 ```{r Shalek_volcano_4h_D23_InfExp, include=FALSE}
@@ -636,7 +636,7 @@ ggplot(sub.data) +
     title = "4h STM-D23580", subtitle = "Violet + / Exposed",
     y = expression(-log[10]*" ("*italic(P)*"-value)")
   )
-ggsave("06_SCDE_out/4h_volcano_D23580_Shalek.pdf", height = 5, width = 6.5)
+ggsave(file.path(outdir, "4h_volcano_D23580_Shalek.pdf"), height=5, width=6.5)
 ```
 
 ```{r Vogel_volcano_4h_LT2_InfExp, include=FALSE}
@@ -668,7 +668,7 @@ ggplot(sub.data) +
     title = "4h STM-LT2", subtitle = "Violet + / Exposed",
     y = expression(-log[10]*" ("*italic(P)*"-value)")
   )
-ggsave("06_SCDE_out/4h_volcano_LT2_Vogel.pdf", height = 5, width = 6.5)
+ggsave(file.path(outdir, "4h_volcano_LT2_Vogel.pdf"), height=5, width=6.5)
 ```
 
 ```{r Shalek_volcano_4h_LT2_InfExp, include=FALSE}
@@ -689,7 +689,7 @@ ggplot(sub.data) +
     title = "4h STM-LT2", subtitle = "Violet + / Exposed",
     y = expression(-log[10]*" ("*italic(P)*"-value)")
   )
-ggsave("06_SCDE_out/4h_volcano_LT2_Shalek.pdf", height = 5, width = 6.5)
+ggsave(file.path(outdir, "4h_volcano_LT2_Shalek.pdf"), height=5, width=6.5)
 ```
 
 # Count DE genes at various cut-offs {.tabset}
@@ -761,6 +761,7 @@ for (x.time in c("2h", "4h", "6h")){
   }
 }
 ggplot(DE.count, aes(Time, Count, colour = Infection)) +
+  scale_colour_manual(values = col.infection) +
   geom_point(size = 3) +
   geom_line(aes(group = interaction(Infection, Direction))) +
   geom_abline(intercept = 0, slope = 0, linetype = "dashed") +
@@ -769,7 +770,7 @@ ggplot(DE.count, aes(Time, Count, colour = Infection)) +
     title = "Violet + / Exposed",
     y = "Count of differentially expressed genes"
   )
-ggsave("06_SCDE_out/DE_counts.pdf", width = 7, height = 4)
+ggsave(file.path(outdir, "DE_counts.pdf"), width=7, height=4)
 ```
 
 # Gene ontology {#GO}
@@ -813,7 +814,7 @@ for (contrastName in grep("^2h", names(scde.res), value = TRUE)){
   pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes)])
   go.res <- goseq(pwf, "hg38", "ensGene")
   goseq.res[[contrastName]] <- go.res
-  saveRDS(goseq.res, "rds/goseq.res_v8.rds") # checkpoint
+  saveRDS(goseq.res, "rds/goseq.res.rds") # checkpoint
 }
 ```
 
@@ -830,7 +831,7 @@ for (contrastName in grep("^4h", names(scde.res), value = TRUE)){
   pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes)])
   go.res <- goseq(pwf, "hg38", "ensGene")
   goseq.res[[contrastName]] <- go.res
-  saveRDS(goseq.res, "rds/goseq.res_v8.rds") # checkpoint
+  saveRDS(goseq.res, "rds/goseq.res.rds") # checkpoint
 }
 ```
 
@@ -847,7 +848,7 @@ for (contrastName in grep("^6h", names(scde.res), value = TRUE)){
   pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes)])
   go.res <- goseq(pwf, "hg38", "ensGene")
   goseq.res[[contrastName]] <- go.res
-  saveRDS(goseq.res, "rds/goseq.res_v8.rds") # checkpoint
+  saveRDS(goseq.res, "rds/goseq.res.rds") # checkpoint
 }
 ```
 
