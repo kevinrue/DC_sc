@@ -24,7 +24,7 @@ stopifnot(
 sce.norm <- readRDS("rds/sce.norm.rds")
 sce.bulk <- readRDS("rds/sce.bulk.SCE.rds")
 col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
-col.infection <- brewer.pal(12, "Paired")[c(9,2,4)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
 col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
 names(col.time) <- levels(sce.norm$Time)[1:3]
 names(col.infection) <- levels(sce.norm$Infection)
@@ -396,7 +396,8 @@ the gene length information reported by
 [featureCounts](http://bioinf.wehi.edu.au/featureCounts) is used:
 
 ```{r geneLengths}
-geneLengths <- width(rowRanges(sce.norm[hvgs,]))
+geneLengths <- width(rowRanges(sce.norm[rownames(hvg.out),]))
+names(geneLengths) <- rownames(hvg.out)
 ```
 
 Using the above gene length data, the probability weighting function (PWF)
@@ -879,7 +880,7 @@ par(mfrow=c(1,1))
 ```
 
 ```{r saveHVGsGroup, include=FALSE}
-saveRDS(HVGs.group, file.path(outdir, "HVGs_Group.rds"))
+saveRDS(HVGs.group, "rds/HVGs_Group.rds")
 ```
 
 In the figure above, note how---in the stimulated cells---the mean-variance
@@ -1074,7 +1075,7 @@ spike.fit <- trendVar(sce.norm[,idx.4hStim], use.spikes=TRUE)
 points(spike.fit$mean, spike.fit$var, col="red", pch=16)
 var.out.endo.4h <- cbind(
   Symbol=with(
-      rowData(sce.endo), gene_name[match(rownames(var.out.endo),gene_id)]),
+      rowData(sce.norm), gene_name[match(rownames(var.out.endo.4h),gene_id)]),
   var.out.endo.4h
 )
 write.csv(
@@ -1094,7 +1095,7 @@ sce.endo.4hStim <-
   sce.endo.4hStim[,with(colData(sce.endo.4hStim), order(Infection,Status))]
 dim(norm.endo.4hStim)
 h_column <- HeatmapAnnotation(
-  df = as.data.frame(colData(sce.endo.4hStim)[,c("Status", "Infection")]),
+  df = data.frame(colData(sce.endo.4hStim)[,c("Status", "Infection")]),
   col = list(
     Status = col.status,
     Infection = col.infection
