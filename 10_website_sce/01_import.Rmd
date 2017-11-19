@@ -127,11 +127,11 @@ Finally, let us combine the two types of feature annotations,
 and reorder them to ensure that they match the order of features imported
 [above](#Counts):
 
-```{r gtf.final}
+```{r gtfData}
 names(gtfData) <- gtfData$gene_id
 stopifnot(all(rownames(RG) %in% names(gtfData)))
 gtfData <- gtfData[match(rownames(RG), names(gtfData))]
-stopifnot(all(rownames(RG) == names(gtf.final)))
+stopifnot(all(rownames(RG) == names(gtfData)))
 ```
 
 # SingleCellExperiment {#SingleCellExperiment .tabset}
@@ -164,7 +164,7 @@ We may then create the four data sets:
 ```{r sce.all}
 pd.all <- DataFrame(pheno)
 sce.all <- SingleCellExperiment(
-  assays=list(counts=RG$counts), colData=pd.all, rowRanges=rowranges)
+  assays=list(counts=RG$counts), colData=pd.all, rowRanges=gtfData)
 dim(sce.all)
 ```
 
@@ -175,7 +175,7 @@ idx.blank <- pheno$Status == "Blank"
 pd.blank <- DataFrame(droplevels(pheno[idx.blank,]))
 sce.blank <- SingleCellExperiment(
   assays=list(counts=RG$counts[,idx.blank]),
-  colData=pd.blank, rowRanges=rowranges)
+  colData=pd.blank, rowRanges=gtfData)
 dim(sce.blank)
 ```
 
@@ -186,7 +186,7 @@ idx.bulk<- pheno$Status == "Bulk"
 pd.bulk <- DataFrame(droplevels(pheno[idx.bulk,]))
 sce.bulk <- SingleCellExperiment(
   assays=list(counts=RG$counts[,idx.bulk]),
-  colData=pd.bulk, rowRanges=rowranges)
+  colData=pd.bulk, rowRanges=gtfData)
 dim(sce.bulk)
 ```
 
@@ -197,7 +197,7 @@ idx.sc <- pheno$Status %in% c("Exposed", "Violet +", "Uninfected")
 pd.sc <- DataFrame(droplevels(pheno[idx.sc,]))
 sce.sc <- SingleCellExperiment(
   assays=list(counts=RG$counts[,idx.sc]),
-  colData=pd.sc, rowRanges=rowranges)
+  colData=pd.sc, rowRanges=gtfData)
 dim(sce.sc)
 ```
 
