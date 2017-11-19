@@ -49,7 +49,7 @@ navbar:
     menu:
     - text: HVGs
       href: 05_HVGs.html
-      icon: fa-area-chart
+      icon: fa-arrows-alt
     - text: Reduced dim.
       href: 05_reduceDim.html
       icon: fa-sort-amount-desc
@@ -71,6 +71,9 @@ navbar:
     - text: GoT (Gene on TSNE)
       href: 06_gene_TSNE.html
       icon: fa-spinner
+    - text: Density
+      href: 06_density.html
+      icon: fa-area-chart
   - text: About
     href: about.html
     icon: fa-info
