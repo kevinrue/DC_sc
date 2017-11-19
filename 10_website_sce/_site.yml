@@ -90,8 +90,7 @@ output:
     lib_dir: site_libs
     self_contained: no
 exclude:
-- rds
-- test_
+- 'rds'
+- 'test_*'
 - '*_out'
 output_dir: _site
-
