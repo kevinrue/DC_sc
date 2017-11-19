@@ -23,7 +23,7 @@ mixC <- readRDS("rds/mixC.rds")
 ERCCs <- grep("^ERCC-[[:digit:]]+$", rownames(sce.pass), value = TRUE)
 MTs <- names(rowRanges(sce.pass)[seqnames(sce.pass) == "MT",])
 col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
-col.infection <- brewer.pal(12, "Paired")[c(9,2,4)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
 col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
 names(col.time) <- levels(sce.pass$Time)[1:3]
 names(col.infection) <- levels(sce.pass$Infection)[1:3]

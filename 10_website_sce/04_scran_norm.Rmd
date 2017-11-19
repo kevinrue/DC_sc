@@ -16,7 +16,7 @@ stopifnot(
 )
 sce.filtered <- readRDS("rds/sce.filtered.rds")
 col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
-col.infection <- brewer.pal(12, "Paired")[c(9,2,4)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
 col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
 names(col.time) <- levels(sce.filtered$Time)[1:3]
 names(col.infection) <- levels(sce.filtered$Infection)[1:3]
