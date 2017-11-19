@@ -1,0 +1,492 @@
+---
+title: "Markers of clusters using *scde*"
+bibliography:
+  bibtex.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+stopifnot(
+  require(scater),
+  require(scran),
+  require(ggplot2),
+  require(RColorBrewer)
+)
+sce.endo <- readRDS("rds/sce.endo_clusters.rds")
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.endo$Time)[1:3]
+names(col.infection) <- levels(sce.endo$Infection)
+names(col.status) <- levels(sce.endo$Status)
+outdir <- "06_density_out"; dir.create(outdir, showWarnings = FALSE)
+```
+
+# Helper values and functions
+
+Let us first define some values useful to design colour scales:
+
+```{r colours}
+range.exprs <- range(assay(sce.endo, "logcounts"))
+col.gene <- RColorBrewer::brewer.pal(11, "RdYlBu")
+col.treatment <- RColorBrewer::brewer.pal(9, "Paired")[c(9,3,1,4,2)]
+names(col.treatment) <- levels(sce.endo$Treatment)
+```
+
+Let us then define a few convenience functions:
+
+* to fetch the gene ID associated with a gene name
+
+```{r geneNameToID}
+geneNameToID <- function(x){
+  geneId <- with(rowData(sce.endo), gene_id[match(x, gene_name)])
+  if (length(geneId) > 1){
+    warning("Multiple IDs found. Use ID instead")
+    return(data.frame(
+      gene_name = x,
+      gene_id = geneId
+    ))
+  } else if (length(geneId) == 0){
+    stop("gene_name not found")
+  }
+  return(geneId)
+}
+```
+
+* to fetch the necessary expression and phenotype data
+
+```{r geneDataByName}
+geneDataByName <- function(x){
+  geneId <- geneNameToID(x)
+  ggData <- data.frame(
+    gene = assay(sce.endo, "logcounts")[geneId,],
+    colData(sce.endo)[,c("Time","Infection","Status","Treatment")]
+  )
+  return(ggData)
+}
+```
+
+* to draw a histogram
+
+```{r histByName}
+histByName <- function(x){
+  geneId <- geneNameToID(x)
+  ggData <- geneDataByName(x)
+  # return(ggData)
+  ggplot(ggData, aes(gene)) +
+    facet_grid(gsub("_", "\n", Treatment)~Time, scales = "free_y") +
+    geom_histogram(aes(colour=Treatment,fill=Treatment)) +
+    scale_color_manual(values = col.treatment) +
+    scale_fill_manual(values = col.treatment) +
+    scale_y_continuous(breaks = seq(0, 30, 5)) +
+    labs(
+      title = sprintf("%s", x),
+      subtitle = sprintf("%s", geneId),
+      x = "log-counts",
+      colour = "Treatment") +
+    theme_bw()
+}
+```
+
+* to draw a density plot
+
+```{r densityByName}
+densityByName <- function(x){
+  geneId <- geneNameToID(x)
+  ggData <- geneDataByName(x)
+  # return(ggData)
+  ggplot(ggData, aes(gene)) +
+    facet_grid(gsub("_", "\n", Treatment) ~ Time, scales = "free_y") +
+    geom_density(aes(colour = Treatment)) +
+    geom_rug() +
+    scale_color_manual(values = col.treatment) +
+    labs(
+      title = sprintf("%s", x),
+      subtitle = sprintf("%s", geneId),
+      x = "log-counts",
+      colour = "Treatment") +
+    theme_bw()
+}
+```
+
+
+```{r plotByName, echo=FALSE}
+plotByNameTimeRow <- function(x){
+  geneId <- geneNameToID(x)
+  ggData <- geneDataByName(x)
+  # return(ggData)
+  ggplot(ggData, aes(gene)) +
+    facet_grid(Time~gsub("_", "\n", Treatment), scales = "free_y") +
+    geom_density(aes(colour = Treatment)) +
+    scale_color_manual(values = col.treatment) +
+    scale_y_continuous(breaks = seq(0, 30, 5)) +
+    labs(
+      title = sprintf("%s", x),
+      subtitle = sprintf("%s", geneId),
+      x = "log-counts",
+      colour = "Treatment") +
+    theme_bw()
+}
+```
+
+# Genes (alphabetical order) {.tabset}
+
+The above convenience function make it straightforward to produce a figure
+for any gene of interest:
+
+## AIM2 {.tabset}
+
+### Histogram
+
+```{r AIM2_hist, echo=FALSE, message=FALSE}
+geneName <- "AIM2"
+histByName(geneName)
+```
+
+### Density
+
+```{r AIM2_density, echo=FALSE, message=FALSE}
+geneName <- "AIM2"
+densityByName(geneName)
+```
+
+## APOC1 {.tabset}
+
+### Histogram
+
+```{r APOC1_hist, echo=FALSE, message=FALSE}
+geneName <- "APOC1"
+histByName(geneName)
+```
+
+### Density
+
+```{r APOC1_density, echo=FALSE, message=FALSE}
+geneName <- "APOC1"
+densityByName(geneName)
+```
+
+## APOE {.tabset}
+
+### Histogram
+
+```{r APOE_hist, echo=FALSE, message=FALSE}
+geneName <- "APOE"
+histByName(geneName)
+```
+
+### Density
+
+```{r APOE_density, echo=FALSE, message=FALSE}
+geneName <- "APOE"
+densityByName(geneName)
+```
+
+## CD83 {.tabset}
+
+### Histogram
+
+```{r CD83_hist, echo=FALSE, message=FALSE}
+geneName <- "CD83"
+histByName(geneName)
+```
+
+### Density
+
+```{r CD83_density, echo=FALSE, message=FALSE}
+geneName <- "CD83"
+densityByName(geneName)
+```
+
+## CALM1 {.tabset}
+
+### Histogram
+
+```{r CALM1_hist, echo=FALSE, message=FALSE}
+geneName <- "CALM1"
+histByName(geneName)
+```
+
+### Density
+
+```{r CALM1_density, echo=FALSE, message=FALSE}
+geneName <- "CALM1"
+densityByName(geneName)
+```
+
+## CTSL {.tabset}
+
+### Histogram
+
+```{r CTSL_hist, echo=FALSE, message=FALSE}
+geneName <- "CTSL"
+histByName(geneName)
+```
+
+### Density
+
+```{r CTSL_density, echo=FALSE, message=FALSE}
+geneName <- "CTSL"
+densityByName(geneName)
+```
+
+## DEFB1 {.tabset}
+
+### Histogram
+
+```{r DEFB1_hist, echo=FALSE, message=FALSE}
+geneName <- "DEFB1"
+histByName(geneName)
+```
+
+### Density
+
+```{r DEFB1_density, echo=FALSE, message=FALSE}
+geneName <- "DEFB1"
+densityByName(geneName)
+```
+
+## DUSP4 {.tabset}
+
+### Histogram
+
+```{r DUSP4_hist, echo=FALSE, message=FALSE}
+geneName <- "DUSP4"
+histByName(geneName)
+```
+
+### Density
+
+```{r DUSP4_density, echo=FALSE, message=FALSE}
+geneName <- "DUSP4"
+densityByName(geneName)
+```
+
+## IFIT1 {.tabset}
+
+### Histogram
+
+```{r IFIT1_hist, echo=FALSE, message=FALSE}
+geneName <- "IFIT1"
+histByName(geneName)
+```
+
+### Density
+
+```{r IFIT1_density, echo=FALSE, message=FALSE}
+geneName <- "IFIT1"
+densityByName(geneName)
+```
+
+## IFIT2 {.tabset}
+
+### Histogram
+
+```{r IFIT2_hist, echo=FALSE, message=FALSE}
+geneName <- "IFIT2"
+histByName(geneName)
+```
+
+### Density
+
+```{r IFIT2_density, echo=FALSE, message=FALSE}
+geneName <- "IFIT2"
+densityByName(geneName)
+```
+
+## IFIT3 {.tabset}
+
+### Histogram
+
+```{r IFIT3_hist, echo=FALSE, message=FALSE}
+geneName <- "IFIT3"
+histByName(geneName)
+```
+
+### Density
+
+```{r IFIT3_density, echo=FALSE, message=FALSE}
+geneName <- "IFIT3"
+densityByName(geneName)
+```
+
+## IFITM3 {.tabset}
+
+### Histogram
+
+```{r IFITM3_hist, echo=FALSE, message=FALSE}
+geneName <- "IFITM3"
+histByName(geneName)
+```
+
+### Density
+
+```{r IFITM3_density, echo=FALSE, message=FALSE}
+geneName <- "IFITM3"
+densityByName(geneName)
+```
+
+## IL1B {.tabset}
+
+### Histogram
+
+```{r IL1B_hist, echo=FALSE, message=FALSE}
+geneName <- "IL1B"
+histByName(geneName)
+```
+
+### Density
+
+```{r IL1B_density, echo=FALSE, message=FALSE}
+geneName <- "IL1B"
+densityByName(geneName)
+```
+
+## IL12B {.tabset}
+
+### Histogram
+
+```{r IL12B_hist, echo=FALSE, message=FALSE}
+geneName <- "IL12B"
+histByName(geneName)
+```
+
+### Density
+
+```{r IL12B_density, echo=FALSE, message=FALSE}
+geneName <- "IL12B"
+densityByName(geneName)
+```
+
+## OASL {.tabset}
+
+### Histogram
+
+```{r OASL_hist, echo=FALSE, message=FALSE}
+geneName <- "OASL"
+histByName(geneName)
+```
+
+### Density
+
+```{r OASL_density, echo=FALSE, message=FALSE}
+geneName <- "OASL"
+densityByName(geneName)
+```
+
+## RSAD2 {.tabset}
+
+### Histogram
+
+```{r RSAD2_hist, echo=FALSE, message=FALSE}
+geneName <- "RSAD2"
+histByName(geneName)
+```
+
+### Density
+
+```{r RSAD2_density, echo=FALSE, message=FALSE}
+geneName <- "RSAD2"
+densityByName(geneName)
+```
+
+## SIGLEC1 {.tabset}
+
+### Histogram
+
+```{r SIGLEC1_hist, echo=FALSE, message=FALSE}
+geneName <- "SIGLEC1"
+histByName(geneName)
+```
+
+### Density
+
+```{r SIGLEC1_density, echo=FALSE, message=FALSE}
+geneName <- "SIGLEC1"
+densityByName(geneName)
+```
+
+## SLC2A9 {.tabset}
+
+### Histogram
+
+```{r SLC2A9_hist, echo=FALSE, message=FALSE}
+geneName <- "SLC2A9"
+histByName(geneName)
+```
+
+### Density
+
+```{r SLC2A9_density, echo=FALSE, message=FALSE}
+geneName <- "SLC2A9"
+densityByName(geneName)
+```
+
+## TBL3 {.tabset}
+
+### Histogram
+
+```{r TBL3_hist, echo=FALSE, message=FALSE}
+geneName <- "TBL3"
+histByName(geneName)
+```
+
+### Density
+
+```{r TBL3_density, echo=FALSE, message=FALSE}
+geneName <- "TBL3"
+densityByName(geneName)
+```
+
+## TLR8 {.tabset}
+
+### Histogram
+
+```{r TLR8_hist, echo=FALSE, message=FALSE}
+geneName <- "TLR8"
+histByName(geneName)
+```
+
+### Density
+
+```{r TLR8_density, echo=FALSE, message=FALSE}
+geneName <- "TLR8"
+densityByName(geneName)
+```
+
+## TNFAIP2 {.tabset}
+
+### Histogram
+
+```{r TNFAIP2_hist, echo=FALSE, message=FALSE}
+geneName <- "TNFAIP2"
+histByName(geneName)
+```
+
+### Density
+
+```{r TNFAIP2_density, echo=FALSE, message=FALSE}
+geneName <- "TNFAIP2"
+densityByName(geneName)
+```
+
+## WARS {.tabset}
+
+### Histogram
+
+```{r WARS_hist, echo=FALSE, message=FALSE}
+geneName <- "WARS"
+histByName(geneName)
+```
+
+### Density
+
+```{r WARS_density, echo=FALSE, message=FALSE}
+geneName <- "WARS"
+densityByName(geneName)
+```
