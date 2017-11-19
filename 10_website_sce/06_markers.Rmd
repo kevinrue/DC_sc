@@ -18,21 +18,21 @@ stopifnot(
   require(ggrepel),
   require(RColorBrewer),
   require(goseq),
-  require(scde)
+  require(scde),
+  requireNamespace("circlize")
 )
 sce.endo <- readRDS("rds/sce.endo_clusters.rds")
 o.ifm.2h <- readRDS("rds/o.ifm_2h.rds")
 o.ifm.4h <- readRDS("rds/o.ifm_4h.rds")
 o.ifm.6h <- readRDS("rds/o.ifm_6h.rds")
 col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
-col.infection <- brewer.pal(12, "Paired")[c(9,2,4)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
 col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
 names(col.time) <- levels(sce.endo$Time)[1:3]
 names(col.infection) <- levels(sce.endo$Infection)
 names(col.status) <- levels(sce.endo$Status)
 outdir <- "06_markers_out"; dir.create(outdir, showWarnings = FALSE)
 scde.res <- readRDS("rds/cluster_scde_res.rds")
-# goseq.res <- readRDS("rds/13_cluster_goseq.res_v2.rds")
 # Subset by time point
 sce.2h <- sce.endo[,sce.endo$Time == '2h']
 sce.4h <- sce.endo[,sce.endo$Time == '4h']
@@ -209,11 +209,16 @@ for (contrastName in names(scde.res)){
 
 # Heat map of fold-change for (up to) 50 markers {.tabset}
 
-For each time point, let us display up to 50 marker genes for each cluster,
-selected for having:
+For each time point, let us display up to 50 marker genes for each cluster, selected for having:
 
 * *P*-value less than 0.01
 * *mle* of log fold-change among the 50 largest positive values for a cluster
+
+First of all, let us define a color scale share between upcoming heat maps:
+
+```{r ht.col}
+ht.col <- c("purple", "black", "yellow")
+```
 
 ## 2h
 
@@ -359,15 +364,24 @@ namely:
 
 ```{r markers_logcounts_2h, echo=FALSE, fig.height=10, message=FALSE}
 ht_list <- list()
+markersMatrix <- assay(sce.ifm.2h, "logcounts")[markers_2h,]
+markersMatrix <- t(scale(t(markersMatrix)))
+rownames(markersMatrix) <- with(
+    rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
+# maxMatrix <- max(abs(range(markersMatrix))) * ht.scale.percentile
+ht_scale <- circlize::colorRamp2(c(-4, 0, 4), ht.col) # use maxMatrix?
 for (clusterId in levels(sce.ifm.2h$quickCluster.2h)){
-  markersMatrix <- assay(sce.ifm.2h, "logcounts")[
-    markers_2h, sce.ifm.2h$quickCluster.2h == clusterId
-  ]
-  rownames(markersMatrix) <-
-    with(rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
+  clusterMatrix <- markersMatrix[,sce.ifm.2h$quickCluster.2h == clusterId]
   ht_list[[clusterId]] <- Heatmap(
-    matrix = markersMatrix,
+    matrix = clusterMatrix,
+    name = ifelse(
+      clusterId == levels(sce.ifm.2h$quickCluster.2h)[1],
+      "z-score",
+      clusterId),
+    col = ht_scale,
     row_names_gp = gpar(cex=0.4),
+    show_heatmap_legend =
+      clusterId == levels(sce.ifm.2h$quickCluster.2h)[1],
     show_row_names = clusterId == levels(sce.ifm.2h$quickCluster.2h)[1],
     cluster_rows = FALSE,
     show_column_names = FALSE, show_column_dend = FALSE,
@@ -394,15 +408,20 @@ ht_list <- list()
 excludeMarkers <- which(markers_2h.cluster == "0")
 markers_2h_no0 <- markers_2h[-excludeMarkers]
 markers_2h.cluster_no0 <- markers_2h.cluster[-excludeMarkers]
-for (clusterId in levels(sce.ifm.2h$quickCluster.2h)){
-  markersMatrix <- assay(sce.ifm.2h, "logcounts")[
-    markers_2h_no0, sce.ifm.2h$quickCluster.2h == clusterId
-  ]
-  rownames(markersMatrix) <-
-    with(rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
+markersMatrix <- assay(sce.ifm.2h, "logcounts")[markers_2h_no0,]
+markersMatrix <- t(scale(t(markersMatrix)))
+rownames(markersMatrix) <- with(
+    rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
+# maxMatrix <- max(abs(range(markersMatrix))) * ht.scale.percentile
+ht_scale <- circlize::colorRamp2(c(-4, 0, 4), ht.col) # use maxMatrix?
+for (clusterId in unique(markers_2h.cluster_no0)){
+  clusterMatrix <- markersMatrix[,sce.ifm.2h$quickCluster.2h == clusterId]
   ht_list[[clusterId]] <- Heatmap(
-    matrix = markersMatrix,
+    matrix = clusterMatrix,
+    name = ifelse(clusterId == "1", "z-score", clusterId),
+    col = ht_scale,
     row_names_gp = gpar(cex=0.4),
+    show_heatmap_legend = clusterId == "1",
     show_row_names = clusterId == "1",
     cluster_rows = FALSE,
     show_column_names = FALSE, show_column_dend = FALSE,
@@ -427,16 +446,21 @@ ht_list <- list()
 excludeMarkers <- which(markers_2h.cluster == "0")
 markers_2h_no0 <- markers_2h[-excludeMarkers]
 markers_2h.cluster_no0 <- markers_2h.cluster[-excludeMarkers]
-for (clusterId in levels(sce.ifm.2h$quickCluster.2h)){
-  markersMatrix <- assay(sce.ifm.2h, "logcounts")[
-    markers_2h_no0, sce.ifm.2h$quickCluster.2h == clusterId
-  ]
-  rownames(markersMatrix) <-
-    with(rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
+markersMatrix <- assay(sce.ifm.2h, "logcounts")[markers_2h_no0,]
+markersMatrix <- t(scale(t(markersMatrix)))
+rownames(markersMatrix) <- with(
+    rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
+# maxMatrix <- max(abs(range(markersMatrix))) * ht.scale.percentile
+ht_scale <- circlize::colorRamp2(c(-4, 0, 4), ht.col) # use maxMatrix?
+for (clusterId in unique(markers_2h.cluster_no0)){
+  clusterMatrix <- markersMatrix[,sce.ifm.2h$quickCluster.2h == clusterId]
   ht_list[[clusterId]] <- Heatmap(
-    matrix = markersMatrix,
+    matrix = clusterMatrix,
+    name = ifelse(clusterId == "1", "z-score", clusterId),
+    col = ht_scale,
     row_names_gp = gpar(cex=0.4),
-    show_row_names = FALSE,
+    show_heatmap_legend = clusterId == "1",
+    show_row_names = clusterId == "1",
     cluster_rows = FALSE,
     show_column_names = FALSE, show_column_dend = FALSE,
     row_names_side = "left",
@@ -471,15 +495,24 @@ dev.off()
 
 ```{r markers_logcounts_4h, echo=FALSE, fig.height=10, message=FALSE}
 ht_list <- list()
+markersMatrix <- assay(sce.ifm.4h, "logcounts")[markers_4h,]
+markersMatrix <- t(scale(t(markersMatrix)))
+rownames(markersMatrix) <- with(
+    rowData(sce.4h), gene_name[match(rownames(markersMatrix), gene_id)])
+# maxMatrix <- max(abs(range(markersMatrix))) * ht.scale.percentile
+ht_scale <- circlize::colorRamp2(c(-4, 0, 4), ht.col) # use maxMatrix?
 for (clusterId in levels(sce.ifm.4h$quickCluster.4h)){
-  markersMatrix <- assay(sce.ifm.4h, "logcounts")[
-    markers_4h, sce.ifm.4h$quickCluster.4h == clusterId
-  ]
-  rownames(markersMatrix) <-
-    with(rowData(sce.4h), gene_name[match(rownames(markersMatrix), gene_id)])
+  clusterMatrix <- markersMatrix[,sce.ifm.4h$quickCluster.4h == clusterId]
   ht_list[[clusterId]] <- Heatmap(
-    matrix = markersMatrix,
+    matrix = clusterMatrix,
+    name = ifelse(
+      clusterId == levels(sce.ifm.4h$quickCluster.4h)[1],
+      "z-score",
+      clusterId),
+    col = ht_scale,
     row_names_gp = gpar(cex=0.4),
+    show_heatmap_legend =
+      clusterId == levels(sce.ifm.4h$quickCluster.4h)[1],
     show_row_names = clusterId == levels(sce.ifm.4h$quickCluster.4h)[1],
     cluster_rows = FALSE,
     show_column_names = FALSE, show_column_dend = FALSE,
@@ -487,7 +520,7 @@ for (clusterId in levels(sce.ifm.4h$quickCluster.4h)){
     split = markers_4h.cluster
     )
 }
-ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]]
+ht_final <- ht_list[["0"]] + ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]]
 draw(ht_final)
 ```
 
@@ -503,15 +536,24 @@ dev.off()
 
 ```{r markers_logcounts_6h, echo=FALSE, fig.height=10, message=FALSE}
 ht_list <- list()
+markersMatrix <- assay(sce.ifm.6h, "logcounts")[markers_6h,]
+markersMatrix <- t(scale(t(markersMatrix)))
+rownames(markersMatrix) <- with(
+    rowData(sce.6h), gene_name[match(rownames(markersMatrix), gene_id)])
+# maxMatrix <- max(abs(range(markersMatrix))) * ht.scale.percentile
+ht_scale <- circlize::colorRamp2(c(-4, 0, 4), ht.col) # use maxMatrix?
 for (clusterId in levels(sce.ifm.6h$quickCluster.6h)){
-  markersMatrix <- assay(sce.ifm.6h, "logcounts")[
-    markers_6h, sce.ifm.6h$quickCluster.6h == clusterId
-  ]
-  rownames(markersMatrix) <-
-    with(rowData(sce.6h), gene_name[match(rownames(markersMatrix), gene_id)])
+  clusterMatrix <- markersMatrix[,sce.ifm.6h$quickCluster.6h == clusterId]
   ht_list[[clusterId]] <- Heatmap(
-    matrix = markersMatrix,
+    matrix = clusterMatrix,
+    name = ifelse(
+      clusterId == levels(sce.ifm.6h$quickCluster.6h)[1],
+      "z-score",
+      clusterId),
+    col = ht_scale,
     row_names_gp = gpar(cex=0.4),
+    show_heatmap_legend =
+      clusterId == levels(sce.ifm.6h$quickCluster.6h)[1],
     show_row_names = clusterId == levels(sce.ifm.6h$quickCluster.6h)[1],
     cluster_rows = FALSE,
     show_column_names = FALSE, show_column_dend = FALSE,
@@ -519,7 +561,7 @@ for (clusterId in levels(sce.ifm.6h$quickCluster.6h)){
     split = markers_6h.cluster
     )
 }
-ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]]
+ht_final <- ht_list[["0"]] + ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]]
 draw(ht_final)
 ```
 
