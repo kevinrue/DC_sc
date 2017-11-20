@@ -74,6 +74,9 @@ navbar:
     - text: Density
       href: 06_density.html
       icon: fa-area-chart
+    - text: Violins
+      href: 06_violins.html
+      icon: fa-snapchat-ghost
   - text: About
     href: about.html
     icon: fa-info

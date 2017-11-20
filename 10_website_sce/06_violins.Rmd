@@ -1,0 +1,223 @@
+---
+title: "Gene expression levels overlaid onto tSNE view"
+editor_options: 
+  chunk_output_type: console
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+stopifnot(
+  require(scater),
+  require(scran),
+  require(ggplot2),
+  require(SummarizedExperiment),
+  require(RColorBrewer),
+  require(circlize),
+  require(ComplexHeatmap)
+)
+sce.endo <- readRDS("rds/sce.endo_clusters.rds")
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.endo$Time)[1:3]
+names(col.infection) <- levels(sce.endo$Infection)
+names(col.status) <- levels(sce.endo$Status)
+outdir <- "06_violins_out"; dir.create(outdir, showWarnings = FALSE)
+pdfWidth <- 7; pdfHeight <- 5
+pdfName <- "%s_%s.pdf"
+```
+
+# Helper values and functions
+
+Let us first define some values useful to design colour scales:
+
+```{r colours}
+range.exprs <- range(assay(sce.endo, "logcounts"))
+col.treatment <- RColorBrewer::brewer.pal(9, "Paired")[c(9,3,1,4,2)]
+names(col.treatment) <- gsub("_","\n",levels(sce.endo$Treatment))
+```
+
+Let us then define a few convenience functions:
+
+* to fetch the gene ID associated with a gene name
+
+```{r geneNameToID}
+geneNameToID <- function(x){
+  geneId <- with(rowData(sce.endo), gene_id[match(x, gene_name)])
+  if (length(geneId) > 1){
+    warning("Multiple IDs found. Use ID instead")
+    return(data.frame(
+      gene_name = x,
+      gene_id = geneId
+    ))
+  } else if (length(geneId) == 0){
+    stop("gene_name not found")
+  }
+  return(geneId)
+}
+```
+
+* to fetch the necessary expression and phenotype data
+
+```{r geneDataByName}
+geneDataByName <- function(x){
+  geneId <- geneNameToID(x)
+  ggData <- data.frame(
+    gene = assay(sce.endo, "logcounts")[geneId,],
+    colData(sce.endo)[,c("Time","Infection","Status","Treatment")]
+  )
+  return(ggData)
+}
+```
+
+* to draw the figure, faceted by time
+
+```{r plotByNameFacetTime}
+plotByNameFacetTime <- function(x){
+  geneId <- geneNameToID(x)
+  ggData <- geneDataByName(x)
+  ggData$Treatment <- gsub("_", "\n", ggData$Treatment)
+  # return(ggData)
+  ggplot(ggData, aes(Treatment, gene)) +
+    facet_grid(Time~.) +
+    geom_violin(aes(colour = Treatment)) + #, fill = Treatment
+    geom_jitter(
+      aes(colour = Treatment), height = 0, width = 0.2,
+      alpha = 0.5, size = 0.4) +
+    scale_color_manual(values = col.treatment) +
+    labs(
+      title = sprintf("%s", x),
+      subtitle = sprintf("%s", geneId),
+      y = "log-counts",
+      colour = "Treatment",
+      fill = "Treatment") +
+    scale_y_continuous(limits = range.exprs) +
+    theme_bw() +
+    theme(
+      legend.key.height = unit(1.75, "lines")
+    )
+}
+```
+
+* to draw the figure, for a single time point
+
+```{r plotByName}
+plotByNameTime <- function(x, time){
+  geneId <- geneNameToID(x)
+  ggData <- geneDataByName(x)
+  ggData <- subset(ggData, Time == time)
+  ggData$Treatment <- gsub("_", "\n", ggData$Treatment)
+  # return(ggData)
+  ggplot(ggData, aes(Treatment, gene)) +
+    geom_violin(aes(colour = Treatment)) + #, fill = Treatment
+    geom_jitter(
+      aes(colour = Treatment), height = 0, width = 0.2,
+      alpha = 0.5, size = 0.4) +
+    scale_color_manual(values = col.treatment) +
+    labs(
+      title = sprintf("%s (%s)", x, time),
+      subtitle = sprintf("%s", geneId),
+      y = "log-counts",
+      colour = "Treatment",
+      fill = "Treatment") +
+    scale_y_continuous(limits = range.exprs) +
+    theme_bw() +
+    theme(
+      legend.key.height = unit(1.75, "lines")
+    )
+}
+```
+
+# Genes (alphabetical order) {.tabset}
+
+The above convenience function make it straightforward to produce a figure
+for any gene of interest:
+
+## IL12B
+
+```{r IL12B, echo=FALSE, fig.height=7}
+geneName <- "IL12B"
+plotByNameFacetTime(geneName)
+```
+
+```{r IL12B_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "all")),
+  height = 10, width = pdfWidth)
+```
+
+## IL1B
+
+```{r IL1B, echo=FALSE, fig.height=7}
+geneName <- "IL1B"
+plotByNameFacetTime(geneName)
+```
+
+```{r IL1B_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "all")),
+  height = 10, width = pdfWidth)
+```
+
+## CTSL
+
+```{r CTSL, echo=FALSE, fig.height=7}
+geneName <- "CTSL"
+plotByNameFacetTime(geneName)
+```
+
+```{r CTSL_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "4h")),
+  plotByNameTime(geneName, "4h"),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameTime(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## MS4A4A
+
+```{r MS4A4A, echo=FALSE, fig.height=7}
+geneName <- "MS4A4A"
+plotByNameFacetTime(geneName)
+```
+
+```{r MS4A4A_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "4h")),
+  plotByNameTime(geneName, "4h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## PLAT
+
+```{r PLAT, echo=FALSE, fig.height=7}
+geneName <- "PLAT"
+plotByNameFacetTime(geneName)
+```
+
+```{r PLAT_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "4h")),
+  plotByNameTime(geneName, "4h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## MARCH1
+
+```{r MARCH1, echo=FALSE, fig.height=7}
+geneName <- "MARCH1"
+plotByNameFacetTime(geneName)
+```
+
+```{r MARCH1_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameTime(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+```
