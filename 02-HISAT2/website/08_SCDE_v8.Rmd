@@ -428,30 +428,30 @@ volcano.mle <- function(x, sub = NULL){
 
 ```{r contrasts.time}
 contrasts.2h <- list(
-  c("2h_STM-D23580_Violet +", "2h_Mock_Violet +"), # vs. Mock
-  c("2h_STM-LT2_Violet +", "2h_Mock_Violet +"),
-  c("2h_STM-D23580_Exposed", "2h_Mock_Violet +"),
-  c("2h_STM-LT2_Exposed", "2h_Mock_Violet +"),
+  c("2h_STM-D23580_Violet +", "2h_Mock_Uninfected"), # vs. Mock
+  c("2h_STM-LT2_Violet +", "2h_Mock_Uninfected"),
+  c("2h_STM-D23580_Exposed", "2h_Mock_Uninfected"),
+  c("2h_STM-LT2_Exposed", "2h_Mock_Uninfected"),
   c("2h_STM-D23580_Violet +", "2h_STM-LT2_Violet +"), # direct
   c("2h_STM-D23580_Violet +", "2h_STM-D23580_Exposed"),
   c("2h_STM-LT2_Violet +", "2h_STM-LT2_Exposed"),
   c("2h_STM-D23580_Exposed", "2h_STM-LT2_Exposed")
 )
 contrasts.4h <- list(
-  c("4h_STM-D23580_Violet +", "4h_Mock_Violet +"), # 4h
-  c("4h_STM-LT2_Violet +", "4h_Mock_Violet +"),
-  c("4h_STM-D23580_Exposed", "4h_Mock_Violet +"),
-  c("4h_STM-LT2_Exposed", "4h_Mock_Violet +"),
+  c("4h_STM-D23580_Violet +", "4h_Mock_Uninfected"), # 4h
+  c("4h_STM-LT2_Violet +", "4h_Mock_Uninfected"),
+  c("4h_STM-D23580_Exposed", "4h_Mock_Uninfected"),
+  c("4h_STM-LT2_Exposed", "4h_Mock_Uninfected"),
   c("4h_STM-D23580_Violet +", "4h_STM-LT2_Violet +"), # 4h
   c("4h_STM-D23580_Violet +", "4h_STM-D23580_Exposed"),
   c("4h_STM-LT2_Violet +", "4h_STM-LT2_Exposed"),
   c("4h_STM-D23580_Exposed", "4h_STM-LT2_Exposed")
 )
 contrasts.6h <- list(
-  c("6h_STM-D23580_Violet +", "6h_Mock_Violet +"), # 6h
-  c("6h_STM-LT2_Violet +", "6h_Mock_Violet +"),
-  c("6h_STM-D23580_Exposed", "6h_Mock_Violet +"),
-  c("6h_STM-LT2_Exposed", "6h_Mock_Violet +"),
+  c("6h_STM-D23580_Violet +", "6h_Mock_Uninfected"), # 6h
+  c("6h_STM-LT2_Violet +", "6h_Mock_Uninfected"),
+  c("6h_STM-D23580_Exposed", "6h_Mock_Uninfected"),
+  c("6h_STM-LT2_Exposed", "6h_Mock_Uninfected"),
   c("6h_STM-D23580_Violet +", "6h_STM-LT2_Violet +"), # 6h
   c("6h_STM-D23580_Violet +", "6h_STM-D23580_Exposed"),
   c("6h_STM-LT2_Violet +", "6h_STM-LT2_Exposed"),
