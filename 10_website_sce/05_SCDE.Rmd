@@ -2,6 +2,8 @@
 title: "Differential expression between experimental groups using *scde*"
 bibliography:
   bibtex.bib
+editor_options: 
+  chunk_output_type: console
 ---
 
 <!-- As HTML pages are built independently, large objects need to be
@@ -29,8 +31,8 @@ outdir <- "05_SCDE_out"; dir.create(outdir, showWarnings = FALSE)
 o.ifm.2h <- readRDS("rds/o.ifm_2h.rds")
 o.ifm.4h <- readRDS("rds/o.ifm_4h.rds")
 o.ifm.6h <- readRDS("rds/o.ifm_6h.rds")
-scde.res <- readRDS("rds/scde.res.rds")
-goseq.res <- readRDS("rds/goseq_res.rds")
+scde.res <- readRDS("rds/scde_group.rds")
+goseq.res <- readRDS("rds/goseq_group.rds")
 ```
 
 <!-- Cleaner code for v2
@@ -470,7 +472,7 @@ for (contrastNames in contrasts.2h){
   scde.res[[contrastName]] <- scde.expression.difference(
     o.ifm.2h, cd.2h, o.prior.2h, sg.test, n.cores = 4, verbose = 1
   )
-  saveRDS(scde.res, "rds/scde.res.rds") # checkpoint
+  saveRDS(scde.res, "rds/scde_group.rds") # checkpoint
 }
 ```
 
@@ -485,7 +487,7 @@ for (contrastNames in contrasts.4h){
   scde.res[[contrastName]] <- scde.expression.difference(
     o.ifm.4h, cd.4h, o.prior.4h, sg.test, n.cores = 4, verbose = 1
   )
-  saveRDS(scde.res, "rds/scde.res.rds") # checkpoint
+  saveRDS(scde.res, "rds/scde_group.rds") # checkpoint
 }
 ```
 
@@ -500,7 +502,7 @@ for (contrastNames in contrasts.6h){
   scde.res[[contrastName]] <- scde.expression.difference(
     o.ifm.6h, cd.6h, o.prior.6h, sg.test, n.cores = 4, verbose = 1
   )
-  saveRDS(scde.res, "rds/scde.res.rds") # checkpoint
+  saveRDS(scde.res, "rds/scde_group.rds") # checkpoint
 }
 ```
 
@@ -814,7 +816,7 @@ for (contrastName in grep("^2h", names(scde.res), value = TRUE)){
   pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes)])
   go.res <- goseq(pwf, "hg38", "ensGene")
   goseq.res[[contrastName]] <- go.res
-  saveRDS(goseq.res, "rds/goseq.res.rds") # checkpoint
+  saveRDS(goseq.res, "rds/goseq_group.rds") # checkpoint
 }
 ```
 
@@ -831,7 +833,7 @@ for (contrastName in grep("^4h", names(scde.res), value = TRUE)){
   pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes)])
   go.res <- goseq(pwf, "hg38", "ensGene")
   goseq.res[[contrastName]] <- go.res
-  saveRDS(goseq.res, "rds/goseq.res.rds") # checkpoint
+  saveRDS(goseq.res, "rds/goseq_group.rds") # checkpoint
 }
 ```
 
@@ -848,7 +850,7 @@ for (contrastName in grep("^6h", names(scde.res), value = TRUE)){
   pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes)])
   go.res <- goseq(pwf, "hg38", "ensGene")
   goseq.res[[contrastName]] <- go.res
-  saveRDS(goseq.res, "rds/goseq.res.rds") # checkpoint
+  saveRDS(goseq.res, "rds/goseq_group.rds") # checkpoint
 }
 ```
 
