@@ -18,16 +18,21 @@ stopifnot(
   require(circlize),
   require(ComplexHeatmap)
 )
-sce.endo <- readRDS("rds/sce.endo_clusters.rds")
+sce.norm <- readRDS("rds/sce.norm.rds")
+sce.endo <- sce.norm[!isSpike(sce.norm, "ERCC"),]
 col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
 col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
 col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
 names(col.time) <- levels(sce.endo$Time)[1:3]
 names(col.infection) <- levels(sce.endo$Infection)
 names(col.status) <- levels(sce.endo$Status)
-outdir <- "06_violins_out"; dir.create(outdir, showWarnings = FALSE)
+outdir <- "13_violins_out"; dir.create(outdir, showWarnings = FALSE)
 pdfWidth <- 7; pdfHeight <- 5
 pdfName <- "%s_%s.pdf"
+sce.endo$TreatmentLabel <- with(colData(sce.endo), factor(
+  gsub("_", "\n", Treatment),
+  gsub("_", "\n", levels(Treatment))
+))
 ```
 
 # Helper values and functions
@@ -36,8 +41,8 @@ Let us first define some values useful to design colour scales:
 
 ```{r colours}
 range.exprs <- range(assay(sce.endo, "logcounts"))
-col.treatment <- RColorBrewer::brewer.pal(9, "Paired")[c(9,3,1,4,2)]
-names(col.treatment) <- gsub("_","\n",levels(sce.endo$Treatment))
+col.treatment <- RColorBrewer::brewer.pal(9, "Paired")[c(9,3,4,1,2)]
+names(col.treatment) <- gsub("_","\n",levels(sce.endo$TreatmentLabel))
 ```
 
 Let us then define a few convenience functions:
@@ -67,7 +72,7 @@ geneDataByName <- function(x){
   geneId <- geneNameToID(x)
   ggData <- data.frame(
     gene = assay(sce.endo, "logcounts")[geneId,],
-    colData(sce.endo)[,c("Time","Infection","Status","Treatment")]
+    colData(sce.endo)[,c("Time","Infection","Status","TreatmentLabel")]
   )
   return(ggData)
 }
@@ -79,18 +84,21 @@ geneDataByName <- function(x){
 plotByNameFacetTime <- function(x){
   geneId <- geneNameToID(x)
   ggData <- geneDataByName(x)
-  ggData$Treatment <- gsub("_", "\n", ggData$Treatment)
   # return(ggData)
-  ggplot(ggData, aes(Treatment, gene)) +
+  ggplot(ggData, aes(TreatmentLabel, gene)) +
     facet_grid(Time~.) +
-    geom_violin(aes(colour = Treatment)) + #, fill = Treatment
+    geom_violin(
+      aes(colour = TreatmentLabel, fill = TreatmentLabel),
+      alpha = 0.2) +
     geom_jitter(
-      aes(colour = Treatment), height = 0, width = 0.2,
+      aes(colour = TreatmentLabel), height = 0, width = 0.2,
       alpha = 0.5, size = 0.4) +
     scale_color_manual(values = col.treatment) +
+    scale_fill_manual(values = col.treatment) +
     labs(
       title = sprintf("%s", x),
       subtitle = sprintf("%s", geneId),
+      x = "Treatment",
       y = "log-counts",
       colour = "Treatment",
       fill = "Treatment") +
@@ -109,17 +117,20 @@ plotByNameTime <- function(x, time){
   geneId <- geneNameToID(x)
   ggData <- geneDataByName(x)
   ggData <- subset(ggData, Time == time)
-  ggData$Treatment <- gsub("_", "\n", ggData$Treatment)
   # return(ggData)
-  ggplot(ggData, aes(Treatment, gene)) +
-    geom_violin(aes(colour = Treatment)) + #, fill = Treatment
+  ggplot(ggData, aes(TreatmentLabel, gene)) +
+    geom_violin(
+      aes(colour = TreatmentLabel, fill = TreatmentLabel),
+      alpha = 0.2) +
     geom_jitter(
-      aes(colour = Treatment), height = 0, width = 0.2,
+      aes(colour = TreatmentLabel), height = 0, width = 0.2,
       alpha = 0.5, size = 0.4) +
     scale_color_manual(values = col.treatment) +
+    scale_fill_manual(values = col.treatment) +
     labs(
       title = sprintf("%s (%s)", x, time),
       subtitle = sprintf("%s", geneId),
+      x = "Treatment",
       y = "log-counts",
       colour = "Treatment",
       fill = "Treatment") +
@@ -135,6 +146,20 @@ plotByNameTime <- function(x, time){
 
 The above convenience function make it straightforward to produce a figure
 for any gene of interest:
+
+## EBI3
+
+```{r EBI3, echo=FALSE, fig.height=7}
+geneName <- "EBI3"
+plotByNameFacetTime(geneName)
+```
+
+```{r EBI3_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "all")),
+  plotByNameTime(geneName, "4h"),
+  height = pdfHeight, width = pdfWidth)
+```
 
 ## IL12B
 

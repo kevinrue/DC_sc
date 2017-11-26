@@ -24,7 +24,7 @@ col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
 names(col.time) <- levels(sce.norm$Time)[1:3]
 names(col.infection) <- levels(sce.norm$Infection)
 names(col.status) <- levels(sce.norm$Status)
-outdir <- "05_reduceDim_out"; dir.create(outdir, showWarnings = FALSE)
+outdir <- "06_reduceDim_out"; dir.create(outdir, showWarnings = FALSE)
 ```
 
 # Plotting themes

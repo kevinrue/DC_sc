@@ -11,26 +11,26 @@ navbar:
     - text: Background
     - text: Invasive Salmonelloses
       icon: fa-bug
-      href: 00_Introduction_Salmonella.html
+      href: 00a_Introduction_Salmonella.html
     - text: Dendritic Cells
       icon: fa-certificate
-      href: 00_Introduction_DC.html
+      href: 00b_Introduction_DC.html
     - text: '-------------'
     - text: Methods
     - text: Experimental
       icon: fa-flask
-      href: 00_experimental_methods.html
+      href: 00c_experimental_methods.html
     - text: RNA-sequencing
       icon: fa-list
-      href: 00_preprocessing.html
+      href: 00d_preprocessing.html
   - text: Data
     icon: fa-database
     menu:
     - text: SingleCellExperiment
-      href: 01_import.html
+      href: 01a_import.html
       icon: fa-dot-circle-o
     - text: ERCC
-      href: 01_ERCC.html
+      href: 01b_ERCC.html
       icon: fa-eyedropper
   - text: QC
     icon: fa-filter
@@ -51,31 +51,31 @@ navbar:
       href: 05_HVGs.html
       icon: fa-arrows-alt
     - text: Reduced dim.
-      href: 05_reduceDim.html
+      href: 06_reduceDim.html
       icon: fa-sort-amount-desc
     - text: SCDE
-      href: 05_SCDE.html
+      href: 07_SCDE.html
       icon: fa-line-chart
     - text: Clusters
-      href: 05_cluster.html
+      href: 08_cluster.html
       icon: fa-paw
     - text: Markers
-      href: 06_markers.html
+      href: 09_markers.html
       icon: fa-map-marker
     - text: SCDE clusters
-      href: 06_SCDE_cluster.html
+      href: 10_SCDE_cluster.html
       icon: fa-search-plus
   - text: Extras
     icon: fa-rocket
     menu:
     - text: GoT (Gene on TSNE)
-      href: 06_gene_TSNE.html
+      href: 11_gene_TSNE.html
       icon: fa-spinner
     - text: Density
-      href: 06_density.html
+      href: 12_density.html
       icon: fa-area-chart
     - text: Violins
-      href: 06_violins.html
+      href: 13_violins.html
       icon: fa-snapchat-ghost
   - text: About
     href: about.html
@@ -93,7 +93,8 @@ output:
     lib_dir: site_libs
     self_contained: no
 exclude:
-- 'rds'
-- 'test_*'
+- rds
+- test_*
 - '*_out'
 output_dir: _site
+

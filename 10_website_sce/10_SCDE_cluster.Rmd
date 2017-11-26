@@ -2,6 +2,8 @@
 title: "Differential expression between clusters using *scde*"
 bibliography:
   bibtex.bib
+editor_options: 
+  chunk_output_type: console
 ---
 
 <!-- As HTML pages are built independently, large objects need to be
@@ -31,7 +33,7 @@ col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
 names(col.time) <- levels(sce.endo$Time)[1:3]
 names(col.infection) <- levels(sce.endo$Infection)
 names(col.status) <- levels(sce.endo$Status)
-outdir <- "06_SCDE_cluster_out"; dir.create(outdir, showWarnings = FALSE)
+outdir <- "10_SCDE_cluster_out"; dir.create(outdir, showWarnings = FALSE)
 scde.res <- readRDS("rds/scde_cluster.rds")
 goseq.res <- readRDS("rds/goseq_cluster_res.rds")
 # Subset by time point

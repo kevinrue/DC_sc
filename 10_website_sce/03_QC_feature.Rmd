@@ -246,7 +246,10 @@ avgCPMbyGroup <- apply(
   1,
   function(x){tapply(x, sce.pass$Group, mean)})
 avgCPMbyGroup <- reshape2::melt(
-  avgCPMbyGroup, varnames = c("Group", "Feature"), value.name = "AvgCPM")
+  avgCPMbyGroup,
+  varnames = c("Group", "Feature"),
+  value.name = "AvgCPM"
+)
 avgCPMbyGroup[,c("Time","Infection","Status")] <-
   limma::strsplit2(avgCPMbyGroup$Group, "_")
 ```
@@ -266,12 +269,17 @@ detectedCPM <- data.frame(
 detectedCPM <- merge(
   detectedCPM,
   as.data.frame(unique(colData(sce.pass)[,c("Group","Time","Infection","Status")])))
+avgCPMbyGroup$Infection <- factor(avgCPMbyGroup$Infection, levels(sce.pass$Infection))
+avgCPMbyGroup$Status <- factor(avgCPMbyGroup$Status, levels(sce.pass$Status))
 ggplot() +
-  geom_histogram(aes(log10(AvgCPM)), avgCPMbyGroup, binwidth = 0.1) +
+  geom_histogram(
+    aes(log10(AvgCPM), fill = Infection, alpha = Status), avgCPMbyGroup,
+    binwidth = 0.1, alpha = 0.7) +
   geom_vline(xintercept = 0, colour = "red", linetype = "dashed") +
   geom_label(aes(label = Zero), detectedCPM, x=0, y=75, size=2, alpha=0.5) +
   geom_label(aes(label = LessOne), detectedCPM, x=-1, y=700, size=2, alpha=0.5) +
   geom_label(aes(label = MoreOne), detectedCPM, x=4, y=700, size=2, alpha=0.5) +
+  scale_fill_manual(values = col.infection) +
   facet_grid(Infection + Status ~ Time) + labs(y = "Features") +
   labs(x = "log10(Average CPM)") + theme_bw()
 ```
@@ -293,9 +301,15 @@ detectedCounts <- data.frame(
   Group = levels(avgCPMbyGroup$Group), y = 1E-2,
   Count = with(avgCPMbyGroup, tapply(AvgCPM, Group, function(x){sum(x>0)}))
 )
-detectedCounts$Time <- gsub("(.*)_.*_.*", "\\1", detectedCounts$Group)
-detectedCounts$Infection <- gsub(".*_(.*)_.*", "\\1", detectedCounts$Group)
-detectedCounts$Status <- gsub(".*_.*_(.*)", "\\1", detectedCounts$Group)
+detectedCounts$Time <- factor(
+  gsub("(.*)_.*_.*", "\\1", detectedCounts$Group), levels(sce.pass$Time)
+)
+detectedCounts$Infection <- factor(
+  gsub(".*_(.*)_.*", "\\1", detectedCounts$Group), levels(sce.pass$Infection)
+)
+detectedCounts$Status <- factor(
+  gsub(".*_.*_(.*)", "\\1", detectedCounts$Group), levels(sce.pass$Status)
+)
 ```
 
 The following figure displays the distribution of average
@@ -392,14 +406,28 @@ of at least **25%** of cells in each group, while indicating
 the count of groups in which each feature passed the above detection cut-offs:
 
 ```{r detectedCPMandProp_bar, echo=FALSE, fig.height=6}
-countPerGroup <- as.data.frame(with(colData(sce.pass), table(Time, Treatment)))
-detectedCPMandProp$Time <- gsub("(.*)_.*_.*", "\\1", detectedCPMandProp$Group)
-detectedCPMandProp$Infection<-gsub(".*_(.*)_.*","\\1",detectedCPMandProp$Group)
-detectedCPMandProp$Status <- gsub(".*_.*_(.*)", "\\1", detectedCPMandProp$Group)
+countPerGroup <- data.frame(with(colData(sce.pass), table(Time, Treatment)))
+countPerGroup$Treatment <- with(countPerGroup, factor(
+  gsub("_", " ", Treatment),
+  gsub("_", " ", levels(Treatment))
+))
+detectedCPMandProp$Time <- factor(
+  gsub("(.*)_.*_.*", "\\1", detectedCPMandProp$Group), levels(sce.pass$Time)
+)
+detectedCPMandProp$Infection <- factor(
+  gsub(".*_(.*)_.*","\\1",detectedCPMandProp$Group), levels(sce.pass$Infection)
+)
+detectedCPMandProp$Status <- factor(
+  gsub(".*_.*_(.*)", "\\1", detectedCPMandProp$Group), levels(sce.pass$Status)
+)
+detectedCPMandProp$Treatment <- with(detectedCPMandProp, factor(
+  gsub("_", " ", Treatment),
+  gsub("_", " ", levels(Treatment))
+))
 ggplot(detectedCPMandProp) +
-  geom_bar(aes(gsub("_", " ", Treatment), fill = as.factor(Groups))) +
+  geom_bar(aes(Treatment, fill = as.factor(Groups))) +
   geom_label(
-    aes(gsub("_", " ", Treatment), 0, label = Freq), countPerGroup, size = 2
+    aes(Treatment, 0, label = Freq), countPerGroup, size = 2
   ) +
   facet_grid(~ Time) +
   theme_bw() +

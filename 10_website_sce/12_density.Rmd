@@ -24,7 +24,7 @@ col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
 names(col.time) <- levels(sce.endo$Time)[1:3]
 names(col.infection) <- levels(sce.endo$Infection)
 names(col.status) <- levels(sce.endo$Status)
-outdir <- "06_density_out"; dir.create(outdir, showWarnings = FALSE)
+outdir <- "12_density_out"; dir.create(outdir, showWarnings = FALSE)
 ```
 
 # Helper values and functions
@@ -102,15 +102,22 @@ densityByName <- function(x){
   # return(ggData)
   ggplot(ggData, aes(gene)) +
     facet_grid(gsub("_", "\n", Treatment) ~ Time, scales = "free_y") +
-    geom_density(aes(colour = Treatment)) +
+    geom_density(
+      aes(colour = Treatment, fill = Treatment),
+      alpha = 0.2) +
     geom_rug() +
     scale_color_manual(values = col.treatment) +
+    scale_fill_manual(values = col.treatment) +
     labs(
       title = sprintf("%s", x),
       subtitle = sprintf("%s", geneId),
       x = "log-counts",
       colour = "Treatment") +
-    theme_bw()
+    theme_bw() +
+    theme(
+      axis.text.y = element_blank(),
+      axis.ticks.y = element_blank()
+    )
 }
 ```
 

@@ -27,7 +27,9 @@ names(col.time) <- levels(sce.norm$Time)[1:3]
 names(col.infection) <- levels(sce.norm$Infection)
 names(col.status) <- levels(sce.norm$Status)
 sce.endo <- sce.norm[!isSpike(sce.norm),]
-outdir <- "05_cluster_out"; dir.create(outdir, showWarnings = FALSE)
+sce.endo$Treatment <- with(colData(sce.endo), factor(
+    gsub("_", " ", Treatment), gsub("_", " ", levels(Treatment))))
+outdir <- "08_cluster_out"; dir.create(outdir, showWarnings = FALSE)
 # Subset by time point
 sce.2h <- sce.endo[,sce.endo$Time == '2h']
 sce.6h <- sce.endo[,sce.endo$Time == '6h']
@@ -133,7 +135,7 @@ names(col.cluster) <- c(1:3,0,"NA")
 tmpGG <- data.frame(
   reducedDim(sce.endo, "TSNE"),
   Cluster = sce.endo$quickCluster.2h,
-  Treatment = gsub("_", " ", sce.endo$Treatment)
+  Treatment = sce.endo$Treatment
 )
 ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
   geom_point() +
@@ -158,7 +160,7 @@ Visualised as a bar plot:
 
 ```{r clusterBarplot.2h, echo=FALSE}
 tmpGG <- ggplot(data.frame(colData(sce.2h))) +
-  stat_count(aes(x = gsub("_", " ", Treatment), fill = quickCluster)) +
+  stat_count(aes(x = Treatment, fill = quickCluster)) +
   facet_grid(~ ifelse(
     quickCluster == 0, " No cluster" , gsub("^", "cluster ", quickCluster)
   )) +
@@ -196,7 +198,7 @@ ggsave(
 tmpGG <- data.frame(
   reducedDim(sce.endo, "TSNE"),
   Cluster = sce.endo$quickCluster.4h,
-  Treatment = gsub("_", " ", sce.endo$Treatment),
+  Treatment = sce.endo$Treatment,
   label = ifelse(
     sce.endo$Treatment == "LT2_infected" & sce.endo$quickCluster.4h == 2, 2, NA
   )
@@ -226,7 +228,7 @@ Visualised as a bar plot:
 
 ```{r clusterBarplot.4h, echo=FALSE}
 tmpGG <- ggplot(data.frame(colData(sce.4h))) +
-  stat_count(aes(gsub("_", " ", Treatment), fill = quickCluster)) +
+  stat_count(aes(Treatment, fill = quickCluster)) +
   facet_grid(~ gsub("^", "Cluster ", quickCluster)) +
   scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
   theme_minimal() + theme(
@@ -279,7 +281,7 @@ ggsave(
 tmpGG <- data.frame(
   reducedDim(sce.endo, "TSNE"),
   Cluster = sce.endo$quickCluster.6h,
-  Treatment = gsub("_", " ", sce.endo$Treatment)
+  Treatment = sce.endo$Treatment
 )
 ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
   geom_point() + theme_bw() + labs(x="Dimension 1",y="Dimension 2",title="6h") +

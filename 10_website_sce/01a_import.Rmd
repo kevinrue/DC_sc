@@ -1,5 +1,7 @@
 ---
 title: "Import of RNA-Sequencing read counts and associated metadata"
+editor_options: 
+  chunk_output_type: console
 ---
 
 <!-- Enable caching -->
@@ -52,10 +54,20 @@ pheno$Status <-
   factor(pheno$Status, c("Uninfected","Exposed","Violet +","Blank","Bulk"))
 pheno$Lane <- as.factor(pheno$Lane)
 pheno$Sample <- gsub("WTCHG_[[:digit:]]+_", "Cell_", pheno$File) # character
-pheno$Treatment <-
-  droplevels(interaction(pheno$Infection, pheno$Status, sep = "_")) # factor
-pheno$Group <-
-  droplevels(interaction(pheno$Time, pheno$Treatment, sep = "_")) # factor
+treatmentLevels <- c(
+  "Mock_Uninfected",
+  "STM-LT2_Exposed","STM-LT2_Violet +",
+  "STM-D23580_Exposed","STM-D23580_Violet +",
+  "Blank_Blank", "Mock_Bulk", "STM-LT2_Bulk", "STM-D23580_Bulk"
+  )
+pheno$Treatment <- with(pheno, factor(
+  droplevels(interaction(Infection, Status, sep = "_")), treatmentLevels
+))
+# factor
+pheno$Group <- with(pheno, factor(
+  droplevels(interaction(pheno$Time, pheno$Treatment, sep = "_"))
+))
+# factor
 ```
 
 # QC metrics {#QC}
@@ -134,6 +146,13 @@ gtfData <- gtfData[match(rownames(RG), names(gtfData))]
 stopifnot(all(rownames(RG) == names(gtfData)))
 ```
 
+In addition, let us also obtain the identifier of ERCC spike-in features,
+to annotate them as spike-in in the following section:
+
+```{r ERCC_ids}
+ERCCs <- grep("^ERCC-[[:digit:]]+$", rownames(RG), value = TRUE)
+```
+
 # SingleCellExperiment {#SingleCellExperiment .tabset}
 
 Let us assemble the count data, phenotype information, and feature information
@@ -157,7 +176,8 @@ associated with the count data imported [above](#Counts):
 rownames(pheno) <- pheno$Sample
 ```
 
-We may then create the four data sets:
+We may then create the four data sets, declaring in each of them the set
+of ERCC spike-in features:
 
 ## All samples
 
@@ -165,6 +185,7 @@ We may then create the four data sets:
 pd.all <- DataFrame(pheno)
 sce.all <- SingleCellExperiment(
   assays=list(counts=RG$counts), colData=pd.all, rowRanges=gtfData)
+isSpike(sce.all, "ERCC") <- ERCCs
 dim(sce.all)
 ```
 
@@ -176,6 +197,7 @@ pd.blank <- DataFrame(droplevels(pheno[idx.blank,]))
 sce.blank <- SingleCellExperiment(
   assays=list(counts=RG$counts[,idx.blank]),
   colData=pd.blank, rowRanges=gtfData)
+isSpike(sce.blank, "ERCC") <- ERCCs
 dim(sce.blank)
 ```
 
@@ -187,6 +209,7 @@ pd.bulk <- DataFrame(droplevels(pheno[idx.bulk,]))
 sce.bulk <- SingleCellExperiment(
   assays=list(counts=RG$counts[,idx.bulk]),
   colData=pd.bulk, rowRanges=gtfData)
+isSpike(sce.bulk, "ERCC") <- ERCCs
 dim(sce.bulk)
 ```
 
@@ -198,6 +221,7 @@ pd.sc <- DataFrame(droplevels(pheno[idx.sc,]))
 sce.sc <- SingleCellExperiment(
   assays=list(counts=RG$counts[,idx.sc]),
   colData=pd.sc, rowRanges=gtfData)
+isSpike(sce.sc, "ERCC") <- ERCCs
 dim(sce.sc)
 ```
 

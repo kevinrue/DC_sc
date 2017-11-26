@@ -185,9 +185,11 @@ shown below:
 ```{r sizeFactor_expFactors, echo=FALSE}
 ggplot(
   data.frame(
-    colData(sce.filtered)[,c("total_counts","Time","Infection","Status")],
-    sizeFactors = sizeFactors(sce.filtered)),
-    aes(interaction(Infection, Status, sep = " "), sizeFactors)
+    colData(sce.filtered)[
+      ,c("total_counts","Time","Infection","Status","Treatment")],
+    sizeFactors = sizeFactors(sce.filtered)
+  ),
+    aes(Treatment, sizeFactors)
   ) +
   geom_boxplot(aes(fill = Infection, linetype = Status)) +
   coord_flip() +
