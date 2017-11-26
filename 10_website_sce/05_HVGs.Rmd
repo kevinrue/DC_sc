@@ -251,7 +251,7 @@ expression profiles between cells that belong to different experimental groups,
 while more generally explaining a substantial proportion of the
 transcriptional variance across all cells in the data set.
 
-In addition to the definition above, let us refine HVGs as endogenous features
+In addition to the definition above, let us define HVGs as endogenous features
 with an estimated biological component of variance greater than or equal to
 **0.5**.
 For transformed expression values on the log~2~ scale, this means that the
