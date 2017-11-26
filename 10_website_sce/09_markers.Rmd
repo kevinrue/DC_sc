@@ -35,6 +35,7 @@ names(col.infection) <- levels(sce.endo$Infection)
 names(col.status) <- levels(sce.endo$Status)
 outdir <- "09_markers_out"; dir.create(outdir, showWarnings = FALSE)
 scde.res <- readRDS("rds/scde_markers.rds")
+goseq.res <- readRDS("rds/goseq_markers.rds")
 # Subset by time point
 sce.2h <- sce.endo[,sce.endo$Time == '2h']
 sce.4h <- sce.endo[,sce.endo$Time == '4h']
@@ -1115,7 +1116,9 @@ geneLengths <- width(sce.endo)
 names(geneLengths) <- rownames(sce.endo)
 ```
 
-## 2h
+## Computation
+
+### 2h
 
 ```{r goseq_2h_p, eval=FALSE}
 bg.2h <- rownames(sce.ifm.2h)
@@ -1133,7 +1136,7 @@ for (contrastName in c2h){
 }
 ```
 
-## 4h
+### 4h
 
 ```{r goseq_4h_p, eval=FALSE}
 bg.4h <- rownames(sce.ifm.4h)
@@ -1151,7 +1154,7 @@ for (contrastName in c4h){
 }
 ```
 
-## 6h
+### 6h
 
 ```{r goseq_6h_p, eval=FALSE}
 bg.6h <- rownames(sce.ifm.6h)
