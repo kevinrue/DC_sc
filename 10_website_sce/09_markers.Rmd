@@ -88,9 +88,9 @@ convert.z.score <- function(x, one.sided = NULL) {
   )
   return(x);
 }   
-addGENENAME <- function(x){
+addGeneName <- function(x){
   x <- cbind(
-    GENENAME = with(rowData(sce.endo), gene_name[match(rownames(x), gene_id)]),
+    gene_name = with(rowData(sce.endo), gene_name[match(rownames(x), gene_id)]),
     x
   )
   return(x)
@@ -207,7 +207,7 @@ for (clusterId in levels(sce.ifm.6h$quickCluster.6h)){
 saveRDS(scde.res, "rds/scde_markers.rds")
 for (contrastName in names(scde.res)){
   scde.table <- scde.res[[contrastName]]
-  scde.table <- convert.z.score(addGENENAME(orderResults(scde.table)))
+  scde.table <- convert.z.score(addGeneName(orderResults(scde.table)))
   csv.file <- sprintf("SCDE_markers_%s.csv", contrastName)
   write.csv(scde.table, file.path(outdir, csv.file))
 }
@@ -235,7 +235,7 @@ markers_2h_FC.cluster <- factor(NULL, levels(sce.ifm.2h$quickCluster.2h))
 c2h <- grep("^2h", names(scde.res), value = TRUE)
 for (contrastName in c2h){
   clusterId <- gsub("2h_cluster(.)-Others", "\\1", contrastName)
-  scde.table <- addGENENAME(convert.z.score(scde.res[[contrastName]]))
+  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
   scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
   scde.table <- scde.table[order(scde.table$mle, decreasing = TRUE),]
   scde.markers <- head(rownames(scde.table), 50)
@@ -253,7 +253,7 @@ markers_4h_FC.cluster <- factor(NULL, levels(sce.ifm.4h$quickCluster.4h))
 c4h <- grep("^4h", names(scde.res), value = TRUE)
 for (contrastName in c4h){
   clusterId <- gsub("4h_cluster(.)-Others", "\\1", contrastName)
-  scde.table <- addGENENAME(convert.z.score(scde.res[[contrastName]]))
+  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
   scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
   scde.table <- scde.table[order(scde.table$mle, decreasing = TRUE),]
   scde.markers <- head(rownames(scde.table), 50)
@@ -271,7 +271,7 @@ markers_6h_FC.cluster <- factor(NULL, levels(sce.ifm.6h$quickCluster.6h))
 c6h <- grep("^6h", names(scde.res), value = TRUE)
 for (contrastName in c6h){
   clusterId <- gsub("6h_cluster(.)-Others", "\\1", contrastName)
-  scde.table <- addGENENAME(convert.z.score(scde.res[[contrastName]]))
+  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
   scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
   scde.table <- scde.table[order(scde.table$mle, decreasing = TRUE),]
   scde.markers <- head(rownames(scde.table), 50)
@@ -294,7 +294,7 @@ markersMatrix <- matrix(
     cluster = gsub("2h_cluster(.)-Others", "\\1", c2h)
   ))
 for (contrastName in c2h){
-  scde.table <- addGENENAME(convert.z.score(scde.res[[contrastName]]))
+  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
   clusterName <- gsub("2h_cluster(.)-Others", "\\1", contrastName)
   markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
 }
@@ -325,7 +325,7 @@ markersMatrix <- matrix(
     cluster = gsub("4h_cluster(.)-Others", "\\1", c4h)
   ))
 for (contrastName in c4h){
-  scde.table <- addGENENAME(convert.z.score(scde.res[[contrastName]]))
+  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
   clusterName <- gsub("4h_cluster(.)-Others", "\\1", contrastName)
   markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
 }
@@ -356,7 +356,7 @@ markersMatrix <- matrix(
     cluster = gsub("6h_cluster(.)-Others", "\\1", c6h)
   ))
 for (contrastName in c6h){
-  scde.table <- addGENENAME(convert.z.score(scde.res[[contrastName]]))
+  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
   clusterName <- gsub("6h_cluster(.)-Others", "\\1", contrastName)
   markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
 }
@@ -668,7 +668,7 @@ markers_2h_p.cluster <- factor(NULL, levels(sce.ifm.2h$quickCluster.2h))
 c2h <- grep("^2h", names(scde.res), value = TRUE)
 for (contrastName in c2h){
   clusterId <- gsub("2h_cluster(.)-Others", "\\1", contrastName)
-  scde.table <- addGENENAME(convert.z.score(scde.res[[contrastName]]))
+  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
   scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
   scde.table <- scde.table[order(scde.table$p.value),]
   scde.markers <- head(rownames(scde.table), 50)
@@ -686,7 +686,7 @@ markers_4h_p.cluster <- factor(NULL, levels(sce.ifm.4h$quickCluster.4h))
 c4h <- grep("^4h", names(scde.res), value = TRUE)
 for (contrastName in c4h){
   clusterId <- gsub("4h_cluster(.)-Others", "\\1", contrastName)
-  scde.table <- addGENENAME(convert.z.score(scde.res[[contrastName]]))
+  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
   scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
   scde.table <- scde.table[order(scde.table$p.value),]
   scde.markers <- head(rownames(scde.table), 50)
@@ -704,7 +704,7 @@ markers_6h_p.cluster <- factor(NULL, levels(sce.ifm.6h$quickCluster.6h))
 c6h <- grep("^6h", names(scde.res), value = TRUE)
 for (contrastName in c6h){
   clusterId <- gsub("6h_cluster(.)-Others", "\\1", contrastName)
-  scde.table <- addGENENAME(convert.z.score(scde.res[[contrastName]]))
+  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
   scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
   scde.table <- scde.table[order(scde.table$p.value),]
   scde.markers <- head(rownames(scde.table), 50)
@@ -732,7 +732,7 @@ markersMatrix <- matrix(
     cluster = gsub("2h_cluster(.)-Others", "\\1", c2h)
   ))
 for (contrastName in c2h){
-  scde.table <- addGENENAME(convert.z.score(scde.res[[contrastName]]))
+  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
   clusterName <- gsub("2h_cluster(.)-Others", "\\1", contrastName)
   markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
 }
@@ -764,7 +764,7 @@ markersMatrix <- matrix(
     cluster = gsub("4h_cluster(.)-Others", "\\1", c4h)
   ))
 for (contrastName in c4h){
-  scde.table <- addGENENAME(convert.z.score(scde.res[[contrastName]]))
+  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
   clusterName <- gsub("4h_cluster(.)-Others", "\\1", contrastName)
   markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
 }
@@ -796,7 +796,7 @@ markersMatrix <- matrix(
     cluster = gsub("6h_cluster(.)-Others", "\\1", c6h)
   ))
 for (contrastName in c6h){
-  scde.table <- addGENENAME(convert.z.score(scde.res[[contrastName]]))
+  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
   clusterName <- gsub("6h_cluster(.)-Others", "\\1", contrastName)
   markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
 }
@@ -1093,3 +1093,87 @@ draw(ht_final)
 dev.off()
 ```
 
+# Gene ontology {.tabset}
+
+Let us use the [goseq](http://bioconductor.org/packages/goseq) package to
+identify the most enriched gene ontologies among the various lists of positive markers.
+Note that we restrict the results to GO categories associated with at least
+**10** genes, for robustness.
+
+Let us first define:
+
+* a list to store the GO enrichment tables returned by *goseq*
+
+```{r goseq.res_init, eval=FALSE}
+goseq.res <- list()
+```
+
+* the gene length information reported by *featureCounts*:
+
+```{r geneLengths}
+geneLengths <- width(sce.endo)
+names(geneLengths) <- rownames(sce.endo)
+```
+
+## 2h
+
+```{r goseq_2h_p, eval=FALSE}
+bg.2h <- rownames(sce.ifm.2h)
+for (contrastName in c2h){
+  message(contrastName)
+  clusterId <- gsub("2h_cluster(.)-Others", "\\1", contrastName)
+  scde.table <- convert.z.score(scde.res[[contrastName]])
+  scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
+  marker.genes <- (bg.2h %in% rownames(scde.table))
+  names(marker.genes) <- bg.2h; table(marker.genes)
+  pwf <- nullp(marker.genes, bias.data = geneLengths[names(marker.genes)])
+  go.res <- goseq(pwf, "hg38", "ensGene")
+  goseq.res[[contrastName]] <- go.res
+  saveRDS(goseq.res, "rds/goseq_markers.rds") # checkpoint
+}
+```
+
+## 4h
+
+```{r goseq_4h_p, eval=FALSE}
+bg.4h <- rownames(sce.ifm.4h)
+for (contrastName in c4h){
+  message(contrastName)
+  clusterId <- gsub("4h_cluster(.)-Others", "\\1", contrastName)
+  scde.table <- convert.z.score(scde.res[[contrastName]])
+  scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
+  marker.genes <- (bg.4h %in% rownames(scde.table))
+  names(marker.genes) <- bg.4h; table(marker.genes)
+  pwf <- nullp(marker.genes, bias.data = geneLengths[names(marker.genes)])
+  go.res <- goseq(pwf, "hg38", "ensGene")
+  goseq.res[[contrastName]] <- go.res
+  saveRDS(goseq.res, "rds/goseq_markers.rds") # checkpoint
+}
+```
+
+## 6h
+
+```{r goseq_6h_p, eval=FALSE}
+bg.6h <- rownames(sce.ifm.6h)
+for (contrastName in c6h){
+  message(contrastName)
+  clusterId <- gsub("6h_cluster(.)-Others", "\\1", contrastName)
+  scde.table <- convert.z.score(scde.res[[contrastName]])
+  scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
+  marker.genes <- (bg.6h %in% rownames(scde.table))
+  names(marker.genes) <- bg.6h; table(marker.genes)
+  pwf <- nullp(marker.genes, bias.data = geneLengths[names(marker.genes)])
+  go.res <- goseq(pwf, "hg38", "ensGene")
+  goseq.res[[contrastName]] <- go.res
+  saveRDS(goseq.res, "rds/goseq_markers.rds") # checkpoint
+}
+```
+
+```{r goseq.table_csv, echo=FALSE, eval=FALSE}
+for (contrastName in names(goseq.res)){
+  goseq.table <- goseq.res[[contrastName]]
+  write.csv(
+    goseq.table,
+    file.path(outdir, sprintf("SCDE_GO_%s.csv", contrastName)))
+}
+```
