@@ -12,6 +12,7 @@ reimported from disk, and smaller ones quickly recomputed. -->
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(cache = TRUE)
 stopifnot(
+  require(SingleCellExperiment)
 )
 sce.endo <- readRDS("rds/sce.endo_clusters.rds")
 scde_cluster_res <- readRDS("rds/scde_cluster.rds")
@@ -34,9 +35,9 @@ convert.z.score <- function(x, one.sided = NULL) {
   )
   return(x);
 }
-addGENENAME <- function(x){
+addGeneName <- function(x){
   x <- cbind(
-    GENENAME = with(
+    gene_name = with(
       rowData(sce.endo),
       gene_name[match(rownames(x), gene_id)]
     ),
@@ -70,13 +71,16 @@ dev.off()
 
 ```{r, echo=FALSE, include=FALSE}
 rn <- rownames(cluster_table)
-compTable_4h <- addGENENAME(data.frame(
+compTable_VioletvExposed_4h <- addGeneName(data.frame(
   "D23580" = D23580_table[rn, "p.value"] < 0.01,
   "Clusters" = cluster_table[rn, "p.value"] < 0.01,
   "LT2" = LT2_table[rn, "p.value"] < 0.01,
   row.names = rn
 ))
-write.csv(compTable_4h, file.path(outDir, "4h_DE.01_cluster2v1_VioletvExposed.csv"))
+write.csv(
+  compTable_VioletvExposed_4h,
+  file.path(outDir, "4h_DE.01_cluster2v1_VioletvExposed.csv")
+)
 ```
 
 ## 6h
@@ -96,13 +100,83 @@ venn::venn(
 dev.off()
 ```
 
-```{r, echo=FALSE, eval=FALSE}
+```{r, echo=FALSE, include=FALSE}
 rn <- rownames(cluster_table)
-compTable_6h <- addGENENAME(data.frame(
+compTable_VioletvExposed_6h <- addGeneName(data.frame(
   "D23580" = D23580_table[rn, "p.value"] < 0.01,
   "Clusters" = cluster_table[rn, "p.value"] < 0.01,
   "LT2" = LT2_table[rn, "p.value"] < 0.01,
   row.names = rn
 ))
-write.csv(compTable_6h, file.path(outDir, "6h_DE.01_cluster2v1_VioletvExposed.csv"))
+write.csv(
+  compTable_VioletvExposed_6h,
+  file.path(outDir, "6h_DE.01_cluster2v1_VioletvExposed.csv")
+)
+```
+
+# Comparison of cluster and STM-D23580/STM-LT2 DE genes {.tabset}
+
+Intersection of STM-D23580/STM-LT2 DE genes in Violet + and Exposed
+against cluster 1/2 DE genes:
+
+## 4h
+
+```{r}
+cluster_table <- convert.z.score(scde_cluster_res[["4h_cluster2-cluster1"]])
+violet_table <- convert.z.score(scde_group_res[["4h_STM-D23580_Violet +-4h_STM-LT2_Violet +"]])
+exposed_table <- convert.z.score(scde_group_res[["4h_STM-D23580_Exposed-4h_STM-LT2_Exposed"]])
+pdf(file.path(outDir, "4h_DE_cluster2v1_D23580vLT2.pdf"), height = 6, width = 6)
+venn::venn(
+  x = list(
+    "Violet" = rownames(violet_table)[violet_table$p.value < 0.01],
+    "Clusters_2v1" = rownames(cluster_table)[cluster_table$p.value < 0.01],
+    "Exposed" = rownames(exposed_table)[exposed_table$p.value < 0.01]
+  ), cexil = 2
+)
+dev.off()
+```
+
+```{r, echo=FALSE, include=FALSE}
+rn <- rownames(cluster_table)
+compTable_D23vLT2_4h <- addGeneName(data.frame(
+  "Violet" = violet_table[rn, "p.value"] < 0.01,
+  "Clusters" = cluster_table[rn, "p.value"] < 0.01,
+  "Exposed" = exposed_table[rn, "p.value"] < 0.01,
+  row.names = rn
+))
+write.csv(
+  compTable_D23vLT2_4h,
+  file.path(outDir, "4h_DE.01_cluster2v1_D23580vLT2.csv")
+)
+```
+
+## 6h
+
+```{r}
+cluster_table <- convert.z.score(scde_cluster_res[["6h_cluster2-cluster1"]])
+violet_table <- convert.z.score(scde_group_res[["6h_STM-D23580_Violet +-6h_STM-LT2_Violet +"]])
+exposed_table <- convert.z.score(scde_group_res[["6h_STM-D23580_Exposed-6h_STM-LT2_Exposed"]])
+pdf(file.path(outDir, "6h_DE_cluster2v1_D23580vLT2.pdf"), height = 6, width = 6)
+venn::venn(
+  x = list(
+    "Violet" = rownames(violet_table)[violet_table$p.value < 0.01],
+    "Clusters_2v1" = rownames(cluster_table)[cluster_table$p.value < 0.01],
+    "Exposed" = rownames(exposed_table)[exposed_table$p.value < 0.01]
+  ), cexil = 2
+)
+dev.off()
+```
+
+```{r, echo=FALSE, include=FALSE}
+rn <- rownames(cluster_table)
+compTable_D23vLT2_6h <- addGeneName(data.frame(
+  "Violet" = violet_table[rn, "p.value"] < 0.01,
+  "Clusters" = cluster_table[rn, "p.value"] < 0.01,
+  "Exposed" = exposed_table[rn, "p.value"] < 0.01,
+  row.names = rn
+))
+write.csv(
+  compTable_D23vLT2_6h,
+  file.path(outDir, "6h_DE.01_cluster2v1_D23580vLT2.csv")
+)
 ```
