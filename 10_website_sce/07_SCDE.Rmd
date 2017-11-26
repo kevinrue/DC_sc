@@ -315,10 +315,10 @@ convert.z.score <- function(x, one.sided = NULL) {
 
 * a function used to annotate the tables of results returned by *scde*:
 
-```{r addGENENAME}
-addGENENAME <- function(x){
+```{r addGeneName}
+addGeneName <- function(x){
   x <- cbind(
-    GENENAME = with(rowData(sce.endo), gene_name[match(rownames(x), gene_id)]),
+    gene_name = with(rowData(sce.endo), gene_name[match(rownames(x), gene_id)]),
     x
   )
   return(x)
@@ -509,7 +509,7 @@ for (contrastNames in contrasts.6h){
 ```{r scde.table_csv, echo=FALSE, eval=FALSE}
 for (contrastName in names(scde.res)){
   scde.table <- scde.res[[contrastName]]
-  scde.table <- convert.z.score(addGENENAME(orderResults(scde.table)))
+  scde.table <- convert.z.score(addGeneName(orderResults(scde.table)))
   csv.file <- file.path(outdir, sprintf("SCDE_%s.csv", contrastName))
   write.csv(scde.table, csv.file)
 }
@@ -870,7 +870,7 @@ in contrast D23580 vs. LT2 infected at 6h:
 
 ```{r ex.scde.last.sig}
 ex.scde.last.sig <-
-  addGENENAME(tail(
+  addGeneName(tail(
     subset(
       orderResults(convert.z.score(
         scde.res[["6h_STM-D23580_Violet +-6h_STM-LT2_Violet +"]]
@@ -1081,7 +1081,7 @@ ggplot(v.data) +
 
 ```{r compare.2h_csv, echo=FALSE, eval=FALSE}
 for (contrastName in unique(v.data$Contrast)){
-  v.subset <- subset(addGENENAME(v.data), Contrast == contrastName)
+  v.subset <- subset(addGeneName(v.data), Contrast == contrastName)
   v.subset$Contrast <- gsub("\n", "-", v.subset$Contrast)
   v.subset <- addOpposite(v.subset)
   c.y <- gsub(" ", "_", unique(v.subset$Contrast.y))
@@ -1128,7 +1128,7 @@ ggplot(v.data) +
 
 ```{r compare.4h_csv, echo=FALSE, eval=FALSE}
 for (contrastName in unique(v.data$Contrast)){
-  v.subset <- subset(addGENENAME(v.data), Contrast == contrastName)
+  v.subset <- subset(addGeneName(v.data), Contrast == contrastName)
   v.subset$Contrast <- gsub("\n", "-", v.subset$Contrast)
   v.subset <- addOpposite(v.subset)
   c.y <- gsub(" ", "_", unique(v.subset$Contrast.y))
@@ -1175,7 +1175,7 @@ ggplot(v.data) +
 
 ```{r compare.6h_csv, echo=FALSE, eval=FALSE}
 for (contrastName in unique(v.data$Contrast)){
-  v.subset <- subset(addGENENAME(v.data), Contrast == contrastName)
+  v.subset <- subset(addGeneName(v.data), Contrast == contrastName)
   v.subset$Contrast <- gsub("\n", "-", v.subset$Contrast)
   v.subset <- addOpposite(v.subset)
   c.y <- gsub(" ", "_", unique(v.subset$Contrast.y))
