@@ -1,0 +1,194 @@
+---
+title: "qPCR validation"
+author: "Kevin Rue-Albrecht"
+date: "21/11/2017"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+stopifnot(
+  require(SummarizedExperiment),
+  require(ComplexHeatmap),
+  require(RColorBrewer),
+  requireNamespace("circlize")
+)
+sce.endo <- readRDS("rds/sce.endo_clusters.rds")
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.endo$Time)[1:3]
+names(col.infection) <- levels(sce.endo$Infection)
+names(col.status) <- levels(sce.endo$Status)
+dirOut <- "_003_out"; dir.create(dirOut)
+```
+
+# Common components
+
+Reorder the SCE by time, infection and status:
+
+```{r}
+sce.order <- sce.endo[,with(colData(sce.endo), order(Time, Infection, Status))]
+```
+
+Prepare the expression colour scale:
+
+```{r}
+max_logcount <- max(assay(sce.order, "logcounts"))
+ht.col <- c("purple", "black", "yellow")
+# ht_scale <- circlize::colorRamp2(
+#   breaks = c(0.1, 0.5, 0.9) * max_logcount,
+#   colors = ht.col
+# )
+ht_scale <- circlize::colorRamp2(
+    breaks = 3*seq(-1,1,1),
+    colors = ht.col
+  )
+```
+
+Prepare the heat map annotations:
+
+```{r}
+ha2 <- HeatmapAnnotation(
+  df = data.frame(subset(colData(sce.order), Time == "2h", c("Infection","Status"))),
+  name = "2h",
+  col = list(Infection = col.infection, Status = col.status)
+)
+ha4 <- HeatmapAnnotation(
+  df = data.frame(subset(colData(sce.order), Time == "4h", c("Infection","Status"))),
+  name = "4h",
+  col = list(Infection = col.infection, Status = col.status)
+)
+ha6 <- HeatmapAnnotation(
+  df = data.frame(subset(colData(sce.order), Time == "6h", c("Infection","Status"))),
+  name = "6h",
+  col = list(Infection = col.infection, Status = col.status)
+)
+```
+
+# Gene set 1
+
+Fetch the matrix of log-counts for the genes of interest:
+
+```{r}
+target.genes <- c("MARCH1", "CD83", "IL10")
+sce.target <- sce.order[match(
+  target.genes,
+  rowData(sce.order)[,"gene_name"]
+),]
+rownames(sce.target) <- target.genes
+matrix_all <- assay(sce.target, "logcounts")
+matrix_scaled <- t(scale(t(matrix_all)))
+matrix_2h <- matrix_scaled[,sce.target$Time == "2h"]
+matrix_4h <- matrix_scaled[,sce.target$Time == "4h"]
+matrix_6h <- matrix_scaled[,sce.target$Time == "6h"]
+```
+
+Draw the heat maps:
+
+```{r}
+ht2 <- Heatmap(
+  matrix = matrix_2h,
+  col = ht_scale,
+  name = "2h", column_title = "2h",
+  top_annotation = HeatmapAnnotation(
+    df = data.frame(subset(colData(sce.target), Time == "2h")[,c("Infection","Status")]),
+    name = "colData",
+    col = list(Infection = col.infection, Status = col.status)
+  ),
+  cluster_columns = FALSE, cluster_rows = FALSE,
+  show_heatmap_legend = FALSE,
+  show_column_names = FALSE, show_row_names = FALSE)
+ht4 <- Heatmap(
+  matrix = matrix_4h,
+  col = ht_scale,
+  name = "4h", column_title = "4h",
+  top_annotation = HeatmapAnnotation(
+    df = data.frame(subset(colData(sce.target), Time == "4h")[,c("Infection","Status")]),
+    name = "colData",
+    col = list(Infection = col.infection, Status = col.status)
+  ),
+  cluster_columns = FALSE, cluster_rows = FALSE,
+  show_heatmap_legend = FALSE,
+  show_column_names = FALSE, show_row_names = FALSE)
+ht6 <- Heatmap(
+  matrix = matrix_6h,
+  col = ht_scale,
+  name = "logcounts", column_title = "6h",
+  top_annotation = HeatmapAnnotation(
+    df = data.frame(subset(colData(sce.target), Time == "6h")[,c("Infection","Status")]),
+    name = "colData",
+    col = list(Infection = col.infection, Status = col.status)
+  ),
+  cluster_columns = FALSE, cluster_rows = FALSE,
+  show_column_names = FALSE)
+pdf(file.path(dirOut, "MARCH1_IL10_CD83.pdf"), width = 10, height = 3)
+draw(ht2 + ht4 + ht6)
+dev.off()
+```
+
+# Gene set 2
+
+Fetch the matrix of log-counts for the genes of interest:
+
+```{r}
+target.genes <- c(
+  "MARCH1","IL10","CD83","CD86",
+  "HLA-DRA","HLA-DRB5","HLA-DRB6","HLA-DRB1")
+sce.target <- sce.order[match(
+  target.genes,
+  rowData(sce.order)[,"gene_name"]
+),]
+rownames(sce.target) <- target.genes
+matrix_all <- assay(sce.target, "logcounts")
+matrix_scaled <- t(scale(t(matrix_all)))
+matrix_2h <- matrix_scaled[,sce.target$Time == "2h"]
+matrix_4h <- matrix_scaled[,sce.target$Time == "4h"]
+matrix_6h <- matrix_scaled[,sce.target$Time == "6h"]
+```
+
+Draw the heat maps:
+
+```{r}
+ht2 <- Heatmap(
+  matrix = matrix_2h,
+  col = ht_scale,
+  name = "2h", column_title = "2h",
+  top_annotation = HeatmapAnnotation(
+    df = data.frame(subset(colData(sce.target), Time == "2h")[,c("Infection","Status")]),
+    name = "colData",
+    col = list(Infection = col.infection, Status = col.status)
+  ),
+  cluster_columns = FALSE, cluster_rows = FALSE,
+  show_heatmap_legend = FALSE,
+  show_column_names = FALSE, show_row_names = FALSE)
+ht4 <- Heatmap(
+  matrix = matrix_4h,
+  col = ht_scale,
+  name = "4h", column_title = "4h",
+  top_annotation = HeatmapAnnotation(
+    df = data.frame(subset(colData(sce.target), Time == "4h")[,c("Infection","Status")]),
+    name = "colData",
+    col = list(Infection = col.infection, Status = col.status)
+  ),
+  cluster_columns = FALSE, cluster_rows = FALSE,
+  show_heatmap_legend = FALSE,
+  show_column_names = FALSE, show_row_names = FALSE)
+ht6 <- Heatmap(
+  matrix = matrix_6h,
+  col = ht_scale,
+  name = "logcounts", column_title = "6h",
+  top_annotation = HeatmapAnnotation(
+    df = data.frame(subset(colData(sce.target), Time == "6h")[,c("Infection","Status")]),
+    name = "colData",
+    col = list(Infection = col.infection, Status = col.status)
+  ),
+  cluster_columns = FALSE, cluster_rows = FALSE,
+  show_column_names = FALSE)
+pdf(file.path(dirOut, "MARCH1_IL10_CD83_CD86_HLA-DRs.pdf"), width = 10, height = 3)
+draw(ht2 + ht4 + ht6)
+dev.off()
+```
+
