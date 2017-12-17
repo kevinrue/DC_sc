@@ -1,0 +1,235 @@
+---
+title: "_004_HVG_heatmap_kmeans2"
+author: "Kevin Rue-Albrecht"
+date: "17/12/2017"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+stopifnot(
+  require(ComplexHeatmap),
+  require(RColorBrewer),
+  requireNamespace("circlize")
+)
+sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
+# Table of HVGs
+hvg.out <- read.csv("05_HVG_out/hvg.out.csv", row.names = 1)
+# Prepare colours
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,2,4)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.norm$Time)
+names(col.infection) <- levels(sce.norm$Infection)
+names(col.status) <- levels(sce.norm$Status)
+```
+
+# Set heat map color scale
+
+```{r}
+exprsRange <- range(assay(sce.norm, "logcounts"))
+colorMap <- circlize::colorRamp2(
+  c(min(exprsRange), median(exprsRange)*0.9, max(exprsRange)*0.9),
+  c("black","purple","yellow")
+)
+```
+
+# Order by decreasing biological variance
+
+```{r}
+hvg.out <- hvg.out[order(hvg.out$bio, decreasing = TRUE),]
+sce.hvg <- sce.norm[rownames(hvg.out),]
+sce.hvg
+```
+
+# Ensure there are no more spike ins
+
+```{r}
+sce.endo <- sce.hvg[!isSpike(sce.hvg),]
+sce.endo
+```
+
+# Take top N features (by decreasing biological variance)
+
+```{r}
+sce.top <- sce.endo[1:500,]
+sce.top
+```
+
+# Make heat map
+
+## Cluster HVGs across all cells
+
+```{r}
+hvg.endo.d <- dist(assay(sce.top, "logcounts"))
+hvg.endo.clust <- hclust(hvg.endo.d)
+rm(hvg.endo.d)
+```
+
+## Cluster samples within each experimental group
+
+```{r}
+sample.order <- c()
+expGroups <- unique(colData(sce.top)[,c("Time","Infection","Status")])
+expGroups <- dplyr::arrange(data.frame(expGroups), Time, Status, Infection)
+for (groupIndex in seq_len(nrow(expGroups))){
+  time <- expGroups$Time[groupIndex]
+  infection <- expGroups$Infection[groupIndex]
+  status <- expGroups$Status[groupIndex]
+  sample.index <- with(colData(sce.top), which(
+    Time == time & Infection == infection & Status == status
+  ))
+  hvg.sample.d <- dist(t(assay(sce.top[,sample.index], "logcounts")))
+  local.order <- sample.index[hclust(hvg.sample.d)$order]
+  sample.order <- c(sample.order, local.order)
+  rm(sample.index, local.order, time, infection, status)
+}
+rm(expGroups, groupIndex)
+sce.reorder <- sce.top[,sample.order]
+```
+
+## Split samples by time point
+
+```{r}
+sce.2h <- sce.reorder[,sce.reorder$Time == "2h"]
+sce.4h <- sce.reorder[,sce.reorder$Time == "4h"]
+sce.6h <- sce.reorder[,sce.reorder$Time == "6h"]
+```
+
+## Draw heat map annotations
+
+```{r}
+ha_2h <- HeatmapAnnotation(
+  df = colData(sce.2h)[,c("Time", "Status", "Infection")],
+  col = list(
+    Time = col.time,
+    Status = col.status,
+    Infection = col.infection
+  )
+)
+ha_4h <- HeatmapAnnotation(
+  df = colData(sce.4h)[,c("Time", "Status", "Infection")],
+  col = list(
+    Time = col.time,
+    Status = col.status,
+    Infection = col.infection
+  ), show_legend = FALSE
+)
+ha_6h <- HeatmapAnnotation(
+  df = colData(sce.6h)[,c("Time", "Status", "Infection")],
+  col = list(
+    Time = col.time,
+    Status = col.status,
+    Infection = col.infection
+  ), show_legend = FALSE
+)
+```
+
+## Draw main heat maps
+
+```{r}
+ht_2h <- Heatmap(
+  assay(sce.2h, "logcounts"), col = colorMap,
+  name = "logcounts", column_title = "2h",
+  top_annotation = ha_2h,
+  row_order = hvg.endo.clust$order, column_order = NULL,
+  cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE, width = unit(4, "inches")
+)
+ht_4h <- Heatmap(
+  assay(sce.4h, "logcounts"), col = colorMap,
+  name = "logcounts.4h", column_title = "4h",
+  top_annotation = ha_4h,
+  row_order = hvg.endo.clust$order, column_order = NULL,
+  cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE,
+  show_heatmap_legend = FALSE, width = unit(4, "inches")
+)
+ht_6h <- Heatmap(
+  assay(sce.6h, "logcounts"), col = colorMap,
+  name = "logcounts.6h", column_title = "6h",
+  top_annotation = ha_6h,
+  row_order = hvg.endo.clust$order, column_order = NULL,
+  cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE,
+  show_heatmap_legend = FALSE , width = unit(4, "inches")
+)
+```
+
+```{r}
+pdf(file.path(dirOut, "heatmap_split_time.pdf"), height = 6, width = 12)
+draw(ht_2h + ht_4h + ht_6h)
+dev.off()
+```
+
+# Augment heat map with HVG grouping
+
+## Cut the HVG tree in blocks
+
+```{r}
+plot(hvg.endo.clust)
+abline(h=100, col="red")
+```
+
+```{r}
+h_100 <- cutree(hvg.endo.clust, h = 100)
+table(h_100) # 33 clusters at height 100
+```
+
+`r length(unique(h_100))` clusters at height 100.
+
+```{r}
+k_10 <- cutree(hvg.endo.clust, k = 10)
+table(k_10)
+```
+
+## Draw heat map of HVG grouping
+
+```{r}
+ht_tree <- Heatmap(
+  sprintf("%2d", k_10), col = brewer.pal(10, "Paired"),
+  name = "k", column_title = "k",
+  row_order = hvg.endo.clust$order, column_order = NULL,
+  cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE,
+  width = unit(1/2, "inches")
+)
+```
+
+```{r}
+pdf(file.path(dirOut, "heatmap_split_time_k.pdf"), height = 6, width = 15)
+draw(ht_2h + ht_4h + ht_6h + ht_tree)
+dev.off()
+```
+
+# Select representative genes by cluster
+
+```{r, include=FALSE}
+gene_k <- data.frame(
+  rowData(sce.6h)[
+    hvg.endo.clust$order,c("gene_id","gene_name")],
+  k_10 = k_10[hvg.endo.clust$order]
+)
+write.csv(gene_k, file.path(dirOut, "gene_k_10.csv"), row.names = FALSE)
+```
+
+```{r}
+anno.xlsx <- file.path("_004_in/gene_k_10.xlsx")
+anno.data <- xlsx::read.xlsx(anno.xlsx, sheetName = "gene_k_10")
+anno.subset <- subset(anno.data, Heatmap == "x", select=c("gene_name","gene_id"))
+gene.idx = match(anno.subset$gene_id, rownames(sce.6h))
+ra <- rowAnnotation(
+  link = row_anno_link(
+    at = gene.idx, labels = as.character(anno.subset$gene_name),
+    labels_gp = gpar(cex=2/3), link_width = unit(0.5, "inches")
+    ), width = max_text_width(labels)
+)
+```
+
+```{r}
+pdf(file.path(dirOut, "heatmap_split_time_anno2.pdf"), height = 10, width = 17)
+draw(ht_2h + ht_4h + ht_6h + ht_tree + ra)
+dev.off()
+```
