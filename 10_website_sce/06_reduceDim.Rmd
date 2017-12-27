@@ -490,7 +490,15 @@ posterPCA <- ggplot(
 posterPCA
 ggsave(
   file.path(outdir, "poster_tSNE_right.pdf"),
-  posterPCA, width = 7, height = 5)
+  posterPCA,
+  width = 7, height = 5)
+ggsave(
+  file.path(outdir, "poster_tSNE_right_blankAxes.pdf"),
+  posterPCA + theme(
+    axis.text = element_blank(),
+    axis.ticks = element_blank()
+  ) + labs(x=NULL, y=NULL),
+  width = 7, height = 5)
 ggsave(
   file.path(outdir, "poster_tSNE_bottom.pdf"),
   posterPCA + theme(
