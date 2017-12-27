@@ -2,6 +2,8 @@
 title: "Differential expression between unsupervised clusters using *scde*"
 bibliography:
   bibtex.bib
+editor_options: 
+  chunk_output_type: console
 ---
 
 <!-- As HTML pages are built independently, large objects need to be
@@ -171,9 +173,9 @@ tmpGG <- ggplot(data.frame(colData(sce.2h))) +
   ) +
   labs(x = NULL, y = "Cells", fill = "Cluster")
 tmpGG
-ggsave(file.path(outdir, "cluster_count_2h.pdf"), width = 9, height = 4)
+ggsave(file.path(outdir, "cluster_count_2h_facet.pdf"), width = 9, height = 4)
 ggsave(
-  file.path(outdir, "cluster_count_2h_wrap.pdf"),
+  file.path(outdir, "cluster_count_2h_facetWrap.pdf"),
   ggplot(data.frame(colData(sce.2h))) +
     stat_count(aes(
       x = interaction(Infection, Status, sep = "\n"),
@@ -189,6 +191,19 @@ ggsave(
     ) +
     labs(x = NULL, y = "Cells", fill = "Cluster"),
   width = 9, height = 8
+)
+ggsave(
+  file.path(outdir, "cluster_count_2h.pdf"),
+  ggplot(data.frame(colData(sce.2h))) +
+    stat_count(aes(x = gsub(" ([^+])", "\n\\1", Treatment), fill = quickCluster)) +
+    scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+    theme_minimal() +
+    theme(
+      # axis.text = element_text(face="bold"),
+      axis.text.y = element_text(size = rel(1.5))
+    ) +
+  labs(x = NULL, y = "Cells", fill = "Cluster"),
+  width = 6, height = 5
 )
 ```
 
@@ -235,9 +250,9 @@ tmpGG <- ggplot(data.frame(colData(sce.4h))) +
     axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
   ) + labs(y = "Cells", fill = "Cluster", x = NULL)
 tmpGG
-ggsave(file.path(outdir, "cluster_count_4h.pdf"), width = 9, height = 4)
+ggsave(file.path(outdir, "cluster_count_4h_facet.pdf"), width = 9, height = 4)
 ggsave(
-  file.path(outdir, "cluster_count_4h_wrap.pdf"),
+  file.path(outdir, "cluster_count_4h_facetWrap.pdf"),
   ggplot(data.frame(colData(sce.4h))) +
     stat_count(aes(
       x = interaction(Infection, Status, sep = "\n"),
@@ -272,6 +287,19 @@ ggsave(
     ) +
     labs(x = NULL, y = "Cells", fill = "Cluster"),
   width = 9, height = 18
+)
+ggsave(
+  file.path(outdir, "cluster_count_4h.pdf"),
+  ggplot(data.frame(colData(sce.4h))) +
+  stat_count(aes(x = gsub(" ([^+])", "\n\\1", Treatment), fill = quickCluster)) +
+  scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(face="bold"),
+    axis.text.y = element_text(size = rel(1.2))
+  ) +
+  labs(x = NULL, y = "Cells", fill = "Cluster")
+  , width = 9, height = 8
 )
 ```
 
@@ -311,9 +339,9 @@ tmpGG <- ggplot(data.frame(colData(sce.6h))) +
     axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
   ) + labs(y = "Cells", fill = "Cluster")
 tmpGG
-ggsave(file.path(outdir, "cluster_count_6h.pdf"), width = 9, height = 4)
+ggsave(file.path(outdir, "cluster_count_6h_facet.pdf"), width = 9, height = 4)
 ggsave(
-  file.path(outdir, "cluster_count_6h_wrap.pdf"),
+  file.path(outdir, "cluster_count_6h_facetWrap.pdf"),
   ggplot(data.frame(colData(sce.6h))) +
     stat_count(aes(
       x = interaction(Infection, Status, sep = "\n"),
@@ -330,5 +358,18 @@ ggsave(
     ) +
     labs(x = NULL, y = "Cells", fill = "Cluster"),
   width = 9, height = 5
+)
+ggsave(
+  file.path(outdir, "cluster_count_6h.pdf"),
+  ggplot(data.frame(colData(sce.6h))) +
+  stat_count(aes(x = gsub(" ([^+])", "\n\\1", Treatment), fill = quickCluster)) +
+  scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+  theme_minimal() +
+  theme(
+    axis.text = element_text(face="bold"),
+    axis.text.y = element_text(size = rel(1.2))
+  ) +
+  labs(x = NULL, y = "Cells", fill = "Cluster")
+  , width = 9, height = 8
 )
 ```
