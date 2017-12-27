@@ -294,10 +294,10 @@ ggsave(
   stat_count(aes(x = gsub(" ([^+])", "\n\\1", Treatment), fill = quickCluster)) +
   scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
   theme_minimal() +
-  theme(
-    axis.text = element_text(face="bold"),
-    axis.text.y = element_text(size = rel(1.2))
-  ) +
+    theme(
+      # axis.text = element_text(face="bold"),
+      axis.text.y = element_text(size = rel(1.5))
+    ) +
   labs(x = NULL, y = "Cells", fill = "Cluster")
   , width = 9, height = 8
 )
@@ -365,10 +365,10 @@ ggsave(
   stat_count(aes(x = gsub(" ([^+])", "\n\\1", Treatment), fill = quickCluster)) +
   scale_fill_manual(values = col.cluster, na.value = col.cluster["NA"]) +
   theme_minimal() +
-  theme(
-    axis.text = element_text(face="bold"),
-    axis.text.y = element_text(size = rel(1.2))
-  ) +
+    theme(
+      # axis.text = element_text(face="bold"),
+      axis.text.y = element_text(size = rel(1.5))
+    ) +
   labs(x = NULL, y = "Cells", fill = "Cluster")
   , width = 9, height = 8
 )
