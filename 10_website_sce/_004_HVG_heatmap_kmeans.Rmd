@@ -24,6 +24,7 @@ col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
 names(col.time) <- levels(sce.norm$Time)
 names(col.infection) <- levels(sce.norm$Infection)
 names(col.status) <- levels(sce.norm$Status)
+dirOut <- "_004_out"; dir.create(dirOut)
 ```
 
 # Set heat map color scale
@@ -159,18 +160,24 @@ ht_6h <- Heatmap(
 ```
 
 ```{r}
-pdf(file.path(dirOut, "heatmap_split_time.pdf"), height = 6, width = 12)
+pdf(file.path(dirOut, "heatmap_panel_time.pdf"), height = 6, width = 12)
 draw(ht_2h + ht_4h + ht_6h)
 dev.off()
 ```
 
 # Augment heat map with HVG grouping
 
-## Cut the HVG tree in blocks
+## Cut the HVG tree in blocks {.tabset}
+
+### Set height (100)
+
+Show what an arbitrary cut at height 100 looks like:
 
 ```{r}
-plot(hvg.endo.clust)
-abline(h=100, col="red")
+pdf(file.path(dirOut, "dendrogram_genes_height.pdf"), height = 6, width = 10)
+plot(hvg.endo.clust, labels = FALSE)
+abline(h = 100, col = "red")
+dev.off()
 ```
 
 ```{r}
@@ -180,9 +187,26 @@ table(h_100) # 33 clusters at height 100
 
 `r length(unique(h_100))` clusters at height 100.
 
+### Set number of clusters (10)
+
+Cut tree in 10 clusters:
+
 ```{r}
 k_10 <- cutree(hvg.endo.clust, k = 10)
 table(k_10)
+```
+
+Find a height that would correspond to a cut into 10 clusters:
+
+```{r}
+cut10.h <- mean(sort(hvg.endo.clust$height, decreasing = TRUE)[9:10])
+```
+
+```{r}
+pdf(file.path(dirOut, "dendrogram_genes_number_10.pdf"), height = 6, width = 10)
+plot(hvg.endo.clust, labels = FALSE)
+abline(h = cut10.h, col = "red")
+dev.off()
 ```
 
 ## Draw heat map of HVG grouping
@@ -192,15 +216,20 @@ ht_tree <- Heatmap(
   sprintf("%2d", k_10), col = brewer.pal(10, "Paired"),
   name = "k", column_title = "k",
   row_order = hvg.endo.clust$order, column_order = NULL,
-  cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
+  cluster_rows = hvg.endo.clust, cluster_columns = FALSE, show_row_dend = FALSE,
   show_row_names = FALSE, show_column_names = FALSE,
-  width = unit(1/2, "inches")
+  width = unit(1/2, "inches"),
+  split = 10
 )
 ```
 
 ```{r}
-pdf(file.path(dirOut, "heatmap_split_time_k.pdf"), height = 6, width = 15)
-draw(ht_2h + ht_4h + ht_6h + ht_tree)
+pdf(file.path(dirOut, "heatmap_panel_time_k_split.pdf"), height = 10, width = 15)
+draw(
+  object = ht_2h + ht_4h + ht_6h + ht_tree,
+  main_heatmap = 4,
+  gap = unit(1, "mm")
+)
 dev.off()
 ```
 
@@ -223,13 +252,41 @@ gene.idx = match(anno.subset$gene_id, rownames(sce.6h))
 ra <- rowAnnotation(
   link = row_anno_link(
     at = gene.idx, labels = as.character(anno.subset$gene_name),
-    labels_gp = gpar(cex=2/3), link_width = unit(0.5, "inches")
+    labels_gp = gpar(cex=0.3), link_width = unit(0.5, "inches")
     ), width = max_text_width(labels)
 )
 ```
 
 ```{r}
-pdf(file.path(dirOut, "heatmap_split_time_anno2.pdf"), height = 10, width = 17)
-draw(ht_2h + ht_4h + ht_6h + ht_tree + ra)
+pdf(file.path(dirOut, "heatmap_panel_time_k_split_annoLink.pdf"), height = 10, width = 17)
+draw(
+  object = ht_2h + ht_4h + ht_6h + ht_tree + ra,
+  main_heatmap = 4,
+  gap = unit(1, "mm")
+)
 dev.off()
 ```
+
+# Representative genes by cluster (no split)
+
+```{r}
+ht_tree_noSplit <- Heatmap(
+  sprintf("%2d", k_10), col = brewer.pal(10, "Paired"),
+  name = "k", column_title = "k",
+  row_order = hvg.endo.clust$order, column_order = NULL,
+  cluster_rows = hvg.endo.clust, cluster_columns = FALSE, show_row_dend = FALSE,
+  show_row_names = FALSE, show_column_names = FALSE,
+  width = unit(1/2, "inches")
+)
+```
+
+```{r}
+pdf(file.path(dirOut, "heatmap_panel_time_k_annoLink.pdf"), height = 10, width = 15)
+draw(
+  object = ht_2h + ht_4h + ht_6h + ht_tree_noSplit + ra,
+  main_heatmap = 4,
+  gap = unit(1, "mm")
+)
+dev.off()
+```
+
