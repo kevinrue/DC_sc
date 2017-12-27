@@ -51,7 +51,7 @@ Let us then define a few convenience functions:
 
 ```{r geneNameToID}
 geneNameToID <- function(x){
-  geneId <- with(rowData(sce.endo), gene_id[match(x, gene_name)])
+  geneId <- subset(rowData(sce.endo), gene_name == x, "gene_id", drop = TRUE)
   if (length(geneId) > 1){
     warning("Multiple IDs found. Use ID instead")
     return(data.frame(
@@ -120,8 +120,8 @@ plotByNameTime <- function(x, time){
   # return(ggData)
   ggplot(ggData, aes(TreatmentLabel, gene)) +
     geom_violin(
-      aes(colour = TreatmentLabel, fill = TreatmentLabel),
-      alpha = 0.2) +
+      aes(colour = TreatmentLabel, fill = TreatmentLabel), scale = "width",
+      alpha = 0.4) +
     geom_jitter(
       aes(colour = TreatmentLabel), height = 0, width = 0.2,
       alpha = 0.5, size = 0.4) +
@@ -137,7 +137,8 @@ plotByNameTime <- function(x, time){
     scale_y_continuous(limits = range.exprs) +
     theme_bw() +
     theme(
-      legend.key.height = unit(1.75, "lines")
+      legend.key.height = unit(1.75, "lines"),
+      axis.text.y = element_text(size = rel(1.5))
     )
 }
 ```
@@ -146,6 +147,34 @@ plotByNameTime <- function(x, time){
 
 The above convenience function make it straightforward to produce a figure
 for any gene of interest:
+
+## CCL24
+
+```{r CCL24, echo=FALSE, fig.height=7}
+geneName <- "CCL24"
+plotByNameFacetTime(geneName)
+```
+
+```{r CCL24_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "2h")),
+  plotByNameTime(geneName, "2h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## CYBB
+
+```{r CYBB, echo=FALSE, fig.height=7}
+geneName <- "CYBB"
+plotByNameFacetTime(geneName)
+```
+
+```{r CYBB_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "2h")),
+  plotByNameTime(geneName, "2h"),
+  height = pdfHeight, width = pdfWidth)
+```
 
 ## EBI3
 
@@ -205,6 +234,20 @@ ggsave(
   height = pdfHeight, width = pdfWidth)
 ```
 
+## LGMN
+
+```{r LGMN, echo=FALSE, fig.height=7}
+geneName <- "LGMN"
+plotByNameFacetTime(geneName)
+```
+
+```{r LGMN_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "2h")),
+  plotByNameTime(geneName, "2h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
 ## MS4A4A
 
 ```{r MS4A4A, echo=FALSE, fig.height=7}
@@ -246,3 +289,4 @@ ggsave(
   plotByNameTime(geneName, "6h"),
   height = pdfHeight, width = pdfWidth)
 ```
+
