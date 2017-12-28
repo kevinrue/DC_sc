@@ -1,0 +1,64 @@
+---
+title: "Scan differentially expressed"
+author: "Kevin Rue-Albrecht"
+date: "28/12/2017"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+sce.norm <- readRDS("rds/sce.norm.rds")
+scde.res <- readRDS("rds/scde_group.rds")
+addGeneName <- function(x){
+  x <- cbind(
+    gene_name = with(rowData(sce.norm), gene_name[match(x$gene_id, gene_id)]),
+    x
+  )
+  return(x)
+}
+convert.z.score <- function(x, one.sided = NULL) {
+  z <- x$Z
+  if(is.null(one.sided)) {
+    pval = pnorm(-abs(z));
+    pval = 2 * pval
+  } else if(one.sided=="-") {
+    pval = pnorm(z);
+  } else {
+    pval = pnorm(-z);
+  }
+    x <- cbind(
+      x,
+      p.value = pval
+  )
+  return(x);
+}   
+```
+
+```{r}
+fullTableDirect <- do.call("rbind", scde.res)
+```
+
+```{r}
+tmpSplit <- strsplit(rownames(fullTableDirect), ".", fixed = TRUE)
+tmpSplit <- data.frame(do.call("rbind", tmpSplit))
+colnames(tmpSplit) <- c("contrast", "gene_id")
+fullTableDirect <- cbind(tmpSplit, fullTableDirect)
+rownames(fullTableDirect) <- NULL
+```
+
+```{r}
+fullTableDirect <- addGeneName(fullTableDirect)
+fullTableDirect <- convert.z.score(fullTableDirect)
+```
+
+```{r}
+View(subset(fullTableDirect, gene_name == "CTSL" & p.value < 0.01))
+View(subset(fullTableDirect, gene_name == "CTSS" & p.value < 0.01))
+View(subset(fullTableDirect, gene_name == "CTSD" & p.value < 0.01))
+View(subset(fullTableDirect, gene_name == "CYBB" & p.value < 0.01))
+View(subset(fullTableDirect, gene_name == "CEBPA" & p.value < 0.01))
+View(subset(fullTableDirect, gene_name == "CEBPB" & p.value < 0.01))
+```
+
