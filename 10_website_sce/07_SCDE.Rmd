@@ -694,6 +694,40 @@ ggplot(sub.data) +
 ggsave(file.path(outdir, "4h_volcano_LT2_Shalek.pdf"), height=5, width=6.5)
 ```
 
+```{r Vogel_volcano_6h_D23LT2_Violet, include=FALSE}
+z.range <- max(abs(v.data$Z)) * c(-1,1)
+p.range <- rev(-log10(range(v.data$p.value)))
+sub.data <- subset(
+  v.data,
+  Contrast == "STM-D23580 Violet +\nSTM-LT2 Violet +" & Time == "6h"
+)
+geneData <- subset(dplyr::mutate(
+  sub.data,
+  gene_name = rowData(sce.ifm.6h[as.character(sub.data$Gene),])[,"gene_name"]),
+  gene_name %in% c(
+    "MARCH1", "CLEC16A", # 2
+    "CLECL1" # 1
+  )
+)
+ggplot(sub.data) +
+  geom_point(aes(Z, -log10(p.value), colour = p.value < 0.01), size = 0.5) +
+  geom_hline(yintercept = -log10(0.01), linetype = "dashed", alpha = 0.25) +
+  geom_text_repel(
+    aes(Z, -log10(p.value), label = gene_name), geneData,
+    size = 2, min.segment.length = unit(0, "mm"), alpha = 0.75,
+    nudge_x = ifelse(geneData$Z > 0, 1, -1), nudge_y = 0, segment.size = 0.2,
+    fontface = "bold"
+  ) +
+  scale_x_continuous(limits = z.range) +
+  scale_y_continuous(limits = p.range) +
+  theme_bw() +
+  labs(
+    title = "6h Violet +", subtitle = "STM-D23580 / STM-LT2",
+    y = expression(-log[10]*" ("*italic(P)*"-value)")
+  )
+ggsave(file.path(outdir, "6h_volcano_Violet +_Vogel.pdf"), height=5, width=6.5)
+```
+
 # Count DE genes at various cut-offs {.tabset}
 
 ## Uninfected
