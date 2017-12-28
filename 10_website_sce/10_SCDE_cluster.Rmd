@@ -117,16 +117,6 @@ volcano.mle <- function(x, sub = NULL){
 }
 ```
 
-<!-- Cleaner code based on 05_SCDE
-Remove ERCC spike-ins
-!! Split cells by time
-!! Retain genes detected at each time (10 counts, 5 cells, 1 group)
-Identify cell clusters @ time
-<!-- Error model: {cells @ time; genes @ time}
-Prior @ time
-DE: {group on all cells with NA; no batch correction; P-value < 0.01}
--->
-
 # Preprocessed data
 
 **Note:**
@@ -278,7 +268,7 @@ ggplot(v.data.2h) +
 ```{r fig1_volcano_2h_2v1, include=FALSE}
 geneData.2h <- subset(addGeneName(v.data.2h),
   gene_name %in% c(
-    "NFKB1","IRF8","STAT5A","CEBPA","CD1A","CD1C","CD1E","CLECL1", # 8
+    "NFKB1","IRF8","STAT5A","CD1C","CD1E","CLECL1", # 8
     "IL1B","IL1A","EBI3","CD40","CD83", # 5
     "CTSS","CTSD","CTSL","GRN","APOE","APOC1","ACOT2", # 7
     "S100A9","STAB1","LRP1","PSAP") # 4
@@ -339,7 +329,7 @@ ggplot(v.data.4h) +
 ```{r fig1_volcano_4h_2v1, include=FALSE}
 geneData.4h <- subset(addGeneName(v.data.4h),
   gene_name %in% c(
-    "NFKB1","IRF8","STAT5A","CEBPA","CD1A","CD1C","CD1E","CLECL1", # 8
+    "NFKB1","IRF8","STAT5A","CD1C","CD1E","CLECL1", # 8
     "IL1B","IL1A","EBI3","CD40","CD83", # 5
     "CTSS","CTSD","CTSL","GRN","APOE","APOC1","ACOT2", # 7
     "S100A9","STAB1","LRP1","PSAP") # 4
