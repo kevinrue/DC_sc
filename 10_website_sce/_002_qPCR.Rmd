@@ -71,7 +71,7 @@ stopifnot(
 First two columns of the final table: `gene` and `Contrast`
 
 ```{r}
-finalTable <- unique(qPCR_uninfected[,c("gene", "Contrast", "time")])
+finalTableUninfected <- unique(qPCR_uninfected[,c("gene", "Contrast", "time")])
 ```
 
 Mean log2FC of qPCR for each contrast:
@@ -79,7 +79,7 @@ Mean log2FC of qPCR for each contrast:
 ```{r}
 addTable <- aggregate(logFC_qPCR ~ gene + Contrast + time, qPCR_uninfected, "mean")
 colnames(addTable) <- gsub("^logFC_qPCR$", "meanLog2FC", colnames(addTable))
-finalTable <- merge(finalTable, addTable)
+finalTableUninfected <- merge(finalTableUninfected, addTable)
 ```
 
 standard deviation of log2FC in qPCR for each contrast:
@@ -87,7 +87,7 @@ standard deviation of log2FC in qPCR for each contrast:
 ```{r}
 addTable <- aggregate(logFC_qPCR ~ gene + Contrast + time, qPCR_uninfected, "sd")
 colnames(addTable) <- gsub("^logFC_qPCR$", "sdLog2FC", colnames(addTable))
-finalTable <- merge(finalTable, addTable)
+finalTableUninfected <- merge(finalTableUninfected, addTable)
 ```
 
 number of replicates for qPCR for each contrast:
@@ -95,47 +95,47 @@ number of replicates for qPCR for each contrast:
 ```{r}
 addTable <- aggregate(logFC_qPCR ~ gene + Contrast + time, qPCR_uninfected, "length")
 colnames(addTable) <- gsub("^logFC_qPCR$", "replicates", colnames(addTable))
-finalTable <- merge(finalTable, addTable)
+finalTableUninfected <- merge(finalTableUninfected, addTable)
 ```
 
 Compute the SEM
 
 ```{r}
-finalTable <- dplyr::mutate(finalTable, SEMlog2FC = sdLog2FC / sqrt(replicates))
+finalTableUninfected <- dplyr::mutate(finalTableUninfected, SEMlog2FC = sdLog2FC / sqrt(replicates))
 ```
 
 Add the mle, lb and ub from the corresponding scde computations:
 
 ```{r}
-finalTable[,c("mle","lb","ub")] <- NA_real_
-for (iRow in seq_len(nrow(finalTable))){
-  tmp_Contrast <- finalTable[iRow, "Contrast"]
-  tmp_gene <- finalTable[iRow, "gene"]
+finalTableUninfected[,c("mle","lb","ub")] <- NA_real_
+for (iRow in seq_len(nrow(finalTableUninfected))){
+  tmp_Contrast <- finalTableUninfected[iRow, "Contrast"]
+  tmp_gene <- finalTableUninfected[iRow, "gene"]
   tmp_scde <- addGeneName(scde_groups[[tmp_Contrast]])
   tmp_scde <- subset(tmp_scde, gene_name == tmp_gene, c("lb","mle","ub"))
   stopifnot(dim(tmp_scde) == c(1,3))
-  finalTable[iRow, c("lb","mle","ub")] <- tmp_scde
+  finalTableUninfected[iRow, c("lb","mle","ub")] <- tmp_scde
 }
-stopifnot(sum(is.na(finalTable)) == 0)
+stopifnot(sum(is.na(finalTableUninfected)) == 0)
 ```
 
 Contrast without time
 
 ```{r}
-finalTable$ContrastNoTime <- gsub(
+finalTableUninfected$ContrastNoTime <- gsub(
   "_", " ",
   gsub(
     "-Mock", " vs. \nMock",
-    gsub("[[:digit:]]h_", "", finalTable$Contrast)
+    gsub("[[:digit:]]h_", "", finalTableUninfected$Contrast)
   )
 )
 ```
 
 
 ```{r}
-rangeFC <- max(abs(with(finalTable, range(c(meanLog2FC, mle)))))
+rangeFC <- max(abs(with(finalTableUninfected, range(c(meanLog2FC, mle)))))
 ggplot(
-  subset(finalTable, gene != "NIT1"),
+  subset(finalTableUninfected, gene != "NIT1"),
   aes(mle, meanLog2FC)
   ) +
   facet_grid(time ~ ContrastNoTime) +
@@ -160,7 +160,7 @@ ggsave(file.path(dirOut, "uninfected_plot.pdf"), width = 10, height = 5)
 
 ```{r}
 with(
-  subset(finalTable, gene != "NIT1"),
+  subset(finalTableUninfected, gene != "NIT1"),
   cor.test(mle, meanLog2FC)
 )
 ```
@@ -196,7 +196,7 @@ stopifnot(
 First two columns of the final table: `gene` and `Contrast`
 
 ```{r}
-finalTable <- unique(qPCR_direct[,c("gene", "Contrast", "time")])
+finalTableDirect <- unique(qPCR_direct[,c("gene", "Contrast", "time")])
 ```
 
 Mean log2FC of qPCR for each contrast:
@@ -204,7 +204,7 @@ Mean log2FC of qPCR for each contrast:
 ```{r}
 addTable <- aggregate(logFC_qPCR ~ gene + Contrast + time, qPCR_direct, "mean")
 colnames(addTable) <- gsub("^logFC_qPCR$", "meanLog2FC", colnames(addTable))
-finalTable <- merge(finalTable, addTable)
+finalTableDirect <- merge(finalTableDirect, addTable)
 ```
 
 standard deviation of log2FC in qPCR for each contrast:
@@ -212,7 +212,7 @@ standard deviation of log2FC in qPCR for each contrast:
 ```{r}
 addTable <- aggregate(logFC_qPCR ~ gene + Contrast + time, qPCR_direct, "sd")
 colnames(addTable) <- gsub("^logFC_qPCR$", "sdLog2FC", colnames(addTable))
-finalTable <- merge(finalTable, addTable)
+finalTableDirect <- merge(finalTableDirect, addTable)
 ```
 
 number of replicates for qPCR for each contrast:
@@ -220,47 +220,47 @@ number of replicates for qPCR for each contrast:
 ```{r}
 addTable <- aggregate(logFC_qPCR ~ gene + Contrast + time, qPCR_direct, "length")
 colnames(addTable) <- gsub("^logFC_qPCR$", "replicates", colnames(addTable))
-finalTable <- merge(finalTable, addTable)
+finalTableDirect <- merge(finalTableDirect, addTable)
 ```
 
 Compute the SEM
 
 ```{r}
-finalTable <- dplyr::mutate(finalTable, SEMlog2FC = sdLog2FC / sqrt(replicates))
+finalTableDirect <- dplyr::mutate(finalTableDirect, SEMlog2FC = sdLog2FC / sqrt(replicates))
 ```
 
 Add the mle, lb and ub from the corresponding scde computations:
 
 ```{r}
-finalTable[,c("mle","lb","ub")] <- NA_real_
-for (iRow in seq_len(nrow(finalTable))){
-  tmp_Contrast <- finalTable[iRow, "Contrast"]
-  tmp_gene <- finalTable[iRow, "gene"]
+finalTableDirect[,c("mle","lb","ub")] <- NA_real_
+for (iRow in seq_len(nrow(finalTableDirect))){
+  tmp_Contrast <- finalTableDirect[iRow, "Contrast"]
+  tmp_gene <- finalTableDirect[iRow, "gene"]
   tmp_scde <- addGeneName(scde_groups[[tmp_Contrast]])
   tmp_scde <- subset(tmp_scde, gene_name == tmp_gene, c("lb","mle","ub"))
   stopifnot(dim(tmp_scde) == c(1,3))
-  finalTable[iRow, c("lb","mle","ub")] <- tmp_scde
+  finalTableDirect[iRow, c("lb","mle","ub")] <- tmp_scde
 }
-stopifnot(sum(is.na(finalTable)) == 0)
+stopifnot(sum(is.na(finalTableDirect)) == 0)
 ```
 
 Contrast without time
 
 ```{r}
-finalTable$ContrastNoTime <- gsub(
+finalTableDirect$ContrastNoTime <- gsub(
   "_", " ",
   gsub(
     "-STM", " vs. \nSTM",
-    gsub("[[:digit:]]h_", "", finalTable$Contrast)
+    gsub("[[:digit:]]h_", "", finalTableDirect$Contrast)
   )
 )
 ```
 
 
 ```{r}
-rangeFC <- max(abs(with(finalTable, range(c(meanLog2FC, mle)))))
+rangeFC <- max(abs(with(finalTableDirect, range(c(meanLog2FC, mle)))))
 ggplot(
-  subset(finalTable, gene != "NIT1"),
+  subset(finalTableDirect, gene != "NIT1"),
   aes(mle, meanLog2FC)
   ) +
   facet_grid(time ~ ContrastNoTime) +
@@ -285,8 +285,39 @@ ggsave(file.path(dirOut, "direct_plot.pdf"), width = 10, height = 5)
 
 ```{r}
 with(
-  subset(finalTable, gene != "NIT1"),
+  subset(finalTableDirect, gene != "NIT1"),
   cor.test(mle, meanLog2FC)
 )
+```
+
+```{r}
+ggplot(
+  subset(
+    rbind(finalTableUninfected, finalTableDirect),
+    gene != "NIT1"
+  ),
+  aes(mle, meanLog2FC)
+  ) +
+  geom_smooth(method = "glm", alpha = 0.1, size = 0.2, level = 0.9999999) + # 10^-7
+  geom_point(colour = "blue", size = 0.5) +
+  geom_abline(slope = 1, intercept = 0, colour = "red", linetype = "dashed") +
+  geom_hline(yintercept = 0, alpha = 0.25, size = 2) +
+  geom_vline(xintercept = 0, alpha = 0.25, size = 2) +
+  # labs(
+  #   x = "mle of log2 fold-change (single-cell; scde)",
+  #   y = "mean log2 fold-change (qPCR)"
+  # ) +
+  labs(
+    x = expression("mle of "*log[2]*" fold-change (single-cell; scde)"),
+    y = expression("mean "*log[2]*" fold-change (qPCR)")
+  ) +
+  # geom_text_repel(
+  #   aes(label = gene),
+  #   min.segment.length = unit(0, "lines"), size = 3) +
+  coord_fixed() +
+  scale_x_continuous(breaks = seq(-10, 10, 5), limits = c(-rangeFC, rangeFC)) +
+  scale_y_continuous(breaks = seq(-10, 10, 5), limits = c(-rangeFC, rangeFC)) +
+  theme_bw()
+ggsave(file.path(dirOut, "complete_overlay_plot.pdf"), width = 10, height = 5)
 ```
 
