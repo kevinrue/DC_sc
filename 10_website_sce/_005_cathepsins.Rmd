@@ -1,0 +1,94 @@
+---
+title: "Cathepsins"
+author: "Kevin Rue-Albrecht"
+date: "28/12/2017"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+stopifnot(
+  requireNamespace("reshape2"),
+  require(ggplot2)
+)
+sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
+# Prepare colours
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,2,4)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.norm$Time)
+names(col.infection) <- levels(sce.norm$Infection)
+names(col.status) <- levels(sce.norm$Status)
+dirOut <- "_005_out"; dir.create(dirOut)
+# new treatment level
+sce.norm$TreatmentLabel <- with(colData(sce.norm), factor(
+  gsub("_", "\n", Treatment),
+  gsub("_", "\n", levels(Treatment))
+))
+```
+
+# Colours ----
+
+```{r}
+col.treatment <- RColorBrewer::brewer.pal(9, "Paired")[c(9,3,4,1,2)]
+names(col.treatment) <- gsub("_","\n",levels(sce.norm$TreatmentLabel))
+```
+
+
+# Header 1
+
+```{r}
+geneNames <- c("CTSL","CTSS","CTSD")
+geneIds <- subset(rowData(sce.norm), gene_name %in% geneNames, "gene_id", drop = TRUE)
+stopifnot(
+  identical(length(geneIds), length(geneNames))
+)
+ggdataList <- lapply(geneIds, function(g){
+  data.frame(
+    gene_id = g,
+    gene_name = subset(rowData(sce.norm), gene_id == g, "gene_name", drop = TRUE),
+    logcounts = assay(sce.norm, "logcounts")[g,],
+    colData(sce.norm)[,c("Time","Infection","Status","TreatmentLabel")]
+  )
+})
+ggdata <- do.call("rbind", ggdataList)
+head(ggdata)
+```
+
+```{r}
+ggplot(ggdata) +
+  facet_grid(Time ~ gene_name, switch = "y") +
+  geom_density(aes(logcounts, colour = TreatmentLabel), alpha = 0.3) +
+  labs(y = NULL) +
+  theme_bw() +
+  theme(
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank(),
+    legend.key.height = unit(1.5, "lines")
+  )
+```
+
+```{r}
+ggplot(ggdata) +
+  facet_grid(Time ~ gene_name, switch = "y") +
+  coord_flip() +
+  geom_violin(
+    aes(TreatmentLabel, logcounts, colour = TreatmentLabel),
+    alpha = 0.3, draw_quantiles = 0.5, scale = "width"
+  ) +
+  scale_colour_manual(values = col.treatment) +
+  labs(x = NULL, colour = "Treatment") +
+  theme_bw() +
+  theme(
+    axis.ticks.y = element_blank(),
+    axis.text.y = element_blank(),
+    legend.key.height = unit(1.5, "lines")
+  )
+ggsave(
+  file.path(dirOut, "violin_horizontal_cathepsins.pdf"),
+  height = 6, width = 6
+)
+```
+
