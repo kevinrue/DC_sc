@@ -1042,6 +1042,61 @@ draw(ht_final)
 dev.off()
 ```
 
+```{r markers_p_logcounts_4h_no0_annolink, include=FALSE}
+ht_list <- list()
+markersMatrix <- assay(sce.ifm.4h, "logcounts")[markers_4h_p,]
+markersMatrix <- t(scale(t(markersMatrix)))
+rownames(markersMatrix) <- with(
+    rowData(sce.4h), gene_name[match(rownames(markersMatrix), gene_id)])
+# maxMatrix <- max(abs(range(markersMatrix))) * ht.scale.percentile
+ht_scale <- circlize::colorRamp2(c(-4, 0, 4), ht.col) # use maxMatrix?
+for (clusterId in unique(markers_4h_p.cluster)){
+  clusterMatrix <- markersMatrix[,sce.ifm.4h$quickCluster.4h == clusterId]
+  ha_tmp <- HeatmapAnnotation(
+    df = data.frame(subset(
+      colData(sce.ifm.4h), quickCluster.4h == clusterId,
+      c("Infection", "Status")
+    )),
+    col = list(
+      Infection = col.infection,
+      Status = col.status
+    )
+  )
+  ht_list[[clusterId]] <- Heatmap(
+    matrix = clusterMatrix,
+    name = ifelse(clusterId == "1", "z-score", clusterId),
+    col = ht_scale,
+    row_names_gp = gpar(cex=0.4),
+    show_heatmap_legend = clusterId == "1",
+    show_row_names = clusterId == "1",
+    cluster_rows = FALSE,
+    show_column_names = FALSE, show_column_dend = FALSE,
+    row_names_side = "left",
+    top_annotation = ha_tmp,
+    split = markers_4h_p.cluster
+    )
+}
+geneNames <- c(
+  "CTSL","CTSD","S100A9","CCL7","CTSS","CCL24",
+  "CD40","IL1B","CCL1","STAT5A","CD83","TNF",
+  "IL1A","CEBPA"
+)
+ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]] + rowAnnotation(
+  link = row_anno_link(
+    at = which(rownames(markersMatrix) %in% geneNames),
+    labels = geneNames,
+    labels_gp = gpar(cex=2/3),
+    link_width = unit(0.5, "inches")
+  ),
+  width = unit(1, "cm") + max_text_width(labels)
+)
+pdf(
+  file.path(outdir, "4h_markers_P_heatmap_logcounts_no0_rowLink.pdf"),
+  width = 10, height = 10)
+draw(ht_final)
+dev.off()
+```
+
 ### 6h
 
 ```{r markers_p_logcounts_6h, echo=FALSE, fig.height=10, message=FALSE}
@@ -1090,6 +1145,60 @@ draw(ht_final)
 pdf(
   file.path(outdir, "6h_markers_P_heatmap_logcounts.pdf"),
   width = 10, height = 15)
+draw(ht_final)
+dev.off()
+```
+
+```{r markers_p_logcounts_6h_no0_annolink, include=FALSE}
+ht_list <- list()
+markersMatrix <- assay(sce.ifm.6h, "logcounts")[markers_6h_p,]
+markersMatrix <- t(scale(t(markersMatrix)))
+rownames(markersMatrix) <- with(
+    rowData(sce.6h), gene_name[match(rownames(markersMatrix), gene_id)])
+# maxMatrix <- max(abs(range(markersMatrix))) * ht.scale.percentile
+ht_scale <- circlize::colorRamp2(c(-4, 0, 4), ht.col) # use maxMatrix?
+for (clusterId in unique(markers_6h_p.cluster)){
+  clusterMatrix <- markersMatrix[,sce.ifm.6h$quickCluster.6h == clusterId]
+  ha_tmp <- HeatmapAnnotation(
+    df = data.frame(subset(
+      colData(sce.ifm.6h), quickCluster.6h == clusterId,
+      c("Infection", "Status")
+    )),
+    col = list(
+      Infection = col.infection,
+      Status = col.status
+    )
+  )
+  ht_list[[clusterId]] <- Heatmap(
+    matrix = clusterMatrix,
+    name = ifelse(clusterId == "1", "z-score", clusterId),
+    col = ht_scale,
+    row_names_gp = gpar(cex=0.4),
+    show_heatmap_legend = clusterId == "1",
+    show_row_names = clusterId == "1",
+    cluster_rows = FALSE,
+    show_column_names = FALSE, show_column_dend = FALSE,
+    row_names_side = "left",
+    top_annotation = ha_tmp,
+    split = markers_6h_p.cluster
+    )
+}
+geneNames <- c(
+  "IL1A","IL1B","IL12B","IL23A","IL6","CTSL","DEFB","MARCH1","BLOC1S3","RNF139",
+  "ATF3","CLECL1"
+)
+ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]] + rowAnnotation(
+  link = row_anno_link(
+    at = which(rownames(markersMatrix) %in% geneNames),
+    labels = geneNames,
+    labels_gp = gpar(cex=2/3),
+    link_width = unit(0.5, "inches")
+  ),
+  width = unit(1, "cm") + max_text_width(labels)
+)
+pdf(
+  file.path(outdir, "6h_markers_P_heatmap_logcounts_no0_rowLink.pdf"),
+  width = 10, height = 10)
 draw(ht_final)
 dev.off()
 ```
