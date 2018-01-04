@@ -47,20 +47,30 @@ colours.infection <- brewer.pal(3, "Set1")[2:3]
 names(colours.infection) <- c("STM-D23580", "STM-LT2")
 ```
 
+# Select a time point
+
+```{r}
+timepoint <- "4h"
+```
+
 # Extract DE tables
 
 ```{r}
-clusters.de <- scde.clusters[["6h_cluster2-cluster1"]]
+clusters.de <- scde.clusters[[sprintf("%s_cluster2-cluster1", timepoint)]]
 head(clusters.de, n=2)
 ```
 
 ```{r}
-groups.de.d23 <- scde.groups[["6h_STM-D23580_Violet +-6h_STM-D23580_Exposed"]]
+groups.de.d23 <- scde.groups[[
+  sprintf("%s_STM-D23580_Violet +-%s_STM-D23580_Exposed", timepoint, timepoint)
+]]
 head(groups.de.d23, n=2)
 ```
 
 ```{r}
-groups.de.lt2 <- scde.groups[["6h_STM-LT2_Violet +-6h_STM-LT2_Exposed"]]
+groups.de.lt2 <- scde.groups[[
+  sprintf("%s_STM-LT2_Violet +-%s_STM-LT2_Exposed", timepoint, timepoint)
+]]
 head(groups.de.lt2, n=2)
 ```
 
@@ -314,7 +324,8 @@ gg <- ggplot(gg.sig.cluster) +
   scale_colour_manual(values = colours.infection) +
   labs(y = "MLE\n(Violet + / Exposed)", x = "MLE\n(Cluster 1 / Cluster 2)")
 ggsave(
-  file.path(dirOut, "regression_6h_clusters_groups.pdf"), gg,
+  file.path(dirOut, sprintf("regression_%s_clusters_groups.pdf", timepoint)),
+  gg,
   height = 4, width = 5.5
 )
 gg
