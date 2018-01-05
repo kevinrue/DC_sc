@@ -27,7 +27,8 @@ names(col.time) <- levels(sce.endo$Time)[1:3]
 names(col.infection) <- levels(sce.endo$Infection)
 names(col.status) <- levels(sce.endo$Status)
 outdir <- "13_violins_out"; dir.create(outdir, showWarnings = FALSE)
-pdfWidth <- 7; pdfHeight <- 5
+pdfWidth <- 7; pdfHeight <- 4
+cathepsinWidth <- 6; cathepsinHeight <- 3
 pdfName <- "%s_%s.pdf"
 sce.endo$TreatmentLabel <- with(colData(sce.endo), factor(
   gsub("_", "\n", Treatment),
@@ -216,6 +217,24 @@ ggsave(
   height = 10, width = pdfWidth)
 ```
 
+## CTSD
+
+```{r CTSD, echo=FALSE, fig.height=7}
+geneName <- "CTSD"
+plotByNameFacetTime(geneName)
+```
+
+```{r CTSD_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "4h")),
+  plotByNameTime(geneName, "4h"),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameTime(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
 ## CTSL
 
 ```{r CTSL, echo=FALSE, fig.height=7}
@@ -224,6 +243,24 @@ plotByNameFacetTime(geneName)
 ```
 
 ```{r CTSL_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "4h")),
+  plotByNameTime(geneName, "4h"),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameTime(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## CTSS
+
+```{r CTSS, echo=FALSE, fig.height=7}
+geneName <- "CTSS"
+plotByNameFacetTime(geneName)
+```
+
+```{r CTSS_pdf, include=FALSE}
 ggsave(
   file.path(outdir, sprintf(pdfName, geneName, "4h")),
   plotByNameTime(geneName, "4h"),
