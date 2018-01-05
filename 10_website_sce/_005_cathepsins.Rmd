@@ -92,3 +92,22 @@ ggsave(
 )
 ```
 
+```{r}
+ggplot(subset(ggdata, Time == "4h")) +
+  facet_wrap(~ gene_name, nrow = 1) +
+  geom_violin(
+    aes(TreatmentLabel, logcounts, colour = TreatmentLabel, fill = TreatmentLabel),
+    alpha = 0.3, draw_quantiles = 0.5, scale = "width"
+  ) +
+  scale_colour_manual(values = col.treatment) +
+  scale_fill_manual(values = col.treatment) +
+  labs(x = NULL, colour = "Treatment") +
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle = 90, vjust = 0.5, size = rel(0.8)),
+    legend.key.height = unit(1.5, "lines")
+  )
+```
+
+
+
