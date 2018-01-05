@@ -801,6 +801,10 @@ ggplot(DE.count, aes(Time, Count, colour = Infection)) +
   geom_point(size = 3) +
   geom_line(aes(group = interaction(Infection, Direction))) +
   geom_abline(intercept = 0, slope = 0, linetype = "dashed") +
+  scale_y_continuous(
+    limits = max(range(DE.count$Count)) * c(-1,1),
+    labels = function(breaks){as.character(abs(as.numeric(breaks)))}
+  ) +
   theme_minimal() +
   labs(
     title = "Violet + / Exposed",
