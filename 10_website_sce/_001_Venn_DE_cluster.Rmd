@@ -17,7 +17,7 @@ stopifnot(
 sce.endo <- readRDS("rds/sce.endo_clusters.rds")
 scde_cluster_res <- readRDS("rds/scde_cluster.rds")
 scde_group_res <- readRDS("rds/scde_group.rds")
-outDir <- "_001_Venn_out"; dir.create(outDir, showWarnings = FALSE)
+outDir <- "_001b_Venn_out"; dir.create(outDir, showWarnings = FALSE)
 # Functions
 convert.z.score <- function(x, one.sided = NULL) {
   z <- x$Z
