@@ -1,0 +1,132 @@
+---
+title: "Dimensionality reduction of mini-bulks"
+author: "Kevin Rue-Albrecht"
+date: "06/01/2018"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+stopifnot(
+  require(DESeq2),
+  require(ggrepel)
+)
+sce.filtered <- readRDS("rds/sce.minibulks.filtered.rds")
+```
+
+# Normalise using DESeq2
+
+To avoid a warning raised by `DESeq2`, let us 'clean' phenotype levels
+to avoid the use of unsafe characters
+(*i.e.* characters that may be interpreted by R as having a special meaning):
+
+```{r}
+sce.filtered$Group_Safe <- factor(
+  gsub(
+    "Violet \\+", "Violet",
+    gsub(
+      "STM-", "",
+      sce.filtered$Group
+    )
+  ),
+  gsub(
+    "Violet \\+", "Violet",
+    gsub(
+      "STM-", "",
+      levels(sce.filtered$Group)
+    )
+  )
+)
+```
+
+Make a `DESeqDataSet` and estimate the size factors:
+
+```{r dds}
+dds <- DESeqDataSetFromMatrix(
+  countData = assay(sce.filtered, "counts"),
+  colData = colData(sce.filtered)[,c("Group_Safe","Donor")],
+  design= ~ Donor + Group_Safe
+)
+dds <- estimateSizeFactors(dds)
+```
+
+Extract transformed values:
+
+```{r}
+se.vsd <- vst(dds, blind=FALSE)
+```
+
+# Apply PCA
+
+Compute the principal components:
+
+```{r}
+pca <- prcomp(t(assay(se.vsd)), scale. = TRUE)
+```
+
+Join with phenotype information:
+
+```{r}
+stopifnot(
+  all(colnames(sce.filtered) == rownames(pca$x))
+)
+pca.data <- cbind(
+  data.frame(pca$x),
+  data.frame(colData(sce.filtered))
+)
+```
+
+```{r pca_plot}
+ggplot(pca.data, aes(PC1, PC2)) +
+  geom_point(
+    aes(colour = Infection, shape = Status),
+    size = 2
+  ) +
+  geom_text_repel(
+    aes(label = paste(Time, Donor, sep = "_")),
+    alpha = 0.4,
+    min.segment.length = unit(0, "lines")
+  ) +
+  theme_minimal()
+```
+
+Removing donor `D3` (here, simply hiding the data points; not recomputing the PCA!)
+
+```{r}
+ggplot(
+  subset(pca.data, Donor != "D3"),
+  aes(PC1, PC2)
+) +
+  geom_point(
+    aes(colour = Infection, shape = Status),
+    size = 2
+  ) +
+  geom_text_repel(
+    aes(label = paste(Time, Donor, sep = "_")),
+    alpha = 0.4,
+    min.segment.length = unit(0, "lines")
+  ) +
+  theme_minimal()
+```
+
+# PCA without donor 3
+
+Compute the principal components:
+
+```{r}
+pca.excludeD3 <- prcomp(t(assay(se.vsd[,se.vsd$Donor != "D3"])), scale. = TRUE)
+```
+
+Join with phenotype information:
+
+```{r}
+stopifnot(
+  all(colnames(sce.filtered) == rownames(pca$x))
+)
+pca.excludeD3.data <- cbind(
+  data.frame(pca.excludeD3$x),
+  data.frame(colData(sce.filtered[,sce.filtered$Donor != "D3"]))
+)
+```
