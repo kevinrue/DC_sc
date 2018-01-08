@@ -482,7 +482,7 @@ for (contrastNames in contrasts.2h){
 for (contrastNames in contrasts.4h){
   groupTarget <- contrastNames[1]; groupRef <- contrastNames[2]
   sg.test <- factor(sce.ifm.4h$Group, levels = c(groupTarget, groupRef))
-  names(sg.test) <- sampleNames(sce.ifm.4h); summary(sg.test)
+  names(sg.test) <- colnames(sce.ifm.4h); summary(sg.test)
   contrastName <- sprintf("%s-%s", groupTarget, groupRef); message(contrastName)
   scde.res[[contrastName]] <- scde.expression.difference(
     o.ifm.4h, cd.4h, o.prior.4h, sg.test, n.cores = 4, verbose = 1
@@ -497,7 +497,7 @@ for (contrastNames in contrasts.4h){
 for (contrastNames in contrasts.6h){
   groupTarget <- contrastNames[1]; groupRef <- contrastNames[2]
   sg.test <- factor(sce.ifm.6h$Group, levels = c(groupTarget, groupRef))
-  names(sg.test) <- sampleNames(sce.ifm.6h); summary(sg.test)
+  names(sg.test) <- colnames(sce.ifm.6h); summary(sg.test)
   contrastName <- sprintf("%s-%s", groupTarget, groupRef); message(contrastName)
   scde.res[[contrastName]] <- scde.expression.difference(
     o.ifm.6h, cd.6h, o.prior.6h, sg.test, n.cores = 4, verbose = 1
