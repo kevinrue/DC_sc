@@ -25,7 +25,7 @@ names(col.infection) <- levels(sce.endo$Infection)
 names(col.status) <- levels(sce.endo$Status)
 outdir <- "11_gene_TSNE_out"; dir.create(outdir, showWarnings = FALSE)
 pdfWidth <- 7; pdfHeight <- 5
-pdfName <- "%s_gene_TSNE.pdf"
+pdfName <- "tSNE_gene_%s.pdf"
 ```
 
 # Helper values and functions
