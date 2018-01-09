@@ -272,7 +272,7 @@ dev.off()
 ```{r}
 ht_tree_noSplit <- Heatmap(
   sprintf("%2d", k_10), col = brewer.pal(10, "Paired"),
-  name = "k", column_title = "k",
+  name = "k", column_title = " ",
   row_order = hvg.endo.clust$order, column_order = NULL,
   cluster_rows = hvg.endo.clust, cluster_columns = FALSE, show_row_dend = FALSE,
   show_row_names = FALSE, show_column_names = FALSE,
