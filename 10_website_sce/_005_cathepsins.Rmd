@@ -11,7 +11,8 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 stopifnot(
   requireNamespace("reshape2"),
-  require(ggplot2)
+  require(ggplot2),
+  require(RColorBrewer)
 )
 sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 # Prepare colours
