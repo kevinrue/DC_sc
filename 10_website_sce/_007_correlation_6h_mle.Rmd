@@ -12,7 +12,8 @@ knitr::opts_chunk$set(echo = TRUE)
 stopifnot(
   require(broom),
   require(reshape2),
-  require(RColorBrewer)
+  require(RColorBrewer),
+  require(ggplot2)
 )
 dirOut <- "_007_correlation_out"; dir.create(dirOut)
 ```
@@ -50,7 +51,7 @@ names(colours.infection) <- c("STM-D23580", "STM-LT2")
 # Select a time point
 
 ```{r}
-timepoint <- "4h"
+timepoint <- "6h"
 ```
 
 # Extract DE tables
