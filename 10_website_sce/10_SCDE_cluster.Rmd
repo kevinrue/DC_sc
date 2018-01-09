@@ -24,9 +24,9 @@ stopifnot(
   requireNamespace("dplyr")
 )
 sce.endo <- readRDS("rds/sce.endo_clusters.rds")
-o.ifm.2h <- readRDS("rds/o.ifm_2h.rds")
-o.ifm.4h <- readRDS("rds/o.ifm_4h.rds")
-o.ifm.6h <- readRDS("rds/o.ifm_6h.rds")
+o.ifm.2h <- readRDS("rds/o.ifm.2h.rds")
+o.ifm.4h <- readRDS("rds/o.ifm.4h.rds")
+o.ifm.6h <- readRDS("rds/o.ifm.6h.rds")
 col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
 col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
 col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
@@ -46,22 +46,19 @@ filterCounts <- function(m, counts = 10, cells = 10){
     return(sum(e >= counts) >= cells)
   })
 }
-sg.2h <- droplevels(sce.2h$Group)
-keep.2h <- filterCounts(counts(sce.2h))
-cd.2h <- counts(sce.2h)[keep.2h,]; storage.mode(cd.2h) <- 'integer'
-sg.4h <- droplevels(sce.4h$Group)
-keep.4h <- filterCounts(counts(sce.4h))
-cd.4h <- counts(sce.4h)[keep.4h,]; storage.mode(cd.4h) <- 'integer'
-sg.6h <- droplevels(sce.6h$Group)
-keep.6h <- filterCounts(counts(sce.6h))
-cd.6h <- counts(sce.6h)[keep.6h,]; storage.mode(cd.6h) <- 'integer'
-# Reorder SCESet to match count matrix
+# Reorder SCESet to match error models and filter genes for testing
 sce.ifm.2h <- sce.2h[,rownames(o.ifm.2h)]
-cd.ifm.2h <- counts(sce.ifm.2h); storage.mode(cd.ifm.2h) <- "integer"
+sg.ifm.2h <- droplevels(sce.ifm.2h$Group)
+keep.2h <- filterCounts(counts(sce.ifm.2h))
+cd.ifm.2h <- counts(sce.ifm.2h)[keep.2h,]; storage.mode(cd.ifm.2h) <- 'integer'
 sce.ifm.4h <- sce.4h[,rownames(o.ifm.4h)]
-cd.ifm.4h <- counts(sce.ifm.4h); storage.mode(cd.ifm.4h) <- "integer"
+sg.ifm.4h <- droplevels(sce.ifm.4h$Group)
+keep.4h <- filterCounts(counts(sce.ifm.4h))
+cd.ifm.4h <- counts(sce.ifm.4h)[keep.4h,]; storage.mode(cd.ifm.4h) <- 'integer'
 sce.ifm.6h <- sce.6h[,rownames(o.ifm.6h)]
-cd.ifm.6h <- counts(sce.ifm.6h); storage.mode(cd.ifm.6h) <- "integer"
+sg.ifm.6h <- droplevels(sce.ifm.6h$Group)
+keep.6h <- filterCounts(counts(sce.ifm.6h))
+cd.ifm.6h <- counts(sce.ifm.6h)[keep.6h,]; storage.mode(cd.ifm.6h) <- 'integer'
 # Prior of expression
 o.prior.2h <- scde.expression.prior(
   models = o.ifm.2h, counts = cd.ifm.2h, show.plot = FALSE
@@ -174,8 +171,9 @@ groupTarget <- 2; groupRef <- 3
 sg.test <- factor(sce.ifm.2h$quickCluster.2h, levels = c(groupTarget, groupRef))
 names(sg.test) <- colnames(sce.ifm.2h); summary(sg.test)
 contrastName <- sprintf("2h_cluster%s-cluster%s", groupTarget, groupRef); message(contrastName)
+stopifnot(all(rownames(o.ifm.2h) == colnames(cd.ifm.2h)))
 scde.res[[contrastName]] <- scde.expression.difference(
-    o.ifm.2h, cd.2h, o.prior.2h, sg.test, n.cores = 4, verbose = 1
+    o.ifm.2h, cd.ifm.2h, o.prior.2h, sg.test, n.cores = 4, verbose = 1
   )
 ```
 
@@ -192,8 +190,9 @@ groupTarget <- 2; groupRef <- 1
 sg.test <- factor(sce.ifm.2h$quickCluster.2h, levels = c(groupTarget, groupRef))
 names(sg.test) <- colnames(sce.ifm.2h); summary(sg.test)
 contrastName <- sprintf("2h_cluster%s-cluster%s", groupTarget, groupRef); message(contrastName)
+stopifnot(all(rownames(o.ifm.2h) == colnames(cd.ifm.2h)))
 scde.res[[contrastName]] <- scde.expression.difference(
-    o.ifm.2h, cd.2h, o.prior.2h, sg.test, n.cores = 4, verbose = 1
+    o.ifm.2h, cd.ifm.2h, o.prior.2h, sg.test, n.cores = 4, verbose = 1
   )
 ```
 
@@ -210,8 +209,9 @@ groupTarget <- 2; groupRef <- 1
 sg.test <- factor(sce.ifm.4h$quickCluster.4h, levels = c(groupTarget, groupRef))
 names(sg.test) <- colnames(sce.ifm.4h); summary(sg.test)
 contrastName <- sprintf("4h_cluster%s-cluster%s", groupTarget, groupRef); message(contrastName)
+stopifnot(all(rownames(o.ifm.4h) == colnames(cd.ifm.4h)))
 scde.res[[contrastName]] <- scde.expression.difference(
-    o.ifm.4h, cd.4h, o.prior.4h, sg.test, n.cores = 4, verbose = 1
+    o.ifm.4h, cd.ifm.4h, o.prior.4h, sg.test, n.cores = 4, verbose = 1
   )
 ```
 
@@ -228,8 +228,9 @@ groupTarget <- 2; groupRef <- 1
 sg.test <- factor(sce.ifm.6h$quickCluster.6h, levels = c(groupTarget, groupRef))
 names(sg.test) <- colnames(sce.ifm.6h); summary(sg.test)
 contrastName <- sprintf("6h_cluster%s-cluster%s", groupTarget, groupRef); message(contrastName)
+stopifnot(all(rownames(o.ifm.6h) == colnames(cd.ifm.6h)))
 scde.res[[contrastName]] <- scde.expression.difference(
-    o.ifm.6h, cd.6h, o.prior.6h, sg.test, n.cores = 4, verbose = 1
+    o.ifm.6h, cd.ifm.6h, o.prior.6h, sg.test, n.cores = 4, verbose = 1
   )
 ```
 
@@ -519,7 +520,7 @@ using as background the list of genes detected at each time point:
 
 ```{r GO_2h_DE, eval=FALSE}
 contrastName <- "2h_cluster2-cluster1"
-bg.2h <- rownames(sce.ifm.2h)
+bg.2h <- rownames(cd.ifm.2h)
 scde.table <- scde.res[[contrastName]]
 scde.table <- convert.z.score(scde.table)
 scde.table <- subset(scde.table, p.value < 0.01)
@@ -534,7 +535,7 @@ goseq.res[[contrastName]] <- go.res
 
 ```{r GO_4h_DE, eval=FALSE}
 contrastName <- "4h_cluster2-cluster1"
-bg.4h <- rownames(sce.ifm.4h)
+bg.4h <- rownames(cd.ifm.4h)
 scde.table <- scde.res[[contrastName]]
 scde.table <- convert.z.score(scde.table)
 scde.table <- subset(scde.table, p.value < 0.01)
@@ -549,7 +550,7 @@ goseq.res[[contrastName]] <- go.res
 
 ```{r GO_6h_DE, eval=FALSE}
 contrastName <- "6h_cluster2-cluster1"
-bg.6h <- rownames(sce.ifm.6h)
+bg.6h <- rownames(cd.ifm.6h)
 scde.table <- scde.res[[contrastName]]
 scde.table <- convert.z.score(scde.table)
 scde.table <- subset(scde.table, p.value < 0.01)
@@ -568,3 +569,19 @@ for (contrastName in names(goseq.res)){
   write.csv(goseq.table, file.path(outdir, csvFile))
 }
 ```
+
+```{r include=FALSE}
+# testing
+geneName <- "IL1A"
+x_time <- "4h"
+geneId <- subset(rowData(sce.endo), gene_name == geneName, "gene_id", drop = TRUE)
+idxCells <- which(sce.endo$Time %in% x_time)
+ggdata <- data.frame(
+  logcounts = assay(sce.endo)[geneId, idxCells],
+  cluster = colData(sce.endo)[idxCells, sprintf("quickCluster.%s", x_time)],
+  colData(sce.endo)[idxCells, c("Time","Infection","Status")]
+)
+ggplot(ggdata, aes(cluster, logcounts)) +
+  geom_jitter(height = 0)
+```
+
