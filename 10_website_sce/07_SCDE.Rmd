@@ -232,21 +232,24 @@ For clarity, let us prepare a `SCESet` and count matrix that match this order:
 
 ```{r sce.ifm.2h}
 sce.ifm.2h <- sce.2h[,rownames(o.ifm.2h)]
-cd.ifm.2h <- counts(sce.ifm.2h); storage.mode(cd.ifm.2h) <- "integer"
+sg.ifm.2h <- droplevels(sce.ifm.2h$Group)
+cd.ifm.2h <- counts(sce.ifm.2h)[rownames(cd.2h),]; storage.mode(cd.ifm.2h) <- 'integer'
 ```
 
 ## 4h
 
 ```{r sce.ifm.4h}
 sce.ifm.4h <- sce.4h[,rownames(o.ifm.4h)]
-cd.ifm.4h <- counts(sce.ifm.4h); storage.mode(cd.ifm.4h) <- "integer"
+sg.ifm.4h <- droplevels(sce.ifm.4h$Group)
+cd.ifm.4h <- counts(sce.ifm.4h)[rownames(cd.4h),]; storage.mode(cd.ifm.4h) <- 'integer'
 ```
 
 ## 6h
 
 ```{r sce.ifm.6h}
 sce.ifm.6h <- sce.6h[,rownames(o.ifm.6h)]
-cd.ifm.6h <- counts(sce.ifm.6h); storage.mode(cd.ifm.6h) <- "integer"
+sg.ifm.6h <- droplevels(sce.ifm.6h$Group)
+cd.ifm.6h <- counts(sce.ifm.6h)[rownames(cd.6h),]; storage.mode(cd.ifm.6h) <- 'integer'
 ```
 
 # Prior distribution for gene expression magnitudes {.tabset}
@@ -464,13 +467,14 @@ contrasts.6h <- list(
 ### 2h
 
 ```{r contrasts.2h_run, eval=FALSE}
+stopifnot(all(rownames(o.ifm.2h) == colnames(cd.ifm.2h)))
 for (contrastNames in contrasts.2h){
   groupTarget <- contrastNames[1]; groupRef <- contrastNames[2]
   sg.test <- factor(sce.ifm.2h$Group, levels = c(groupTarget, groupRef))
   names(sg.test) <- colnames(sce.ifm.2h); summary(sg.test)
   contrastName <- sprintf("%s-%s", groupTarget, groupRef); message(contrastName)
   scde.res[[contrastName]] <- scde.expression.difference(
-    o.ifm.2h, cd.2h, o.prior.2h, sg.test, n.cores = 4, verbose = 1
+    o.ifm.2h, cd.ifm.2h, o.prior.2h, sg.test, n.cores = 4, verbose = 1
   )
   saveRDS(scde.res, "rds/scde_group.rds") # checkpoint
 }
@@ -479,13 +483,14 @@ for (contrastNames in contrasts.2h){
 ### 4h
 
 ```{r contrasts.4h_run, eval=FALSE}
+stopifnot(all(rownames(o.ifm.4h) == colnames(cd.ifm.4h)))
 for (contrastNames in contrasts.4h){
   groupTarget <- contrastNames[1]; groupRef <- contrastNames[2]
   sg.test <- factor(sce.ifm.4h$Group, levels = c(groupTarget, groupRef))
   names(sg.test) <- colnames(sce.ifm.4h); summary(sg.test)
   contrastName <- sprintf("%s-%s", groupTarget, groupRef); message(contrastName)
   scde.res[[contrastName]] <- scde.expression.difference(
-    o.ifm.4h, cd.4h, o.prior.4h, sg.test, n.cores = 4, verbose = 1
+    o.ifm.4h, cd.ifm.4h, o.prior.4h, sg.test, n.cores = 4, verbose = 1
   )
   saveRDS(scde.res, "rds/scde_group.rds") # checkpoint
 }
@@ -494,13 +499,14 @@ for (contrastNames in contrasts.4h){
 ### 6h
 
 ```{r contrasts.6h_run, eval=FALSE}
+stopifnot(all(rownames(o.ifm.6h) == colnames(cd.ifm.6h)))
 for (contrastNames in contrasts.6h){
   groupTarget <- contrastNames[1]; groupRef <- contrastNames[2]
   sg.test <- factor(sce.ifm.6h$Group, levels = c(groupTarget, groupRef))
   names(sg.test) <- colnames(sce.ifm.6h); summary(sg.test)
   contrastName <- sprintf("%s-%s", groupTarget, groupRef); message(contrastName)
   scde.res[[contrastName]] <- scde.expression.difference(
-    o.ifm.6h, cd.6h, o.prior.6h, sg.test, n.cores = 4, verbose = 1
+    o.ifm.6h, cd.ifm.6h, o.prior.6h, sg.test, n.cores = 4, verbose = 1
   )
   saveRDS(scde.res, "rds/scde_group.rds") # checkpoint
 }
@@ -844,7 +850,7 @@ using as background the list of genes detected at each time point:
 ### 2h
 
 ```{r GO_2h_DE, eval=FALSE}
-bg.2h <- rownames(sce.ifm.2h)
+bg.2h <- rownames(cd.ifm.2h)
 for (contrastName in grep("^2h", names(scde.res), value = TRUE)){
   message(contrastName); scde.table <- scde.res[[contrastName]]
   scde.table <- convert.z.score(scde.table)
@@ -861,7 +867,7 @@ for (contrastName in grep("^2h", names(scde.res), value = TRUE)){
 ### 4h
 
 ```{r GO_4h_DE, eval=FALSE}
-bg.4h <- rownames(sce.ifm.4h)
+bg.4h <- rownames(cd.ifm.4h)
 for (contrastName in grep("^4h", names(scde.res), value = TRUE)){
   message(contrastName); scde.table <- scde.res[[contrastName]]
   scde.table <- convert.z.score(scde.table)
@@ -878,7 +884,7 @@ for (contrastName in grep("^4h", names(scde.res), value = TRUE)){
 ### 6h
 
 ```{r GO_6h_DE, eval=FALSE}
-bg.6h <- rownames(sce.ifm.6h)
+bg.6h <- rownames(cd.ifm.6h)
 for (contrastName in grep("^6h", names(scde.res), value = TRUE)){
   message(contrastName); scde.table <- scde.res[[contrastName]]
   scde.table <- convert.z.score(scde.table)
@@ -926,7 +932,7 @@ pander::pandoc.table(ex.scde.last.sig)
 
 ## `r rownames(ex.scde.last.sig)` {.tabset}
 
-Least significant gene record (P ~ 0.01)
+Last significant gene record (P ~ 0.01)
 in contrast D23580 vs. LT2 infected at 6h:
 
 ### *scran*
