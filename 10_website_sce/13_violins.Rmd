@@ -163,58 +163,32 @@ ggsave(
   height = pdfHeight, width = pdfWidth)
 ```
 
-## CYBB
+## CLECL1
 
-```{r CYBB, echo=FALSE, fig.height=7}
-geneName <- "CYBB"
+```{r CLECL1, echo=FALSE, fig.height=7}
+geneName <- "CLECL1"
 plotByNameFacetTime(geneName)
 ```
 
-```{r CYBB_pdf, include=FALSE}
+```{r CLECL1_pdf, include=FALSE}
 ggsave(
-  file.path(outdir, sprintf(pdfName, geneName, "2h")),
-  plotByNameTime(geneName, "2h"),
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameTime(geneName, "6h"),
   height = pdfHeight, width = pdfWidth)
 ```
 
-## EBI3
+## CLEC7A
 
-```{r EBI3, echo=FALSE, fig.height=7}
-geneName <- "EBI3"
+```{r CLEC7A, echo=FALSE, fig.height=7}
+geneName <- "CLEC7A"
 plotByNameFacetTime(geneName)
 ```
 
-```{r EBI3_pdf, include=FALSE}
+```{r CLEC7A_pdf, include=FALSE}
 ggsave(
-  file.path(outdir, sprintf(pdfName, geneName, "all")),
-  plotByNameTime(geneName, "4h"),
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameTime(geneName, "6h"),
   height = pdfHeight, width = pdfWidth)
-```
-
-## IL12B
-
-```{r IL12B, echo=FALSE, fig.height=7}
-geneName <- "IL12B"
-plotByNameFacetTime(geneName)
-```
-
-```{r IL12B_pdf, include=FALSE}
-ggsave(
-  file.path(outdir, sprintf(pdfName, geneName, "all")),
-  height = 10, width = pdfWidth)
-```
-
-## IL1B
-
-```{r IL1B, echo=FALSE, fig.height=7}
-geneName <- "IL1B"
-plotByNameFacetTime(geneName)
-```
-
-```{r IL1B_pdf, include=FALSE}
-ggsave(
-  file.path(outdir, sprintf(pdfName, geneName, "all")),
-  height = 10, width = pdfWidth)
 ```
 
 ## CTSD
@@ -271,6 +245,141 @@ ggsave(
   height = pdfHeight, width = pdfWidth)
 ```
 
+## CYBB
+
+```{r CYBB, echo=FALSE, fig.height=7}
+geneName <- "CYBB"
+plotByNameFacetTime(geneName)
+```
+
+```{r CYBB_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "2h")),
+  plotByNameTime(geneName, "2h"),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameTime(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## EBI3
+
+```{r EBI3, echo=FALSE, fig.height=7}
+geneName <- "EBI3"
+plotByNameFacetTime(geneName)
+```
+
+```{r EBI3_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "all")),
+  plotByNameTime(geneName, "4h"),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameTime(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## ICOSLG
+
+```{r ICOSLG, echo=FALSE, fig.height=7}
+geneName <- "ICOSLG"
+plotByNameFacetTime(geneName)
+```
+
+```{r ICOSLG_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameTime(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## IL10
+
+```{r IL10, echo=FALSE, fig.height=7}
+geneName <- "IL10"
+plotByNameFacetTime(geneName)
+```
+
+```{r IL10_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "all")),
+  height = 10, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameTime(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## IL12B
+
+```{r IL12B, echo=FALSE, fig.height=7}
+geneName <- "IL12B"
+plotByNameFacetTime(geneName)
+```
+
+```{r IL12B_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "all")),
+  height = 10, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameTime(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## IL1B
+
+```{r IL1B, echo=FALSE, fig.height=7}
+geneName <- "IL1B"
+plotByNameFacetTime(geneName)
+```
+
+```{r IL1B_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "all")),
+  height = 10, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameTime(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## IL23A
+
+```{r IL23A, echo=FALSE, fig.height=7}
+geneName <- "IL23A"
+plotByNameFacetTime(geneName)
+```
+
+```{r IL23A_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "all")),
+  height = 10, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameTime(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## JAK1
+
+```{r JAK1, echo=FALSE, fig.height=7}
+geneName <- "JAK1"
+plotByNameFacetTime(geneName)
+```
+
+```{r JAK1_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "all")),
+  height = 10, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameTime(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
 ## LGMN
 
 ```{r LGMN, echo=FALSE, fig.height=7}
@@ -321,6 +430,20 @@ plotByNameFacetTime(geneName)
 ```
 
 ```{r MARCH1_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameTime(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## TLR4
+
+```{r TLR4, echo=FALSE, fig.height=7}
+geneName <- "TLR4"
+plotByNameFacetTime(geneName)
+```
+
+```{r TLR4_pdf, include=FALSE}
 ggsave(
   file.path(outdir, sprintf(pdfName, geneName, "6h")),
   plotByNameTime(geneName, "6h"),
