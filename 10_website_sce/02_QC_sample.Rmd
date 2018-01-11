@@ -266,7 +266,7 @@ posterAligned <-
     alpha = 0.4, min.segment.length = unit(0, "lines")) +
   scale_y_continuous(limits = c(0,100)) +
   ylab("Overall alignment rate (HISAT2)") +
-  scale_color_manual(values = col.status) +
+  scale_color_manual(values = col.infection) +
   theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
 ggsave(
   file.path(outdir, "poster_alignedQC.pdf"), posterAligned,
@@ -309,7 +309,7 @@ plot.cAssigned <-
     aes(label = Time), data.frame(colData(sce.sc))[outliers$AssignedCount,],
     alpha = 0.6, min.segment.length = unit(0, "lines")
   ) +
-  scale_color_manual(values = col.status) +
+  scale_color_manual(values = col.infection) +
   labs(y = "Count assigned (featureCounts)", x = "Samples") +
   sampleQCtheme
 # plot.cAssigned
@@ -412,7 +412,7 @@ plot.pAssigned <-
   groupQCtheme
 plot.pAssigned
 ggsave(
-  file.path(outdir, "alignment_rate_group.pdf"),
+  file.path(outdir, "assigned_rate_group.pdf"),
   plot.pAssigned + guides(colour = "none", shape = "none"), width = 6, height = 4
 )
 ```
@@ -614,7 +614,9 @@ Let us visualise outliers, along with blank and bulk samples, for reference:
 top50.M <- median(sce.sc$pct_counts_top_50_features)
 top50.MAD <- mad(sce.sc$pct_counts_top_50_features)
 plot.top50 <-
-  ggplot(data.frame(colData(sce.all)), aes(Sample, pct_counts_top_50_features)) +
+  ggplot(
+    data.frame(colData(sce.all)),
+    aes(Sample, pct_counts_top_50_features)) +
   geom_hline(
     yintercept = top50.M + 3*c(-1,1)*top50.MAD,
     colour = "red", linetype = 2:1, alpha = 0.5) +
@@ -626,7 +628,7 @@ plot.top50 <-
     alpha = 0.6, min.segment.length = unit(0, "lines")) +
   labs(y = "% counts (top 50 features)", x = "Samples") +
   scale_y_continuous(limits = c(0,100)) +
-  scale_color_manual(values = col.status) +
+  scale_color_manual(values = col.infection) +
   sampleQCtheme
 # plot.top50
 ggsave(
@@ -705,7 +707,7 @@ plot.top100 <-
     data.frame(colData(sce.sc)[outliers$top100,]),
     alpha = 0.6, min.segment.length = unit(0, "lines"), size = rel(2)) +
   scale_y_continuous(limits = c(0,100)) +
-  scale_color_manual(values = col.status) +
+  scale_color_manual(values = col.infection) +
   labs(title = "% counts (top 100 features)", x=NULL, y=NULL) +
   groupQCtheme
 plot.top100
@@ -768,7 +770,7 @@ plot.top200 <-
     data.frame(colData(sce.sc)[outliers$top200,]),
     alpha = 0.6, min.segment.length = unit(0, "lines"), size = rel(2)) +
   scale_y_continuous(limits = c(0,100)) +
-  scale_color_manual(values = col.status) +
+  scale_color_manual(values = col.infection) +
   labs(title = "% counts (top 200 features)", x=NULL, y=NULL) +
   groupQCtheme
 plot.top200
@@ -1255,7 +1257,7 @@ plot.ERCC <-
     aes(label = Time), data.frame(colData(sce.sc))[outliers$ERCC,], alpha = 0.6,
     min.segment.length = unit(0, "lines")) +
   scale_y_continuous(limits = c(0, 100)) +
-  scale_color_manual(values = col.status) +
+  scale_color_manual(values = col.infection) +
   labs(y = "ERCC content (% counts)") +
   sampleQCtheme
 plot.ERCC
