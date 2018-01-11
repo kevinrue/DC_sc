@@ -36,11 +36,11 @@ convert.z.score <- function(x, one.sided = NULL) {
 }   
 ```
 
-```{r}
+```{r fullTableDirect}
 fullTableDirect <- do.call("rbind", scde.res)
 ```
 
-```{r}
+```{r format_fullTableDirect}
 tmpSplit <- strsplit(rownames(fullTableDirect), ".", fixed = TRUE)
 tmpSplit <- data.frame(do.call("rbind", tmpSplit))
 colnames(tmpSplit) <- c("contrast", "gene_id")
@@ -48,12 +48,12 @@ fullTableDirect <- cbind(tmpSplit, fullTableDirect)
 rownames(fullTableDirect) <- NULL
 ```
 
-```{r}
+```{r append_fullTableDirect}
 fullTableDirect <- addGeneName(fullTableDirect)
 fullTableDirect <- convert.z.score(fullTableDirect)
 ```
 
-```{r}
+```{r View_fullTableDirect}
 # View(subset(fullTableDirect, gene_name == "CTSL" & p.value < 0.01))
 # View(subset(fullTableDirect, gene_name == "CTSS" & p.value < 0.01))
 # View(subset(fullTableDirect, gene_name == "CTSD" & p.value < 0.01))
@@ -74,4 +74,54 @@ View(subset(fullTableDirect, gene_name == "BCL3" & p.value < 0.01))
 View(subset(fullTableDirect, gene_name == "NFIL3" & p.value < 0.01))
 # grep("IL10R", fullTableDirect$gene_name, value = TRUE)
 ```
+
+# DE genes matching conditions
+
+## DE @ 6h Violet + STM-D23580/STM-LT2 & 6h STM-D23580 Violet +/Uninfected
+
+Genes that are:
+
+* DE in contrast: `6h_STM-D23580_Violet +-6h_STM-LT2_Violet +`
+* DE in contrast: `6h_STM-D23580_Violet +-6h_Mock_Uninfected`
+
+```{r query_1}
+contrast.name <- "6h_STM-D23580_Violet +-6h_Mock_Uninfected"
+de.id <- rownames(scde.res[[contrast.name]])[with(
+  convert.z.score(scde.res[[contrast.name]]),
+  which(p.value < 0.01 & mle < 0)
+)]
+contrast.name <- "6h_STM-D23580_Violet +-6h_STM-LT2_Violet +"
+de.id <- intersect(
+  de.id,
+  rownames(scde.res[[contrast.name]])[with(
+    convert.z.score(scde.res[[contrast.name]]),
+    which(p.value < 0.01 & mle < 0)
+  )]
+)
+de.info <- data.frame(
+  gene_id = de.id,
+  gene_name = with(rowData(sce.norm), gene_name[match(de.id, gene_id)])
+)
+```
+
+```{r query_2}
+contrast.name <- "6h_STM-D23580_Violet +-6h_Mock_Uninfected"
+de.id <- rownames(scde.res[[contrast.name]])[with(
+  convert.z.score(scde.res[[contrast.name]]),
+  which(p.value < 0.01 & mle < 0)
+)]
+contrast.name <- "6h_STM-LT2_Violet +-6h_Mock_Uninfected"
+de.id <- intersect(
+  de.id,
+  rownames(scde.res[[contrast.name]])[with(
+    convert.z.score(scde.res[[contrast.name]]),
+    which(p.value > 0.01)
+  )]
+)
+de.info <- data.frame(
+  gene_id = de.id,
+  gene_name = with(rowData(sce.norm), gene_name[match(de.id, gene_id)])
+)
+```
+
 
