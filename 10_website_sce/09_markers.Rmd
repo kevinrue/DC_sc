@@ -522,17 +522,16 @@ for (clusterId in unique(markers_2h_FC.cluster_no0)){
     )
 }
 geneNames <- c(
-  "CCL24","CYBB","CCL7","CMKLR1","ME1","MMP19","MAFB","SERPINB2","IL10","GSDMA",
-  "DDX60L","TMEM158","CD163","FAM83G","RNASE1","FAM107B","IRAK3","KLHL21",
-  "CHST13","CTSL","CXCL2","FOXO3","SPSB1","MAPK13","LAMP1","MS4A4A","CHST15",
-  "MMP9","AGPAT4","CCL26","LGMN","SERPINE1","CD1A","TNF","GOLGA8B","ADAM19",
-  "GOLGA8A","CD40","CD1C","CLEC10A","TUBA1A","IER3","CLEC4A","SLC25A6","SOCS1",
-  "CD1A","LIPA","SLC25A5","CD1C","CACYBP","TUBA1A","ALOX15","ATP5G3","ARHGDIB"
+  "MMP19","CMKLR1","CCL24","CYBB","GSDMA","CTSL","RNASE1","LAMP1","CXCL2",
+  "KLHL21","MMP9","SERPINE1","MAFB","SERPINB2","CD163","CCL7","SPSB1","IL10",
+  "CCL26","CHST13","ME1","FAM83G","IRAK3","MAPK13","CHST15","TMEM158","LGMN",
+  "TNF","CD40","CLEC10A","CLEC4A","GOLGA8B","ADAM19","GOLGA8A","TUBA1A","CD1C","CD1A",
+  "SLC25A5","GALM"
 )
 ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]] + rowAnnotation(
   link = row_anno_link(
     at = which(rownames(markersMatrix) %in% geneNames),
-    labels = geneNames,
+    labels = rownames(markersMatrix)[which(rownames(markersMatrix) %in% geneNames)],
     labels_gp = gpar(cex=2/3),
     link_width = unit(0.5, "inches")
   ),
@@ -672,7 +671,7 @@ for (contrastName in c2h){
   scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
   scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
   scde.table <- scde.table[order(scde.table$p.value),]
-  scde.markers <- head(rownames(scde.table), 50)
+  scde.markers <- head(rownames(scde.table), 100)
   markers_2h_p <- c(markers_2h_p, scde.markers)
   markers_2h_p.cluster <-
     c(markers_2h_p.cluster, rep(clusterId, length(scde.markers)))
@@ -967,17 +966,16 @@ for (clusterId in unique(markers_2h_p.cluster_no0)){
     )
 }
 geneNames <- c(
-  "CCL24","CYBB","CCL7","CMKLR1","ME1","MMP19","MAFB","SERPINB2","IL10","GSDMA",
-  "DDX60L","TMEM158","CD163","FAM83G","RNASE1","FAM107B","IRAK3","KLHL21",
-  "CHST13","CTSL","CXCL2","FOXO3","SPSB1","MAPK13","LAMP1","MS4A4A","CHST15",
-  "MMP9","AGPAT4","CCL26","LGMN","SERPINE1","CD1A","TNF","GOLGA8B","ADAM19",
-  "GOLGA8A","CD40","CD1C","CLEC10A","TUBA1A","IER3","CLEC4A","SLC25A6","SOCS1",
-  "CD1A","LIPA","SLC25A5","CD1C","CACYBP","TUBA1A","ALOX15","ATP5G3","ARHGDIB"
+  "MMP19","CMKLR1","CCL24","CYBB","GSDMA","CTSL","RNASE1","LAMP1","CXCL2",
+  "KLHL21","MMP9","SERPINE1","MAFB","SERPINB2","CD163","CCL7","SPSB1","IL10",
+  "CCL26","CHST13","ME1","FAM83G","IRAK3","MAPK13","CHST15","TMEM158","LGMN",
+  "TNF","CD40","CLEC10A","CLEC4A","GOLGA8B","ADAM19","GOLGA8A","TUBA1A","CD1C","CD1A",
+  "SLC25A5","GALM"
 )
 ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]] + rowAnnotation(
   link = row_anno_link(
     at = which(rownames(markersMatrix) %in% geneNames),
-    labels = geneNames,
+    labels = rownames(markersMatrix)[which(rownames(markersMatrix) %in% geneNames)],
     labels_gp = gpar(cex=2/3),
     link_width = unit(0.5, "inches")
   ),
@@ -1084,7 +1082,7 @@ geneNames <- c(
 ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]] + rowAnnotation(
   link = row_anno_link(
     at = which(rownames(markersMatrix) %in% geneNames),
-    labels = geneNames,
+    labels = rownames(markersMatrix)[which(rownames(markersMatrix) %in% geneNames)],
     labels_gp = gpar(cex=2/3),
     link_width = unit(0.5, "inches")
   ),
@@ -1190,7 +1188,7 @@ geneNames <- c(
 ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]] + rowAnnotation(
   link = row_anno_link(
     at = which(rownames(markersMatrix) %in% geneNames),
-    labels = geneNames,
+    labels = rownames(markersMatrix)[which(rownames(markersMatrix) %in% geneNames)],
     labels_gp = gpar(cex=2/3),
     link_width = unit(0.5, "inches")
   ),
