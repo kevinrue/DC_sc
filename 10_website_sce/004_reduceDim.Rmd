@@ -110,23 +110,3 @@ ggplot(
   ) +
   theme_minimal()
 ```
-
-# PCA without donor 3
-
-Compute the principal components:
-
-```{r}
-pca.excludeD3 <- prcomp(t(assay(se.vsd[,se.vsd$Donor != "D3"])), scale. = TRUE)
-```
-
-Join with phenotype information:
-
-```{r}
-stopifnot(
-  all(colnames(sce.filtered) == rownames(pca$x))
-)
-pca.excludeD3.data <- cbind(
-  data.frame(pca.excludeD3$x),
-  data.frame(colData(sce.filtered[,sce.filtered$Donor != "D3"]))
-)
-```
