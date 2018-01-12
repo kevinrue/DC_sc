@@ -11,9 +11,22 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 stopifnot(
   require(DESeq2),
-  require(ggrepel)
+  require(ggrepel),
+  require(scater)
 )
 sce.filtered <- readRDS("rds/sce.minibulks.filtered_excludeD3.rds")
+outdir <- "004_out"; dir.create(outdir)
+```
+
+# Plotting themes
+
+Let us first define theme elements used throughout various figures
+in the following sections:
+
+```{r PCAtheme}
+PCAtheme <- theme_bw() + theme(
+    legend.position = "bottom", legend.box = "vertical"
+  )
 ```
 
 # Normalise using DESeq2
@@ -22,7 +35,7 @@ To avoid a warning raised by `DESeq2`, let us 'clean' phenotype levels
 to avoid the use of unsafe characters
 (*i.e.* characters that may be interpreted by R as having a special meaning):
 
-```{r}
+```{r clean_deseq2}
 sce.filtered$Group_Safe <- factor(
   gsub(
     "Violet \\+", "Violet",
@@ -54,21 +67,21 @@ dds <- estimateSizeFactors(dds)
 
 Extract transformed values:
 
-```{r}
-se.vsd <- vst(dds, blind=FALSE)
+```{r se.vsd}
+assay(sce.filtered, "vsd") <- assay(vst(dds, blind=FALSE))
 ```
 
 # Apply PCA
 
 Compute the principal components:
 
-```{r}
-pca <- prcomp(t(assay(se.vsd)), scale. = TRUE)
+```{r pca}
+pca <- prcomp(t(assay(sce.filtered, "vsd")), scale. = TRUE)
 ```
 
 Join with phenotype information:
 
-```{r}
+```{r pca_cbind}
 stopifnot(
   all(colnames(sce.filtered) == rownames(pca$x))
 )
@@ -78,7 +91,9 @@ pca.data <- cbind(
 )
 ```
 
-```{r pca_plot}
+## Infection
+
+```{r PCA_Infection}
 ggplot(pca.data, aes(PC1, PC2)) +
   geom_point(
     aes(colour = Infection, shape = Status),
@@ -87,46 +102,127 @@ ggplot(pca.data, aes(PC1, PC2)) +
   geom_text_repel(
     aes(label = paste(Time, Donor, sep = "_")),
     alpha = 0.4,
+    size = rel(1.5),
     min.segment.length = unit(0, "lines")
   ) +
   theme_minimal()
 ```
 
-Removing donor `D3` (here, simply hiding the data points; not recomputing the PCA!)
+```{r PCA_Infection_pdf, echo=FALSE}
+ggsave(
+  file.path(outdir, sprintf("PCA_Infection.pdf")),
+  width = 6, height = 5
+)
+```
 
-```{r}
-ggplot(
-  subset(pca.data, Donor != "D3"),
-  aes(PC1, PC2)
-) +
+## Status
+
+```{r PCA_Status}
+ggplot(pca.data, aes(PC1, PC2)) +
   geom_point(
-    aes(colour = Infection, shape = Status),
+    aes(colour = Status, shape = Infection),
     size = 2
   ) +
   geom_text_repel(
     aes(label = paste(Time, Donor, sep = "_")),
     alpha = 0.4,
+    size = rel(1.5),
     min.segment.length = unit(0, "lines")
   ) +
   theme_minimal()
 ```
 
-# PCA without donor 3
-
-Compute the principal components:
-
-```{r}
-pca.excludeD3 <- prcomp(t(assay(se.vsd[,se.vsd$Donor != "D3"])), scale. = TRUE)
+```{r PCA_Status_pdf, echo=FALSE}
+ggsave(
+  file.path(outdir, sprintf("PCA_Status.pdf")),
+  width = 6, height = 5
+)
 ```
 
-Join with phenotype information:
+## Treatment
 
-```{r}
-stopifnot(
-  all(colnames(sce.filtered) == rownames(pca$x))
+```{r PCA_Treatment}
+ggplot(pca.data, aes(PC1, PC2)) +
+  geom_point(
+    aes(colour = Treatment, shape = Time),
+    size = 2
+  ) +
+  geom_text_repel(
+    aes(label = paste(Time, Donor, sep = "_")),
+    alpha = 0.4,
+    size = rel(1.5),
+    min.segment.length = unit(0, "lines")
+  ) +
+  theme_minimal()
+```
+
+```{r PCA_Treatment_pdf, echo=FALSE}
+ggsave(
+  file.path(outdir, sprintf("PCA_Treatment.pdf")),
+  width = 6, height = 5
 )
-pca.excludeD3.data <- cbind(
-  data.frame(pca.excludeD3$x),
-  data.frame(colData(sce.filtered[,sce.filtered$Donor != "D3"]))
+```
+
+# Apply t-SNE {.tabset}
+
+Computation using the default perplexity
+`floor(ncol(object)/5)`=`r floor(ncol(sce.filtered)/5)`:
+
+```{r runTSNE}
+sce.filtered <- runTSNE(
+  sce.filtered, ncomponents = 2, exprs_values = "vsd",
+  colour_by = "Status", shape_by = "Time",
+  feature_set = !isSpike(sce.filtered),
+  # perplexity = round(mean(table(sce.filtered$Group))),
+  rand_seed = 1794,
+  return_SCE = TRUE, draw_plot = TRUE
+)
+```
+
+## Infection
+
+```{r tSNE_infection}
+colourby <- "Infection"; shapeby <- "Time"
+plotReducedDim(
+  sce.filtered, use_dimred = "TSNE", ncomponents = 2,
+  colour_by = colourby, shape_by = shapeby) + PCAtheme
+```
+
+```{r tSNE_infection_pdf, echo=FALSE}
+ggsave(
+  file.path(outdir, sprintf("plotTSNE_%s.pdf", colourby)),
+  width = 6, height = 5
+)
+```
+
+## Status
+
+```{r tSNE_Status}
+colourby <- "Status"; shapeby <- "Time"
+plotReducedDim(
+  sce.filtered, use_dimred = "TSNE", ncomponents = 2,
+  colour_by = colourby, shape_by = shapeby) + PCAtheme
+```
+
+```{r tSNE_Status_pdf, echo=FALSE}
+ggsave(
+  file.path(outdir, sprintf("plotTSNE_%s.pdf", colourby)),
+  width = 6, height = 5
+)
+```
+
+## Treatment
+
+```{r tSNE_Treatment}
+colourby <- "Treatment"; shapeby <- "Time"
+plotReducedDim(
+  sce.filtered, use_dimred = "TSNE", ncomponents = 2,
+  colour_by = colourby, shape_by = shapeby) + PCAtheme
+```
+
+```{r tSNE_Treatment_pdf, echo=FALSE}
+ggsave(
+  file.path(outdir, sprintf("plotTSNE_%s.pdf", colourby)),
+  width = 6, height = 5
 )
 ```
