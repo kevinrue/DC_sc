@@ -1,0 +1,153 @@
+---
+title: "Differential expression in mini-bulks"
+author: "Kevin Rue-Albrecht"
+date: "06/01/2018"
+output: html_document
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+stopifnot(
+  require(DESeq2)
+)
+sce.norm <- readRDS("rds/sce.minibulks.vsd.pca.rds")
+outdir <- "005_out"; dir.create(outdir)
+dds <- readRDS("rds/DESeq2_dds.rds")
+```
+
+# Differential expression tests
+
+In this section, we apply the `DESeq2` workflow on the `DESeqDataSet`
+produced in an [earlier](004_reduceDim_v2.html#normalise) section:
+
+```{r DESeq}
+dds <- DESeq(dds, test = "Wald", fitType = "parametric")
+```
+
+## Setup
+
+To collect the differential expression statistics, let us first define:
+
+* a list to store the result tables returned by *scde*
+
+```{r scde.res_init, eval=FALSE}
+deseq.res <- list()
+```
+
+* a function used to annotate the tables of results returned by *scde*:
+
+```{r addGeneName}
+addGeneName <- function(x){
+  x <- data.frame(
+    gene_name = with(rowData(sce.norm), gene_name[match(rownames(x), gene_id)]),
+    x
+  )
+  return(data.frame(x))
+}
+```
+
+* a function used to sort the tables by increasing *P*-value
+
+```{r addGeneName}
+orderTable <- function(x){
+  x <- x[order(x$pvalue),]
+  return(data.frame(x))
+}
+```
+
+## List
+
+```{r contrasts.time}
+contrasts.2h <- list(
+  c("2h_D23580_Violet", "2h_Mock_Uninfected"), # vs. Mock
+  c("2h_LT2_Violet", "2h_Mock_Uninfected"),
+  c("2h_D23580_Exposed", "2h_Mock_Uninfected"),
+  c("2h_LT2_Exposed", "2h_Mock_Uninfected"),
+  c("2h_D23580_Violet", "2h_LT2_Violet"), # direct
+  c("2h_D23580_Violet", "2h_D23580_Exposed"),
+  c("2h_LT2_Violet", "2h_LT2_Exposed"),
+  c("2h_D23580_Exposed", "2h_LT2_Exposed")
+)
+contrasts.4h <- list(
+  c("4h_D23580_Violet", "4h_Mock_Uninfected"), # vs. Mock
+  c("4h_LT2_Violet", "4h_Mock_Uninfected"),
+  c("4h_D23580_Exposed", "4h_Mock_Uninfected"),
+  c("4h_LT2_Exposed", "4h_Mock_Uninfected"),
+  c("4h_D23580_Violet", "4h_LT2_Violet"), # direct
+  c("4h_D23580_Violet", "4h_D23580_Exposed"),
+  c("4h_LT2_Violet", "4h_LT2_Exposed"),
+  c("4h_D23580_Exposed", "4h_LT2_Exposed")
+)
+contrasts.6h <- list(
+  c("6h_D23580_Violet", "6h_Mock_Uninfected"), # vs. Mock
+  c("6h_LT2_Violet", "6h_Mock_Uninfected"),
+  c("6h_D23580_Exposed", "6h_Mock_Uninfected"),
+  c("6h_LT2_Exposed", "6h_Mock_Uninfected"),
+  c("6h_D23580_Violet", "6h_LT2_Violet"), # direct
+  c("6h_D23580_Violet", "6h_D23580_Exposed"),
+  c("6h_LT2_Violet", "6h_LT2_Exposed"),
+  c("6h_D23580_Exposed", "6h_LT2_Exposed")
+)
+```
+
+## 2h
+
+```{r}
+for (contrastNames in contrasts.2h){
+  stopifnot(all(contrastNames %in% dds$Group_Safe))
+  contrastName <- sprintf("%s-%s", contrastNames[1], contrastNames[2])
+  message(contrastName)
+  deseq.res[[contrastName]] <- addGeneName(results(
+    dds, contrast = c("Group_Safe", contrastNames)
+  ))
+}
+```
+
+## 4h
+
+```{r}
+for (contrastNames in contrasts.4h){
+  stopifnot(all(contrastNames %in% dds$Group_Safe))
+  contrastName <- sprintf("%s-%s", contrastNames[1], contrastNames[2])
+  message(contrastName)
+  deseq.res[[contrastName]] <- addGeneName(results(
+    dds, contrast = c("Group_Safe", contrastNames)
+  ))
+}
+```
+
+## 6h
+
+```{r}
+for (contrastNames in contrasts.6h){
+  stopifnot(all(contrastNames %in% dds$Group_Safe))
+  contrastName <- sprintf("%s-%s", contrastNames[1], contrastNames[2])
+  message(contrastName)
+  deseq.res[[contrastName]] <- addGeneName(results(
+    dds, contrast = c("Group_Safe", contrastNames)
+  ))
+}
+```
+
+```{r}
+for (contrastName in names(deseq.res)){
+  write.csv(
+    deseq.res[[contrastName]],
+    file.path(outdir, sprintf("DESeq2_%s.csv", contrastName))
+  )
+}
+```
+
+
+```{r}
+names(deseq.res)
+View(data.frame(deseq.res[["6h_D23580_Violet-6h_Mock_Uninfected"]]))
+View(data.frame(deseq.res[["6h_D23580_Violet-6h_LT2_Violet"]]))
+View(data.frame(deseq.res[["6h_LT2_Violet-6h_Mock_Uninfected"]]))
+View(data.frame(deseq.res[["4h_D23580_Violet-4h_D23580_Exposed"]]))
+View(data.frame(deseq.res[["4h_D23580_Violet-4h_Mock_Uninfected"]]))
+```
+
+
