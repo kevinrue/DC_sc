@@ -12,10 +12,20 @@ knitr::opts_chunk$set(echo = TRUE)
 stopifnot(
   require(DESeq2),
   require(ggrepel),
-  require(scater)
+  require(scater),
+  require(RColorBrewer)
 )
 sce.filtered <- readRDS("rds/sce.minibulks.filtered_excludeD3.rds")
 outdir <- "004_out"; dir.create(outdir)
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.filtered$Time)[1:3]
+names(col.infection) <- levels(sce.filtered$Infection)
+names(col.status) <- levels(sce.filtered$Status)
+pdfHeight <- 4; pdfWidth <- 6
+col.treatment <- RColorBrewer::brewer.pal(9, "Paired")[c(9,3,1,4,2)]
+names(col.treatment) <- levels(sce.filtered$Treatment)
 ```
 
 # Plotting themes
@@ -108,13 +118,14 @@ ggplot(pca.data, aes(PC1, PC2)) +
     size = 2,
     min.segment.length = unit(0, "lines")
   ) +
-  theme_minimal()
+  scale_colour_manual(values = col.infection) +
+  theme_bw()
 ```
 
 ```{r PCA_Infection_pdf, echo=FALSE}
 ggsave(
   file.path(outdir, sprintf("PCA_Infection.pdf")),
-  width = 6, height = 5
+  width = pdfWidth, height = pdfHeight
 )
 ```
 
@@ -132,13 +143,37 @@ ggplot(pca.data, aes(PC1, PC2)) +
     size = 2,
     min.segment.length = unit(0, "lines")
   ) +
-  theme_minimal()
+  scale_colour_manual(values = col.status) +
+  theme_bw()
 ```
 
 ```{r PCA_Status_pdf, echo=FALSE}
 ggsave(
   file.path(outdir, sprintf("PCA_Status.pdf")),
-  width = 6, height = 5
+  width = pdfWidth, height = pdfHeight
+)
+```
+
+```{r PCA_Status_bottom_pdf, echo=FALSE}
+ggsave(
+  file.path(outdir, sprintf("PCA_Status_bottom.pdf")),
+  ggplot(pca.data, aes(PC1, PC2)) +
+  geom_point(
+    aes(colour = Status, shape = Infection),
+    size = 2
+  ) +
+  geom_text_repel(
+    aes(label = paste(Time, Donor, sep = "_")),
+    alpha = 0.4,
+    size = 2,
+    min.segment.length = unit(0, "lines")
+  ) +
+  scale_colour_manual(values = col.status) +
+  theme_bw() + theme(
+    legend.position = "bottom",
+    legend.box = "vertical"
+  ),
+  width = 6, height = 6
 )
 ```
 
@@ -156,13 +191,14 @@ ggplot(pca.data, aes(PC1, PC2)) +
     size = 2,
     min.segment.length = unit(0, "lines")
   ) +
-  theme_minimal()
+  scale_colour_manual(values = col.treatment) +
+  theme_bw()
 ```
 
 ```{r PCA_Treatment_pdf, echo=FALSE}
 ggsave(
   file.path(outdir, sprintf("PCA_Treatment.pdf")),
-  width = 6, height = 5
+  width = pdfWidth, height = pdfHeight
 )
 ```
 
