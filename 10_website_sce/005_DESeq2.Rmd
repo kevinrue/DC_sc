@@ -32,7 +32,7 @@ To collect the differential expression statistics, let us first define:
 
 * a list to store the result tables returned by *scde*
 
-```{r scde.res_init, eval=FALSE}
+```{r scde.res_init}
 deseq.res <- list()
 ```
 
@@ -44,94 +44,106 @@ addGeneName <- function(x){
     gene_name = with(rowData(sce.norm), gene_name[match(rownames(x), gene_id)]),
     x
   )
-  return(data.frame(x))
+  return(x)
 }
 ```
 
 * a function used to sort the tables by increasing *P*-value
 
-```{r addGeneName}
+```{r orderTable}
 orderTable <- function(x){
   x <- x[order(x$pvalue),]
-  return(data.frame(x))
+  return(x)
 }
 ```
+
+* a function to make 'safe' character names from experimental levels
+
+```{r safeLevels}
+safeLevels <- function(x){
+  gsub("STM-", "", gsub("Violet +", "Violet", x, fixed = TRUE))
+}
+```
+
 
 ## List
 
 ```{r contrasts.time}
 contrasts.2h <- list(
-  c("2h_D23580_Violet", "2h_Mock_Uninfected"), # vs. Mock
-  c("2h_LT2_Violet", "2h_Mock_Uninfected"),
-  c("2h_D23580_Exposed", "2h_Mock_Uninfected"),
-  c("2h_LT2_Exposed", "2h_Mock_Uninfected"),
-  c("2h_D23580_Violet", "2h_LT2_Violet"), # direct
-  c("2h_D23580_Violet", "2h_D23580_Exposed"),
-  c("2h_LT2_Violet", "2h_LT2_Exposed"),
-  c("2h_D23580_Exposed", "2h_LT2_Exposed")
+  c("2h_STM-D23580_Violet +", "2h_Mock_Uninfected"), # vs. Mock
+  c("2h_STM-LT2_Violet +", "2h_Mock_Uninfected"),
+  c("2h_STM-D23580_Exposed", "2h_Mock_Uninfected"),
+  c("2h_STM-LT2_Exposed", "2h_Mock_Uninfected"),
+  c("2h_STM-D23580_Violet +", "2h_STM-LT2_Violet +"), # direct
+  c("2h_STM-D23580_Violet +", "2h_STM-D23580_Exposed"),
+  c("2h_STM-LT2_Violet +", "2h_STM-LT2_Exposed"),
+  c("2h_STM-D23580_Exposed", "2h_STM-LT2_Exposed")
 )
 contrasts.4h <- list(
-  c("4h_D23580_Violet", "4h_Mock_Uninfected"), # vs. Mock
-  c("4h_LT2_Violet", "4h_Mock_Uninfected"),
-  c("4h_D23580_Exposed", "4h_Mock_Uninfected"),
-  c("4h_LT2_Exposed", "4h_Mock_Uninfected"),
-  c("4h_D23580_Violet", "4h_LT2_Violet"), # direct
-  c("4h_D23580_Violet", "4h_D23580_Exposed"),
-  c("4h_LT2_Violet", "4h_LT2_Exposed"),
-  c("4h_D23580_Exposed", "4h_LT2_Exposed")
+  c("4h_STM-D23580_Violet +", "4h_Mock_Uninfected"), # vs. Mock
+  c("4h_STM-LT2_Violet +", "4h_Mock_Uninfected"),
+  c("4h_STM-D23580_Exposed", "4h_Mock_Uninfected"),
+  c("4h_STM-LT2_Exposed", "4h_Mock_Uninfected"),
+  c("4h_STM-D23580_Violet +", "4h_STM-LT2_Violet +"), # direct
+  c("4h_STM-D23580_Violet +", "4h_STM-D23580_Exposed"),
+  c("4h_STM-LT2_Violet +", "4h_STM-LT2_Exposed"),
+  c("4h_STM-D23580_Exposed", "4h_STM-LT2_Exposed")
 )
 contrasts.6h <- list(
-  c("6h_D23580_Violet", "6h_Mock_Uninfected"), # vs. Mock
-  c("6h_LT2_Violet", "6h_Mock_Uninfected"),
-  c("6h_D23580_Exposed", "6h_Mock_Uninfected"),
-  c("6h_LT2_Exposed", "6h_Mock_Uninfected"),
-  c("6h_D23580_Violet", "6h_LT2_Violet"), # direct
-  c("6h_D23580_Violet", "6h_D23580_Exposed"),
-  c("6h_LT2_Violet", "6h_LT2_Exposed"),
-  c("6h_D23580_Exposed", "6h_LT2_Exposed")
+  c("6h_STM-D23580_Violet +", "6h_Mock_Uninfected"), # vs. Mock
+  c("6h_STM-LT2_Violet +", "6h_Mock_Uninfected"),
+  c("6h_STM-D23580_Exposed", "6h_Mock_Uninfected"),
+  c("6h_STM-LT2_Exposed", "6h_Mock_Uninfected"),
+  c("6h_STM-D23580_Violet +", "6h_STM-LT2_Violet +"), # direct
+  c("6h_STM-D23580_Violet +", "6h_STM-D23580_Exposed"),
+  c("6h_STM-LT2_Violet +", "6h_STM-LT2_Exposed"),
+  c("6h_STM-D23580_Exposed", "6h_STM-LT2_Exposed")
 )
 ```
 
 ## 2h
 
-```{r}
+```{r contrasts.2h}
 for (contrastNames in contrasts.2h){
-  stopifnot(all(contrastNames %in% dds$Group_Safe))
   contrastName <- sprintf("%s-%s", contrastNames[1], contrastNames[2])
   message(contrastName)
-  deseq.res[[contrastName]] <- addGeneName(results(
-    dds, contrast = c("Group_Safe", contrastNames)
+  safeNames <- safeLevels(contrastNames)
+  stopifnot(all(safeNames %in% dds$Group_Safe))
+  deseq.res[[contrastName]] <- data.frame(results(
+    dds, contrast = c("Group_Safe", safeNames)
   ))
 }
 ```
 
 ## 4h
 
-```{r}
+```{r contrasts.4h}
 for (contrastNames in contrasts.4h){
-  stopifnot(all(contrastNames %in% dds$Group_Safe))
   contrastName <- sprintf("%s-%s", contrastNames[1], contrastNames[2])
   message(contrastName)
-  deseq.res[[contrastName]] <- addGeneName(results(
-    dds, contrast = c("Group_Safe", contrastNames)
+  safeNames <- safeLevels(contrastNames)
+  stopifnot(all(safeNames %in% dds$Group_Safe))
+  deseq.res[[contrastName]] <- data.frame(results(
+    dds, contrast = c("Group_Safe", safeNames)
   ))
 }
 ```
 
 ## 6h
 
-```{r}
+```{r contrasts.6h}
 for (contrastNames in contrasts.6h){
-  stopifnot(all(contrastNames %in% dds$Group_Safe))
   contrastName <- sprintf("%s-%s", contrastNames[1], contrastNames[2])
   message(contrastName)
-  deseq.res[[contrastName]] <- addGeneName(results(
-    dds, contrast = c("Group_Safe", contrastNames)
+  safeNames <- safeLevels(contrastNames)
+  stopifnot(all(safeNames %in% dds$Group_Safe))
+  deseq.res[[contrastName]] <- data.frame(results(
+    dds, contrast = c("Group_Safe", safeNames)
   ))
 }
 ```
 
-```{r}
+```{r write.csv, include=FALSE}
 for (contrastName in names(deseq.res)){
   write.csv(
     deseq.res[[contrastName]],
@@ -140,14 +152,17 @@ for (contrastName in names(deseq.res)){
 }
 ```
 
+```{r saveRDS, include=FALSE}
+saveRDS(deseq.res, "rds/deseq.res.rds")
+```
 
-```{r}
+```{r view_DESeq, echo=FALSE, eval=FALSE}
 names(deseq.res)
-View(data.frame(deseq.res[["6h_D23580_Violet-6h_Mock_Uninfected"]]))
-View(data.frame(deseq.res[["6h_D23580_Violet-6h_LT2_Violet"]]))
-View(data.frame(deseq.res[["6h_LT2_Violet-6h_Mock_Uninfected"]]))
-View(data.frame(deseq.res[["4h_D23580_Violet-4h_D23580_Exposed"]]))
-View(data.frame(deseq.res[["4h_D23580_Violet-4h_Mock_Uninfected"]]))
+View(addGeneName(deseq.res[["6h_STM-D23580_Violet +-6h_Mock_Uninfected"]]))
+View(addGeneName(deseq.res[["6h_STM-D23580_Violet +-6h_STM-LT2_Violet +"]]))
+View(addGeneName(deseq.res[["6h_STM-STM-LT2_Violet +-6h_Mock_Uninfected"]]))
+View(addGeneName(deseq.res[["4h_STM-D23580_Violet +-4h_STM-D23580_Exposed"]]))
+View(addGeneName(deseq.res[["4h_STM-D23580_Violet +-4h_Mock_Uninfected"]]))
 ```
 
 
