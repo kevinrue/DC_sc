@@ -22,21 +22,10 @@ To avoid a warning raised by `DESeq2`, let us 'clean' phenotype levels
 to avoid the use of unsafe characters
 (*i.e.* characters that may be interpreted by R as having a special meaning):
 
-```{r}
+```{r Group_Safe}
 sce.filtered$Group_Safe <- factor(
-  gsub(
-    "Violet \\+", "Violet",
-    gsub(
-      "STM-", "",
-      sce.filtered$Group
-    )
-  ),
-  gsub(
-    "Violet \\+", "Violet",
-    gsub(
-      "STM-", "",
-      levels(sce.filtered$Group)
-    )
+  gsub("Violet +", "Violet", gsub("STM-", "",sce.filtered$Group), fixed = TRUE),
+  gsub("Violet +", "Violet", gsub("STM-", "", levels(sce.filtered$Group), fixed = TRUE)
   )
 )
 ```
