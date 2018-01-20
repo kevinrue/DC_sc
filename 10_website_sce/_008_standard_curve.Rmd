@@ -24,13 +24,16 @@ Curve_RfaH <- read_excel("../expdata/Standard_curve.xlsx", sheet = "Curve_RfaH")
 ```{r}
 gg <- ggplot(Curve_RfaH, aes(gene_ratio, bacteria_ratio)) +
   geom_point() +
-  geom_smooth(method = "lm") +
+  geom_smooth(method = "lm", alpha = 0.1) +
   scale_x_log10() +
   scale_y_log10() +
   coord_flip() +
   labs(x = "RfaH/GAPDH", y = "Salmonella/Host") +
   theme_bw(); gg
-
+ggsave(
+  file.path(dirOut, "curve_fit.pdf"), gg,
+  width = 6, height = 5
+)
 ```
 
 ```{r}
@@ -73,4 +76,23 @@ ggsave(
   width = 6, height = 5
 )
 ```
+
+```{r}
+gg <- ggplot(Curve_RfaH, aes(gene_ratio, bacteria_ratio)) +
+  geom_point() +
+  geom_point(
+    data = predict_RfaH, colour = "red"
+  ) +
+  geom_smooth(method = "lm", alpha = 0.1) +
+  scale_x_log10() +
+  scale_y_log10() +
+  coord_flip() +
+  labs(x = "RfaH/GAPDH", y = "Salmonella/Host") +
+  theme_bw(); gg
+ggsave(
+  file.path(dirOut, "curve_prediction.pdf"), gg,
+  width = 6, height = 5
+)
+```
+
 
