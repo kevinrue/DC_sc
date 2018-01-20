@@ -10,7 +10,10 @@ editor_options:
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(echo = TRUE)
 stopifnot(
-  require(dplyr)
+  require(dplyr),
+  require(RColorBrewer),
+  require(ggplot2),
+  require(ggrepel)
 )
 sce.endo <- readRDS("rds/sce.endo_clusters.rds")
 scde.res <- readRDS("rds/scde_group.rds")
@@ -68,6 +71,8 @@ fc.scale <- c(-1,1)*max(c(fc.scde, fc.deseq))
 
 # Comparisons relative to uninfected controls
 
+## Combine data from all contrasts
+
 ```{r tablesUninfected}
 contrastNames <- grep("Uninfected", names(scde.res), value = TRUE)
 tablesUninfected <- lapply(
@@ -82,7 +87,7 @@ tablesUninfected <- lapply(
       tableDESeq[intersectTests, c("log2FoldChange","padj")]
     )
     tableIntersect <- tableIntersect[with(tableIntersect, order(mle * log2FoldChange, decreasing = TRUE)),]
-    tableIntersect$Contrast <- gsub("-([[:digit:]])", "\n\\1", contrastName, fixed = TRUE)
+    tableIntersect$Contrast <- gsub("-([[:digit:]])", "\n\\1", contrastName)
     tableIntersect <- addGeneName(tableIntersect)
     tableIntersect
   }
@@ -90,7 +95,7 @@ tablesUninfected <- lapply(
 names(tablesUninfected) <- contrastNames
 ```
 
-```{r}
+```{r tablesMerged}
 tablesMerged <- DataFrame(do.call("rbind", tablesUninfected), row.names = NULL)
 DE.levels <- c("None", "SCDE", "DESeq2", "Both")
 tablesMerged$DE <- with(
@@ -99,7 +104,9 @@ tablesMerged$DE <- with(
 # tablesMerged <- tablesMerged[with(tablesMerged, order(mle * log2FoldChange, decreasing = TRUE)),]
 ```
 
-```{r}
+## Label top genes DE both experiments
+
+```{r ggplot_DE_both}
 ggplot(subset(as.data.frame(tablesMerged), DE != "None"), aes(mle, log2FoldChange)) +
   facet_wrap(~Contrast, nrow = 3, ncol = 4) +
   geom_point(
@@ -110,14 +117,19 @@ ggplot(subset(as.data.frame(tablesMerged), DE != "None"), aes(mle, log2FoldChang
   scale_y_continuous(limits = fc.scale) +
   theme_bw() +
   geom_text_repel(
-    aes(label = gene_name),
-    head(subset(as.data.frame(tablesMerged), DE == "Both"), topNgenes),
+    aes(label = gene_name, color = DE),
+    head(
+      dplyr::arrange(subset(as.data.frame(tablesMerged), DE == "Both"), desc(abs(mle))),
+      topNgenes
+    ),
     min.segment.length = unit(0, "lines"),
     size = 2, alpha = 0.9
   )
 ```
 
-```{r}
+## Label top genes DE in single-cell only
+
+```{r ggplot_DE_scde}
 ggplot(subset(as.data.frame(tablesMerged), DE != "None"), aes(mle, log2FoldChange)) +
   facet_wrap(~Contrast, nrow = 3, ncol = 4) +
   geom_point(
@@ -138,9 +150,10 @@ ggplot(subset(as.data.frame(tablesMerged), DE != "None"), aes(mle, log2FoldChang
   )
 ```
 
+## Label MARCH1
 
-```{r}
-ggplot(subset(tablesMerged, DE != "None"), aes(mle, log2FoldChange)) +
+```{r ggplot_MARCH1}
+ggplot(subset(as.data.frame(tablesMerged), DE != "None"), aes(mle, log2FoldChange)) +
   facet_wrap(~Contrast, nrow = 3, ncol = 4) +
   geom_point(
     aes(colour = DE),
@@ -151,40 +164,91 @@ ggplot(subset(tablesMerged, DE != "None"), aes(mle, log2FoldChange)) +
   theme_bw() +
   geom_text_repel(
     aes(label = gene_name, color = DE),
-    subset(tablesMerged, gene_name == "MARCH1"),
+    subset(as.data.frame(tablesMerged), gene_name == "MARCH1"),
     min.segment.length = unit(0, "lines"),
     size = 4, alpha = 0.8
   )
 ```
 
+# Volcano plots ----
 
+## 4h_STM-D23580_Violet +-4h_STM-D23580_Exposed
 
-
-```{r}
-# tableIntersect$DE_both <- with(tableIntersect, p.value < max.padj & padj < max.padj)
-# tableIntersect <- addGeneName(tableIntersect)
-```
-
-
-```{r}
-gg <- ggplot(tableIntersect, aes(mle, log2FoldChange)) +
+```{r volcano_4h_D23580_top}
+contrastName <- "4h_STM-D23580_Violet +-4h_STM-D23580_Exposed"
+tmpTable <- addGeneName(deseq.res[[contrastName]])
+tmpTable <- tmpTable[order(tmpTable$pvalue),]
+ggplot(tmpTable, aes(log2FoldChange, -log10(pvalue))) +
   geom_point(
-    aes(colour = DE_both),
-    alpha = 0.3
+    aes(colour = padj < 0.01), alpha = 0.5
   ) +
   geom_text_repel(
-    aes(label = gene_name),
-    head(subset(tableIntersect, DE_both), topNgenes),
-    min.segment.length = unit(0, "lines"),
-    size = 2, alpha = 0.8
+    aes(label = gene_name), min.segment.length = unit(0, "mm"), size = 3,
+    head(tmpTable, 40)
   ) +
-  scale_x_continuous(limits = fc.scale) +
-  scale_y_continuous(limits = fc.scale) +
-  labs(title = contrastSCDE) +
-  theme_bw(); gg
+  labs(title = contrastName) +
+  theme_bw()
+```
+
+```{r volcano_4h_D23580_curated}
+tmpTable <- addGeneName(deseq.res[[contrastName]])
+tmpTable <- tmpTable[order(tmpTable$pvalue),]
+gg <- ggplot(tmpTable, aes(log2FoldChange, -log10(pvalue))) +
+  geom_point(
+    aes(colour = padj < 0.01), alpha = 0.3, size = 0.5
+  ) +
+  geom_text_repel(
+    aes(label = gene_name), min.segment.length = unit(0, "mm"),
+    subset(tmpTable, gene_name %in% c(
+      "CTSD","LGMN","CCL7","CCL26","MS4A4A","LAMP1","APOE",
+      "IL1B","PLAT","CD1A","CD1C","TIFAB","CCL1","TRAF4","CD83"
+    ))
+  ) +
+  labs(title = contrastName) +
+  theme_bw()
 ggsave(
-  file.path(outdir, sprintf("FC_%s_%s_both.pdf", topNgenes, contrastSCDE)), gg,
-  width = 6, height = 5
+  file.path(outdir, sprintf("volcano_%s.pdf", contrastName)), gg,
+  width = 6, height = 4
+)
+```
+
+## 4h_STM-LT2_Violet +-4h_STM-LT2_Exposed
+
+```{r volcano_4h_LT2_top}
+contrastName <- "4h_STM-LT2_Violet +-4h_STM-LT2_Exposed"
+tmpTable <- addGeneName(deseq.res[[contrastName]])
+tmpTable <- tmpTable[order(tmpTable$pvalue),]
+ggplot(tmpTable, aes(log2FoldChange, -log10(pvalue))) +
+  geom_point(
+    aes(colour = padj < 0.01), alpha = 0.5
+  ) +
+  geom_text_repel(
+    aes(label = gene_name), min.segment.length = unit(0, "mm"), size = 3,
+    head(tmpTable, 40)
+  ) +
+  labs(title = contrastName) +
+  theme_bw()
+```
+
+```{r volcano_4h_LT2_curated}
+tmpTable <- addGeneName(deseq.res[[contrastName]])
+tmpTable <- tmpTable[order(tmpTable$pvalue),]
+gg <- ggplot(tmpTable, aes(log2FoldChange, -log10(pvalue))) +
+  geom_point(
+    aes(colour = padj < 0.01), alpha = 0.3, size = 0.5
+  ) +
+  geom_text_repel(
+    aes(label = gene_name), min.segment.length = unit(0, "mm"),
+    subset(tmpTable, gene_name %in% c(
+      "CTSD","CCL26","CCL7","LGMN","MS4A4A","LAMP1",
+      "CCL1","CD1C","CD1A","PLAT","CLEC7A","REL","IL23A"
+    ))
+  ) +
+  labs(title = contrastName) +
+  theme_bw()
+ggsave(
+  file.path(outdir, sprintf("volcano_%s.pdf", contrastName)), gg,
+  width = 6, height = 4
 )
 ```
 
