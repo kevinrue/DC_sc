@@ -1,0 +1,93 @@
+---
+title: "Heat map of expression in mini-bulks"
+author: "Kevin Rue-Albrecht"
+date: "06/01/2018"
+output: html_document
+editor_options:
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+stopifnot(
+  require(DESeq2),
+  require(ComplexHeatmap)
+)
+sce.norm <- readRDS("rds/sce.minibulks.vsd.pca.rds")
+outdir <- "007_out"; dir.create(outdir)
+dds <- readRDS("rds/DESeq2_dds.rds")
+```
+
+```{r}
+blackred <- colorRampPalette(c("black","brown","red","orange","yellow"))(20)
+purpleblackyellow <- colorRampPalette(c("purple","black","yellow"))(10)
+```
+
+
+```{r}
+samples_6h <- rownames(subset(colData(sce.norm), Time == "6h"))
+march_data <- rowData(sce.norm)[grep("^MARCH", rowData(sce.norm)[,"gene_name"]),]
+heat_data <- assay(sce.norm, "vsd")[march_data$gene_id, samples_6h]
+rownames(heat_data) <- march_data$gene_name
+col_data <- colData(sce.norm)[samples_6h, c("Infection","Status")]
+ha <- HeatmapAnnotation(df = col_data)
+Heatmap(matrix = heat_data, top_annotation = ha)
+# Heatmap(matrix = t(scale(t(heat_data))), top_annotation = ha)
+# Heatmap(matrix = t(scale(t(heat_data))), top_annotation = ha, col = colors)
+```
+
+```{r}
+gene_names <- c("MARCH1","CD83","IL10")
+gene_ids <- with(rowData(sce.norm), gene_id[match(gene_names, gene_name)])
+heat_data <- assay(sce.norm, "vsd")[gene_ids, samples_6h]
+rownames(heat_data) <- gene_names
+# Heatmap(matrix = heat_data, top_annotation = ha)
+Heatmap(matrix = t(scale(t(heat_data))), top_annotation = ha)
+```
+
+
+```{r}
+sce.norm <- sce.norm[,order(sce.norm$Group)]
+gene_names <- c("MARCH1","CD83","IL10")
+gene_ids <- with(rowData(sce.norm), gene_id[match(gene_names, gene_name)])
+heat_data <- t(scale(t(assay(sce.norm, "vsd")[gene_ids,])))
+rownames(heat_data) <- gene_names
+#
+samples_2h <- rownames(subset(colData(sce.norm), Time == "2h"))
+samples_4h <- rownames(subset(colData(sce.norm), Time == "4h"))
+samples_6h <- rownames(subset(colData(sce.norm), Time == "6h"))
+heat_data_2h <- heat_data[,samples_2h]
+heat_data_4h <- heat_data[,samples_4h]
+heat_data_6h <- heat_data[,samples_6h]
+#
+ha_2 <- HeatmapAnnotation(df = colData(sce.norm)[samples_2h, c("Infection","Status")])
+ha_4 <- HeatmapAnnotation(df = colData(sce.norm)[samples_4h, c("Infection","Status")])
+ha_6 <- HeatmapAnnotation(df = colData(sce.norm)[samples_6h, c("Infection","Status")])
+#
+ht_2 <- Heatmap(
+  matrix = heat_data_2h, top_annotation = ha_2,
+  cluster_rows = FALSE, cluster_columns = FALSE,
+  # col = purpleblackyellow,
+  show_row_names = TRUE, show_column_names = FALSE,
+  row_names_side = "left"
+)
+ht_4 <- Heatmap(
+  matrix = heat_data_4h, top_annotation = ha_4,
+  cluster_rows = FALSE, cluster_columns = FALSE,
+  # col = purpleblackyellow,
+  show_row_names = FALSE, show_column_names = FALSE,
+  show_heatmap_legend = FALSE
+)
+ht_6 <- Heatmap(
+  matrix = heat_data_6h, top_annotation = ha_6,
+  cluster_rows = FALSE, cluster_columns = FALSE,
+  # col = purpleblackyellow,
+  show_row_names = FALSE, show_column_names = FALSE,
+  show_heatmap_legend = FALSE
+)
+pdf(file.path(outdir, "heatmap_MARCH1_CD83_IL10_all_time.pdf"), width = 12, height = 3)
+draw(ht_2 + ht_4 + ht_6)
+dev.off()
+```
+
+
