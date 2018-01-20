@@ -1,0 +1,76 @@
+---
+title: "Standard curve"
+author: "Kevin Rue-Albrecht"
+date: "03/01/2018"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+stopifnot(
+  require(readxl),
+  require(ggplot2),
+  require(ggrepel)
+)
+dirOut <- "_008_standard_curve_out"; dir.create(dirOut)
+```
+
+```{r}
+Curve_RfaH <- read_excel("../expdata/Standard_curve.xlsx", sheet = "Curve_RfaH")
+```
+
+```{r}
+gg <- ggplot(Curve_RfaH, aes(gene_ratio, bacteria_ratio)) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  scale_x_log10() +
+  scale_y_log10() +
+  coord_flip() +
+  labs(x = "RfaH/GAPDH", y = "Salmonella/Host") +
+  theme_bw(); gg
+
+```
+
+```{r}
+ggplot(Curve_RfaH, aes(log10(gene_ratio), log10(bacteria_ratio))) +
+  geom_point() +
+  geom_smooth(method = "lm") +
+  theme_bw()
+```
+
+```{r}
+RfaH_log10 <- log10(Curve_RfaH)
+lm_RfaH <- lm(formula = bacteria_ratio ~ gene_ratio, RfaH_log10)
+```
+
+```{r}
+predict_RfaH <- read_excel("~/git/DC_sc/expdata/Standard_curve.xlsx", sheet = "predict_RfaH")
+predict_RfaH_log10 <- log10(predict_RfaH[,"gene_ratio"])
+```
+
+```{r}
+predict_RfaH_log10$bacteria_ratio <- predict.lm(object = lm_RfaH, newdata = predict_RfaH_log10)
+predict_RfaH$bacteria_ratio <- 10^(predict_RfaH_log10$bacteria_ratio)
+```
+
+```{r}
+gg <- ggplot(Curve_RfaH, aes(gene_ratio, bacteria_ratio)) +
+  geom_point() +
+  geom_point(
+    data = predict_RfaH, colour = "red"
+  ) +
+  geom_text_repel(aes(label = group), predict_RfaH, alpha = 0.5) +
+  geom_smooth(method = "lm", alpha = 0.1) +
+  scale_x_log10() +
+  scale_y_log10() +
+  coord_flip() +
+  labs(x = "RfaH/GAPDH", y = "Salmonella/Host") +
+  theme_bw(); gg
+ggsave(
+  file.path(dirOut, "curve_prediction_annotated.pdf"), gg,
+  width = 6, height = 5
+)
+```
+
