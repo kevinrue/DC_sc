@@ -16,13 +16,17 @@ stopifnot(
 sce.norm <- readRDS("rds/sce.minibulks.vsd.pca.rds")
 outdir <- "007_out"; dir.create(outdir)
 dds <- readRDS("rds/DESeq2_dds.rds")
+deseq.res <- readRDS("rds/deseq.res.rds")
 ```
 
-```{r}
+# Color maps
+
+```{r colorRampPalette}
 blackred <- colorRampPalette(c("black","brown","red","orange","yellow"))(20)
 purpleblackyellow <- colorRampPalette(c("purple","black","yellow"))(10)
 ```
 
+# Heat map of the `MARCH*` genes at 6h p.i.
 
 ```{r}
 samples_6h <- rownames(subset(colData(sce.norm), Time == "6h"))
@@ -36,6 +40,8 @@ Heatmap(matrix = heat_data, top_annotation = ha)
 # Heatmap(matrix = t(scale(t(heat_data))), top_annotation = ha, col = colors)
 ```
 
+# MARCH1, CD83 and IL10 at 6h p.i.
+
 ```{r}
 gene_names <- c("MARCH1","CD83","IL10")
 gene_ids <- with(rowData(sce.norm), gene_id[match(gene_names, gene_name)])
@@ -45,6 +51,7 @@ rownames(heat_data) <- gene_names
 Heatmap(matrix = t(scale(t(heat_data))), top_annotation = ha)
 ```
 
+# MARCH1, CD83 and IL10 at 6h p.i. across time points
 
 ```{r}
 sce.norm <- sce.norm[,order(sce.norm$Group)]
@@ -90,4 +97,14 @@ draw(ht_2 + ht_4 + ht_6)
 dev.off()
 ```
 
+# Genes DE in STM-D23580 Violet +/Exposed at any time point
+
+```{r}
+names(deseq.res)
+tmp_contrasts <- grep("STM-D23580_Violet \\+-.*Exposed", names(deseq.res), value = TRUE)
+tmp_DEgeneList <- lapply(tmp_contrasts, function(x){
+  rownames(subset(deseq.res[[x]], padj < 0.05))
+})
+tmp_DEgenes <- unique(unlist(tmp_DEgeneList))
+```
 
