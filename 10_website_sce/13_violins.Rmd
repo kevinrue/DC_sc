@@ -510,8 +510,8 @@ gg <- ggplot(tmpDF, aes(TreatmentLabel, logcounts)) +
   scale_fill_manual(values = col.treatment) +
   theme_bw() +
   theme(
-    strip.text.x = element_text(angle = 180),
-    strip.text.y = element_text(angle = 0)
+    strip.text.y = element_text(angle = 0),
+    strip.background = element_rect(fill = "white")
   )
 ggsave(file.path(outdir, "violins_6h_facetGeneName.pdf"), gg, height = 15, width = 7)
 ```
