@@ -1,0 +1,100 @@
+name: SC / DC
+navbar:
+  title: SC/DC
+  right:
+  - text: Home
+    icon: fa-home
+    href: index.html
+  - text: Experiment
+    icon: fa-flask
+    menu:
+    - text: Background
+    - text: Invasive Salmonelloses
+      icon: fa-bug
+      href: 00a_Introduction_Salmonella.html
+    - text: Dendritic Cells
+      icon: fa-certificate
+      href: 00b_Introduction_DC.html
+    - text: '-------------'
+    - text: Methods
+    - text: Experimental
+      icon: fa-flask
+      href: 00c_experimental_methods.html
+    - text: RNA-sequencing
+      icon: fa-list
+      href: 00d_preprocessing.html
+  - text: Data
+    icon: fa-database
+    menu:
+    - text: SingleCellExperiment
+      href: 01a_import.html
+      icon: fa-dot-circle-o
+    - text: ERCC
+      href: 01b_ERCC.html
+      icon: fa-eyedropper
+  - text: QC
+    icon: fa-filter
+    menu:
+    - text: Samples
+      href: 02_QC_sample.html
+      icon: fa-check-square-o
+    - text: Features
+      href: 03_QC_feature.html
+      icon: fa-signal
+    - text: Normalisation
+      href: 04_scran_norm.html
+      icon: fa-bar-chart
+  - text: Analyses
+    icon: fa-pie-chart
+    menu:
+    - text: HVGs
+      href: 05_HVGs.html
+      icon: fa-arrows-alt
+    - text: Reduced dim.
+      href: 06_reduceDim.html
+      icon: fa-sort-amount-desc
+    - text: SCDE
+      href: 07_SCDE.html
+      icon: fa-line-chart
+    - text: Clusters
+      href: 08_cluster.html
+      icon: fa-paw
+    - text: Markers
+      href: 09_markers.html
+      icon: fa-map-marker
+    - text: SCDE clusters
+      href: 10_SCDE_cluster.html
+      icon: fa-search-plus
+  - text: Extras
+    icon: fa-rocket
+    menu:
+    - text: GoT (Gene on TSNE)
+      href: 11_gene_TSNE.html
+      icon: fa-spinner
+    - text: Density
+      href: 12_density.html
+      icon: fa-area-chart
+    - text: Violins
+      href: 13_violins.html
+      icon: fa-snapchat-ghost
+  - text: About
+    href: about.html
+    icon: fa-info
+output:
+  html_document:
+    fig_caption: yes
+    theme: cosmo
+    highlight: textmate
+    toc: yes
+    toc_depth: 2
+    toc_float:
+      collapsed: no
+      smooth_scroll: yes
+    lib_dir: site_libs
+    self_contained: no
+exclude:
+- rds
+- test_*
+- '*_out'
+output_dir: _site
+

@@ -58,6 +58,7 @@ vignettes/*.pdf
 .Rproj.user
 packrat/lib*/
 tutos/
+img/
 
 # Jay Hinton STM RNA-seq
 11_Hinton_STM/
