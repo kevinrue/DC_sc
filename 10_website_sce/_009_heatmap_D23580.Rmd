@@ -56,12 +56,21 @@ addGeneName <- function(x){
 
 # Color maps
 
-```{r colorRampPalette}
+```{r yellowblackred}
 yellowblackred <- colorRampPalette(c("black","brown","red","orange","yellow"))(20)
+```
+
+```{r blackpurpleyellow}
 blackpurpleyellow <- colorRampPalette(c("black","purple","yellow"))(11)
+```
+
+```{r colfun}
 scale_range_logcounts <- range(assay(sce.endo, "logcounts")) * 0.9
 span_range_logcounts <- max(scale_range_logcounts) - min(scale_range_logcounts)
-colfun <- colorRamp2(breaks = seq(min(scale_range_logcounts), max(scale_range_logcounts), span_range_logcounts / 10), colors = blackpurpleyellow)
+colfun <- colorRamp2(
+  breaks = seq(min(scale_range_logcounts), max(scale_range_logcounts), span_range_logcounts / 10),
+  colors = blackpurpleyellow
+)
 ```
 
 # Union of genes DE in STM-D23580 violet/infected across time point
@@ -565,6 +574,147 @@ pdf(file.path(outdir, "DE_violet_6h_annolink_rowscaled.pdf"), width = 7, height 
 draw(ht_6 + ra_6)
 dev.off()
 ```
+
+## Row-scaled (v2)
+
+### 2h
+
+```{r}
+#
+names(scde.res)
+tmp_DEgenes <- rownames(subset(
+  convert.z.score(scde.res[["2h_STM-D23580_Violet +-2h_STM-LT2_Violet +"]]),
+  p.value < 0.01)
+)
+#
+samples_2h <- rownames(subset(colData(sce.endo), Time == "2h" & Status == "Violet +"))
+#
+heat_data_2h <- assay(sce.endo, "logcounts")[tmp_DEgenes, samples_2h]
+heat_data_2h <- t(scale(t(heat_data_2h)))
+#
+row_clust <- hclust(dist(heat_data_2h[tmp_DEgenes,]))
+#
+ha_2 <- HeatmapAnnotation(
+  df = colData(sce.endo)[samples_2h, c("Infection"), drop = FALSE],
+  col = list(Infection = col.infection)
+)
+#
+GOIdf$row <- match(GOIdf$gene_id, rownames(heat_data_2h))
+#
+ht_2 <- Heatmap(
+  matrix = heat_data_2h, top_annotation = ha_2,
+  cluster_rows = row_clust, cluster_columns = FALSE,
+  col = colorRamp2(
+    c(min(heat_data_2h), c(-1,0,1), max(heat_data_2h)),
+    c("purple","gray10","black","gray10","yellow")
+  ),
+  show_row_names = FALSE, show_column_names = FALSE,
+  row_names_side = "left"
+)
+#
+pdf(file.path(outdir, "DE_violet_2h_rowscaled_offset1.pdf"), width = 7, height = 10)
+draw(ht_2)
+dev.off()
+```
+
+### 4h
+
+```{r}
+#
+names(scde.res)
+tmp_DEgenes <- rownames(subset(
+  convert.z.score(scde.res[["4h_STM-D23580_Violet +-4h_STM-LT2_Violet +"]]),
+  p.value < 0.01)
+)
+#
+samples_4h <- rownames(subset(colData(sce.endo), Time == "4h" & Status == "Violet +"))
+#
+heat_data_4h <- assay(sce.endo, "logcounts")[tmp_DEgenes, samples_4h]
+heat_data_4h <- t(scale(t(heat_data_4h)))
+#
+row_clust <- hclust(dist(heat_data_4h[tmp_DEgenes,]))
+#
+ha_4 <- HeatmapAnnotation(
+  df = colData(sce.endo)[samples_4h, c("Infection"), drop = FALSE],
+  col = list(Infection = col.infection)
+)
+#
+GOIdf$row <- match(GOIdf$gene_id, rownames(heat_data_4h))
+GOIdf_4 <- subset(GOIdf, !is.na(row))
+ra_4 <- rowAnnotation(
+  link = row_anno_link(
+    at = GOIdf_4$row,
+    labels = as.character(GOIdf_4$gene_name),
+    labels_gp = gpar(cex=2/3),
+    link_width = unit(0.5, "inches")
+  )
+)
+#
+ht_4 <- Heatmap(
+  matrix = heat_data_4h, top_annotation = ha_4,
+  cluster_rows = row_clust, cluster_columns = FALSE,
+  col = colorRamp2(
+    c(min(heat_data_2h), c(-1,0,1), max(heat_data_2h)),
+    c("purple","gray10","black","gray10","yellow")
+  ),
+  show_row_names = FALSE, show_column_names = FALSE,
+  row_names_side = "left"
+)
+#
+pdf(file.path(outdir, "DE_violet_4h_annolink_rowscaled_offset1.pdf"), width = 7, height = 10)
+draw(ht_4 + ra_4)
+dev.off()
+```
+
+### 6h
+
+```{r}
+#
+names(scde.res)
+tmp_DEgenes <- rownames(subset(
+  convert.z.score(scde.res[["6h_STM-D23580_Violet +-6h_STM-LT2_Violet +"]]),
+  p.value < 0.01)
+)
+#
+samples_6h <- rownames(subset(colData(sce.endo), Time == "6h" & Status == "Violet +"))
+#
+heat_data_6h <- assay(sce.endo, "logcounts")[tmp_DEgenes, samples_6h]
+heat_data_6h <- t(scale(t(heat_data_6h)))
+#
+row_clust <- hclust(dist(heat_data_6h[tmp_DEgenes,]))
+#
+ha_6 <- HeatmapAnnotation(
+  df = colData(sce.endo)[samples_6h, c("Infection"), drop = FALSE],
+  col = list(Infection = col.infection)
+)
+#
+GOIdf$row <- match(GOIdf$gene_id, rownames(heat_data_6h))
+GOIdf_6 <- subset(GOIdf, !is.na(row))
+ra_6 <- rowAnnotation(
+  link = row_anno_link(
+    at = GOIdf_6$row,
+    labels = as.character(GOIdf_6$gene_name),
+    labels_gp = gpar(cex=2/3),
+    link_width = unit(0.5, "inches")
+  )
+)
+#
+ht_6 <- Heatmap(
+  matrix = heat_data_6h, top_annotation = ha_6,
+  cluster_rows = row_clust, cluster_columns = FALSE,
+  col = colorRamp2(
+    c(min(heat_data_2h), c(-1,0,1), max(heat_data_2h)),
+    c("purple","gray10","black","gray10","yellow")
+  ),
+  show_row_names = FALSE, show_column_names = FALSE,
+  row_names_side = "left"
+)
+#
+pdf(file.path(outdir, "DE_violet_6h_annolink_rowscaled_offset1.pdf"), width = 7, height = 10)
+draw(ht_6 + ra_6)
+dev.off()
+```
+
 
 ## Row-scaled blue-white-red
 
