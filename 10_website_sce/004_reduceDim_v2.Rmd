@@ -110,7 +110,7 @@ pca.data <- cbind(
 ggplot(pca.data, aes(PC1, PC2)) +
   geom_point(
     aes(colour = Infection, shape = Status),
-    size = 2
+    size = 3
   ) +
   geom_text_repel(
     aes(label = paste(Time, Donor, sep = "_")),
@@ -123,8 +123,15 @@ ggplot(pca.data, aes(PC1, PC2)) +
 ```
 
 ```{r PCA_Infection_pdf, echo=FALSE}
+gg <- ggplot(pca.data, aes(PC1, PC2)) +
+  geom_point(
+    aes(colour = Infection, shape = Status),
+    size = 3
+  ) +
+  scale_colour_manual(values = col.infection) +
+  theme_bw()
 ggsave(
-  file.path(outdir, sprintf("PCA_Infection.pdf")),
+  file.path(outdir, sprintf("PCA_Infection_noLabel.pdf")), gg,
   width = pdfWidth, height = pdfHeight
 )
 ```
@@ -135,7 +142,7 @@ ggsave(
 ggplot(pca.data, aes(PC1, PC2)) +
   geom_point(
     aes(colour = Status, shape = Infection),
-    size = 2
+    size = 3
   ) +
   geom_text_repel(
     aes(label = paste(Time, Donor, sep = "_")),
@@ -148,19 +155,26 @@ ggplot(pca.data, aes(PC1, PC2)) +
 ```
 
 ```{r PCA_Status_pdf, echo=FALSE}
+gg <- ggplot(pca.data, aes(PC1, PC2)) +
+  geom_point(
+    aes(colour = Status, shape = Infection),
+    size = 3
+  ) +
+  scale_colour_manual(values = col.status) +
+  theme_bw()
 ggsave(
-  file.path(outdir, sprintf("PCA_Status.pdf")),
+  file.path(outdir, sprintf("PCA_Status_noLabel.pdf")), gg,
   width = pdfWidth, height = pdfHeight
 )
 ```
 
-```{r PCA_Status_bottom_pdf, echo=FALSE}
+```{r PCA_Status_bottom_noLabel_pdf, echo=FALSE}
 ggsave(
   file.path(outdir, sprintf("PCA_Status_bottom.pdf")),
   ggplot(pca.data, aes(PC1, PC2)) +
   geom_point(
     aes(colour = Status, shape = Infection),
-    size = 2
+    size = 3
   ) +
   geom_text_repel(
     aes(label = paste(Time, Donor, sep = "_")),
@@ -177,13 +191,30 @@ ggsave(
 )
 ```
 
+```{r PCA_Status_bottom_pdf, echo=FALSE}
+ggsave(
+  file.path(outdir, sprintf("PCA_Status_bottom_noLabel.pdf")),
+  ggplot(pca.data, aes(PC1, PC2)) +
+  geom_point(
+    aes(colour = Status, shape = Infection),
+    size = 3
+  ) +
+  scale_colour_manual(values = col.status) +
+  theme_bw() + theme(
+    legend.position = "bottom",
+    legend.box = "vertical"
+  ),
+  width = 6, height = 6
+)
+```
+
 ## Treatment
 
 ```{r PCA_Treatment}
 ggplot(pca.data, aes(PC1, PC2)) +
   geom_point(
     aes(colour = Treatment, shape = Time),
-    size = 2
+    size = 3
   ) +
   geom_text_repel(
     aes(label = paste(Time, Donor, sep = "_")),
@@ -196,8 +227,15 @@ ggplot(pca.data, aes(PC1, PC2)) +
 ```
 
 ```{r PCA_Treatment_pdf, echo=FALSE}
+gg <- ggplot(pca.data, aes(PC1, PC2)) +
+  geom_point(
+    aes(colour = Treatment, shape = Time),
+    size = 3
+  ) +
+  scale_colour_manual(values = col.treatment) +
+  theme_bw()
 ggsave(
-  file.path(outdir, sprintf("PCA_Treatment.pdf")),
+  file.path(outdir, sprintf("PCA_Treatment_noLabel.pdf")), gg,
   width = pdfWidth, height = pdfHeight
 )
 ```
