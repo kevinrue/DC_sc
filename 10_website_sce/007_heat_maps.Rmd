@@ -11,7 +11,8 @@ editor_options:
 knitr::opts_chunk$set(echo = TRUE)
 stopifnot(
   require(DESeq2),
-  require(ComplexHeatmap)
+  require(ComplexHeatmap),
+  require(RColorBrewer)
 )
 sce.norm <- readRDS("rds/sce.minibulks.vsd.pca.rds")
 outdir <- "007_out"; dir.create(outdir)
@@ -25,6 +26,16 @@ deseq.res <- readRDS("rds/deseq.res.rds")
 blackred <- colorRampPalette(c("black","brown","red","orange","yellow"))(20)
 purpleblackyellow <- colorRampPalette(c("purple","black","yellow"))(10)
 ```
+
+```{r}
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.norm$Time)[1:3]
+names(col.infection) <- levels(sce.norm$Infection)
+names(col.status) <- levels(sce.norm$Status)
+```
+
 
 # Heat map of the `MARCH*` genes at 6h p.i.
 
@@ -67,32 +78,42 @@ heat_data_2h <- heat_data[,samples_2h]
 heat_data_4h <- heat_data[,samples_4h]
 heat_data_6h <- heat_data[,samples_6h]
 #
-ha_2 <- HeatmapAnnotation(df = colData(sce.norm)[samples_2h, c("Infection","Status")])
-ha_4 <- HeatmapAnnotation(df = colData(sce.norm)[samples_4h, c("Infection","Status")])
-ha_6 <- HeatmapAnnotation(df = colData(sce.norm)[samples_6h, c("Infection","Status")])
+ha_2 <- HeatmapAnnotation(
+  df = colData(sce.norm)[samples_2h, c("Infection","Status")],
+  col = list(Infection = col.infection, Status = col.status)
+)
+ha_4 <- HeatmapAnnotation(
+  df = colData(sce.norm)[samples_4h, c("Infection","Status")],
+  col = list(Infection = col.infection, Status = col.status)
+)
+ha_6 <- HeatmapAnnotation(
+  df = colData(sce.norm)[samples_6h, c("Infection","Status")],
+  col = list(Infection = col.infection, Status = col.status)
+)
 #
 ht_2 <- Heatmap(
   matrix = heat_data_2h, top_annotation = ha_2,
   cluster_rows = FALSE, cluster_columns = FALSE,
-  # col = purpleblackyellow,
+  col = purpleblackyellow,
   show_row_names = TRUE, show_column_names = FALSE,
   row_names_side = "left"
 )
 ht_4 <- Heatmap(
   matrix = heat_data_4h, top_annotation = ha_4,
   cluster_rows = FALSE, cluster_columns = FALSE,
-  # col = purpleblackyellow,
+  col = purpleblackyellow,
   show_row_names = FALSE, show_column_names = FALSE,
   show_heatmap_legend = FALSE
 )
 ht_6 <- Heatmap(
   matrix = heat_data_6h, top_annotation = ha_6,
   cluster_rows = FALSE, cluster_columns = FALSE,
-  # col = purpleblackyellow,
+  col = purpleblackyellow,
   show_row_names = FALSE, show_column_names = FALSE,
   show_heatmap_legend = FALSE
 )
-pdf(file.path(outdir, "heatmap_MARCH1_CD83_IL10_all_time.pdf"), width = 12, height = 3)
+# pdf(file.path(outdir, "heatmap_MARCH1_CD83_IL10_all_time_bluewhitered.pdf"), width = 12, height = 3)
+pdf(file.path(outdir, "heatmap_MARCH1_CD83_IL10_all_time_purpleblackyellow.pdf"), width = 12, height = 3)
 draw(ht_2 + ht_4 + ht_6)
 dev.off()
 ```
@@ -107,4 +128,3 @@ tmp_DEgeneList <- lapply(tmp_contrasts, function(x){
 })
 tmp_DEgenes <- unique(unlist(tmp_DEgeneList))
 ```
-
