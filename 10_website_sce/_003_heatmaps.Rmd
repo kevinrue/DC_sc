@@ -92,7 +92,7 @@ Draw the heat maps:
 ht2 <- Heatmap(
   matrix = matrix_2h,
   col = ht_scale,
-  name = "2h", column_title = "2h",
+  # name = "2h", column_title = "2h",
   top_annotation = HeatmapAnnotation(
     df = data.frame(subset(colData(sce.target), Time == "2h")[,c("Infection","Status")]),
     name = "colData",
@@ -104,7 +104,7 @@ ht2 <- Heatmap(
 ht4 <- Heatmap(
   matrix = matrix_4h,
   col = ht_scale,
-  name = "4h", column_title = "4h",
+  # name = "4h", column_title = "4h",
   top_annotation = HeatmapAnnotation(
     df = data.frame(subset(colData(sce.target), Time == "4h")[,c("Infection","Status")]),
     name = "colData",
@@ -116,7 +116,7 @@ ht4 <- Heatmap(
 ht6 <- Heatmap(
   matrix = matrix_6h,
   col = ht_scale,
-  name = "logcounts", column_title = "6h",
+  # name = "logcounts", column_title = "6h",
   top_annotation = HeatmapAnnotation(
     df = data.frame(subset(colData(sce.target), Time == "6h")[,c("Infection","Status")]),
     name = "colData",
@@ -124,7 +124,7 @@ ht6 <- Heatmap(
   ),
   cluster_columns = FALSE, cluster_rows = FALSE,
   show_column_names = FALSE)
-pdf(file.path(dirOut, "MARCH1_IL10_CD83.pdf"), width = 10, height = 3)
+pdf(file.path(dirOut, "MARCH1_IL10_CD83.pdf"), width = 12, height = 3)
 draw(ht2 + ht4 + ht6)
 dev.off()
 ```
@@ -155,7 +155,7 @@ Draw the heat maps:
 ht2 <- Heatmap(
   matrix = matrix_2h,
   col = ht_scale,
-  name = "2h", column_title = "2h",
+  # name = "2h", column_title = "2h",
   top_annotation = HeatmapAnnotation(
     df = data.frame(subset(colData(sce.target), Time == "2h")[,c("Infection","Status")]),
     name = "colData",
@@ -167,7 +167,7 @@ ht2 <- Heatmap(
 ht4 <- Heatmap(
   matrix = matrix_4h,
   col = ht_scale,
-  name = "4h", column_title = "4h",
+  # name = "4h", column_title = "4h",
   top_annotation = HeatmapAnnotation(
     df = data.frame(subset(colData(sce.target), Time == "4h")[,c("Infection","Status")]),
     name = "colData",
@@ -179,7 +179,7 @@ ht4 <- Heatmap(
 ht6 <- Heatmap(
   matrix = matrix_6h,
   col = ht_scale,
-  name = "logcounts", column_title = "6h",
+  # name = "logcounts", column_title = "6h",
   top_annotation = HeatmapAnnotation(
     df = data.frame(subset(colData(sce.target), Time == "6h")[,c("Infection","Status")]),
     name = "colData",
@@ -187,7 +187,7 @@ ht6 <- Heatmap(
   ),
   cluster_columns = FALSE, cluster_rows = FALSE,
   show_column_names = FALSE)
-pdf(file.path(dirOut, "MARCH1_IL10_CD83_CD86_HLA-DRs.pdf"), width = 10, height = 3)
+pdf(file.path(dirOut, "MARCH1_IL10_CD83_CD86_HLA-DRs.pdf"), width = 12, height = 3)
 draw(ht2 + ht4 + ht6)
 dev.off()
 ```
