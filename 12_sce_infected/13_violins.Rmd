@@ -571,29 +571,35 @@ ggsave(
 
 # Gene sets
 
+## Set 1
+
 ```{r GOInames}
 GOInames <- c(
+  "KLHL2","COPS7B","USP1","USPL1","TRIM39", # autophagy
+  "CLASP1","STXBP1","MVB12A","BLOC1S3", # intracellular traffic/ endosomal recycling
   "MARCH1","RNF139","TRIM27","CLECL1", # Ag presentation
-  "CLASP1","STXBP1","MVB12A","BLOC1S3","DNAJC13", # intracellular traffic
   "IFT57","CASP3", # apoptosis
-  "KLHL2","COPS7B","USP1","USPL1","TRIM39" # autophagy
+  "DNAJC13","TFRC" # iron availability
 )
 GOItable <- data.frame(
   gene_name = GOInames,
-  gene_id = with(rowData(sce.endo), gene_id[match(GOInames, gene_name)])
+  gene_id = with(rowData(sce.endo), as.character(gene_id[match(GOInames, gene_name)])),
+  stringsAsFactors = FALSE
+)
+which_samples <- with(
+  colData(sce.endo),
+  Time == "6h" & Status %in% c("Uninfected","Infected")
 )
 tmpList <- lapply(GOItable$gene_id, function(x){
-  which_samples <- with(
-    colData(sce.endo),
-    Time == "6h" & Status %in% c("Uninfected","Infected"))
   data.frame(
     gene_id = x,
     logcounts = assay(sce.endo, "logcounts")[x, which_samples],
-    colData(sce.endo)[which_samples, "TreatmentLabel", drop = FALSE],
+    TreatmentLabel = colData(sce.endo)[which_samples, "TreatmentLabel"],
     gene_name = with(rowData(sce.endo), gene_name[match(x, gene_id)])
   )
 })
 tmpDF <- do.call("rbind", tmpList)
+#
 gg <- ggplot(tmpDF, aes(TreatmentLabel, logcounts)) +
   facet_grid(gene_name ~ ., scales = "free_y") +
   geom_violin(
@@ -603,13 +609,32 @@ gg <- ggplot(tmpDF, aes(TreatmentLabel, logcounts)) +
       aes(colour = TreatmentLabel), height = 0, width = 0.2,
       alpha = 0.5, size = 0.4) +
   scale_y_continuous(minor_breaks = NULL, breaks = seq(0, max(tmpDF$logcounts), 2)) +
-  scale_color_manual(values = col.treatment) +
-  scale_fill_manual(values = col.treatment) +
+  scale_color_manual(values = col.treatment, drop = FALSE) +
+  scale_fill_manual(values = col.treatment, drop = FALSE) +
   theme_bw() +
   theme(
     strip.text.y = element_text(angle = 0),
     strip.background = element_rect(fill = "white")
   )
-ggsave(file.path(outdir, "violins_6h_facetGeneName.pdf"), gg, height = 15, width = 7)
+ggsave(file.path(outdir, "violins_6h_vertical.pdf"), gg, height = 15, width = 7)
+gg <- ggplot(tmpDF, aes(TreatmentLabel, logcounts)) +
+  coord_flip() +
+  facet_grid(~ gene_name , scales = "free_y") +
+  geom_violin(
+      aes(colour = TreatmentLabel, fill = TreatmentLabel), scale = "width",
+      alpha = 0.4) +
+    geom_jitter(
+      aes(colour = TreatmentLabel), height = 0, width = 0.2,
+      alpha = 0.5, size = 0.4) +
+  scale_y_continuous(minor_breaks = NULL, breaks = seq(0, max(tmpDF$logcounts), 2)) +
+  scale_x_discrete(position = "top") +
+  scale_color_manual(values = col.treatment, drop = FALSE) +
+  scale_fill_manual(values = col.treatment, drop = FALSE) +
+  theme_bw() +
+  theme(
+    strip.text.y = element_text(angle = 0),
+    strip.background = element_rect(fill = "white")
+  )
+ggsave(file.path(outdir, "violins_6h_horizontal.pdf"), gg, height = 5, width = 40)
 ```
 
