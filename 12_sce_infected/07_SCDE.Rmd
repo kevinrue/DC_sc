@@ -1,0 +1,1230 @@
+---
+title: "Differential expression between experimental groups using *scde*"
+bibliography:
+  bibtex.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+stopifnot(
+  require(scater),
+  require(scran),
+  require(scde),
+  require(dplyr),
+  require(goseq),
+  require(ggrepel),
+  require(RColorBrewer)
+)
+sce.norm <- readRDS("rds/sce.norm.rds")
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.norm$Time)[1:3]
+names(col.infection) <- levels(sce.norm$Infection)
+names(col.status) <- levels(sce.norm$Status)
+outdir <- "07_SCDE_out"; dir.create(outdir, showWarnings = FALSE)
+o.ifm.2h <- readRDS("rds/o.ifm.2h.rds")
+o.ifm.4h <- readRDS("rds/o.ifm.4h.rds")
+o.ifm.6h <- readRDS("rds/o.ifm.6h.rds")
+scde.res <- readRDS("rds/scde_group.rds")
+goseq.res <- readRDS("rds/goseq_group.rds")
+```
+
+<!-- Cleaner code for v2
+Remove ERCC spike-ins
+!! Split cells by time
+!! Retain genes detected at each time (10 counts, 10 cells)
+Error model: {cells @ time; genes @ time}
+Prior @ time
+DE: {group on all cells with NA; no batch correction; P-value < 0.01}
+-->
+
+# Prepare data
+
+## Remove spike-in features
+
+The analysis starts with a matrix of read counts,
+filtered based on gene and cell requirements.
+In this case, let us use the raw numbers of reads mapped to each endogenous
+feature, recast as `integer` type:
+
+```{r table_isSpike}
+table(isSpike(sce.norm, "ERCC"))
+```
+
+```{r sce.endo}
+sce.endo <- sce.norm[!isSpike(sce.norm, "ERCC"),]
+```
+
+```{r sce.endo_show, echo=FALSE}
+dim(sce.endo)
+```
+
+## Subset data by time point {.tabset}
+
+Considering the demonstrated impact on the `Time` factor on gene expression
+profiles, and the fact that differential expression will *not* be assessed
+between time points, individual time points will be processed separately for
+the remainder of this *scde* analysis.
+
+### 2h
+
+```{r sce.2h}
+sce.2h <- sce.endo[,sce.endo$Time == '2h']
+dim(sce.2h)
+```
+
+### 4h
+
+```{r sce.4h}
+sce.4h <- sce.endo[,sce.endo$Time == '4h']
+dim(sce.4h)
+```
+
+### 6h
+
+```{r sce.6h}
+sce.6h <- sce.endo[,sce.endo$Time == '6h']
+dim(sce.6h)
+```
+
+## Filter count matrices {.tabset}
+
+The analysis starts with a matrix of read counts,
+filtered based on gene and cell requirements.
+
+In this case, *for each time point*,
+let us retain only features detected with at least **10** counts in at least
+**10** cells of any of the five experimental groups,
+use the raw numbers of reads mapped to each endogenous
+feature, recast as `integer` type.
+
+Let us first define a function to apply the detection cutoff:
+
+```{r filterCounts}
+filterCounts <- function(m, counts = 10, cells = 10){
+  apply(m, 1, function(e){
+    return(sum(e >= counts) >= cells)
+  })
+}
+```
+
+### 2h
+
+```{r cleanCounts_2h}
+sg.2h <- droplevels(sce.2h$Group)
+keep.2h <- filterCounts(counts(sce.2h))
+cd.2h <- counts(sce.2h)[keep.2h,]; storage.mode(cd.2h) <- 'integer'
+```
+
+```{r cd.2h_show, echo=FALSE}
+dim(cd.2h)
+```
+
+### 4h
+
+```{r cleanCounts_4h}
+sg.4h <- droplevels(sce.4h$Group)
+keep.4h <- filterCounts(counts(sce.4h))
+cd.4h <- counts(sce.4h)[keep.4h,]; storage.mode(cd.4h) <- 'integer'
+```
+
+```{r cd.4h_show, echo=FALSE}
+dim(cd.4h)
+```
+
+### 6h
+
+```{r cleanCounts_6h}
+sg.6h <- droplevels(sce.6h$Group)
+keep.6h <- filterCounts(counts(sce.6h))
+cd.6h <- counts(sce.6h)[keep.6h,]; storage.mode(cd.6h) <- 'integer'
+```
+
+```{r cd.6h_show, echo=FALSE}
+dim(cd.6h)
+```
+
+# Error models {.tabset}
+
+Here, we fit the error models on which all subsequent calculations
+will rely. The fitting process relies on a subset of robust genes that are
+detected in multiple cross-cell comparisons. Here we supply the
+`groups` argument, so that the error models for each
+experimental group of cells are fit independently.
+If the groups argument is omitted, the models would be fit using a common set.
+
+## 2h
+
+```{r o.ifm.2h, eval=FALSE}
+o.ifm.2h <- scde.error.models(
+  counts = cd.2h, groups = sg.2h, n.cores = 4, verbose = 1
+)
+```
+
+```{r save_o.ifm.2h, echo=FALSE, eval=FALSE}
+saveRDS(o.ifm.2h, "rds/o.ifm.2h.rds")
+write.csv(o.ifm.2h, file.path(outdir, "o.ifm.2h.csv"))
+```
+
+Particularly poor cells may result in abnormal fits, most commonly showing
+negative `corr.a`, and should be removed.
+
+```{r validCells.2h}
+valid.cells <- o.ifm.2h$corr.a > 0; table(valid.cells)
+o.ifm.2h <- o.ifm.2h[valid.cells, ]
+```
+
+## 4h
+
+```{r o.ifm.4h, eval=FALSE}
+o.ifm.4h <- scde.error.models(
+  counts = cd.4h, groups = sg.4h, n.cores = 4, verbose = 1
+)
+```
+
+```{r save_o.ifm.4h, echo=FALSE, eval=FALSE}
+saveRDS(o.ifm.4h, "rds/o.ifm.4h.rds")
+write.csv(o.ifm.4h, file.path(outdir, "o.ifm.4h.csv"))
+```
+
+Particularly poor cells may result in abnormal fits, most commonly showing
+negative `corr.a`, and should be removed.
+
+```{r validCells.4h}
+valid.cells <- o.ifm.4h$corr.a > 0; table(valid.cells)
+o.ifm.4h <- o.ifm.4h[valid.cells, ]
+```
+
+## 6h
+
+```{r o.ifm.6h, eval=FALSE}
+o.ifm.6h <- scde.error.models(
+  counts = cd.6h, groups = sg.6h, n.cores = 4, verbose = 1
+)
+```
+
+```{r save_o.ifm.6h, echo=FALSE, eval=FALSE}
+saveRDS(o.ifm.6h, "rds/o.ifm.6h.rds")
+write.csv(o.ifm.6h, file.path(outdir, "o.ifm.6h.csv"))
+```
+
+Particularly poor cells may result in abnormal fits, most commonly showing
+negative `corr.a`, and should be removed.
+
+```{r validCells.6h}
+valid.cells <- o.ifm.6h$corr.a > 0; table(valid.cells)
+o.ifm.6h <- o.ifm.6h[valid.cells, ]
+```
+
+# Reorder counts to match error models {.tabset}
+
+The `scde.error.models` produces error models with cells reordered 
+by experimental group.
+For clarity, let us prepare a `SCESet` and count matrix that match this order:
+
+## 2h
+
+```{r sce.ifm.2h}
+sce.ifm.2h <- sce.2h[,rownames(o.ifm.2h)]
+sg.ifm.2h <- droplevels(sce.ifm.2h$Group)
+cd.ifm.2h <- counts(sce.ifm.2h)[rownames(cd.2h),]; storage.mode(cd.ifm.2h) <- 'integer'
+```
+
+## 4h
+
+```{r sce.ifm.4h}
+sce.ifm.4h <- sce.4h[,rownames(o.ifm.4h)]
+sg.ifm.4h <- droplevels(sce.ifm.4h$Group)
+cd.ifm.4h <- counts(sce.ifm.4h)[rownames(cd.4h),]; storage.mode(cd.ifm.4h) <- 'integer'
+```
+
+## 6h
+
+```{r sce.ifm.6h}
+sce.ifm.6h <- sce.6h[,rownames(o.ifm.6h)]
+sg.ifm.6h <- droplevels(sce.ifm.6h$Group)
+cd.ifm.6h <- counts(sce.ifm.6h)[rownames(cd.6h),]; storage.mode(cd.ifm.6h) <- 'integer'
+```
+
+# Prior distribution for gene expression magnitudes {.tabset}
+
+Finally, we need to define an expression magnitude prior for the genes.
+Its main function, however, is to define a grid of expression magnitude values
+on which the numerical calculations will be carried out.
+
+## 2h
+
+```{r o.prior.2h}
+o.prior.2h <- scde.expression.prior(
+  models = o.ifm.2h, counts = cd.ifm.2h, show.plot = TRUE
+)
+```
+
+## 4h
+
+```{r o.prior.4h}
+o.prior.4h <- scde.expression.prior(
+  models = o.ifm.4h, counts = cd.ifm.4h, show.plot = TRUE
+)
+```
+
+## 6h
+
+```{r o.prior.6h}
+o.prior.6h <- scde.expression.prior(
+  models = o.ifm.6h, counts = cd.ifm.6h, show.plot = TRUE
+)
+```
+
+# Differential expression {#DE}
+
+## Setup
+
+Let us first define:
+
+* a list to store the result tables returned by *scde*
+
+```{r scde.res_init, eval=FALSE}
+scde.res <- list()
+```
+
+* a function used to convert the Z-score computed by *scde* to a empirical
+P-value ([reference](https://www.biostars.org/p/17227/)):
+
+```{r convert.z.score}
+convert.z.score <- function(x, one.sided = NULL) {
+  z <- x$Z
+  if(is.null(one.sided)) {
+    pval = pnorm(-abs(z));
+    pval = 2 * pval
+  } else if(one.sided=="-") {
+    pval = pnorm(z);
+  } else {
+    pval = pnorm(-z);
+  }
+    x <- cbind(
+      x,
+      p.value = pval
+  )
+  return(x);
+}   
+```
+
+* a function used to annotate the tables of results returned by *scde*:
+
+```{r addGeneName}
+addGeneName <- function(x){
+  x <- cbind(
+    gene_name = with(rowData(sce.endo), gene_name[match(rownames(x), gene_id)]),
+    x
+  )
+  return(x)
+}
+```
+
+* a function to order results by decreasing absolute Z-score:
+
+```{r orderResults}
+orderResults <- function(x){
+  x <- x[with(x, order(abs(Z), decreasing = TRUE)),]
+  return(x)
+}
+```
+
+* a function to visualise *scran*-normalised gene expression for a given
+gene:
+
+```{r normExprsById}
+normExprsById <- function(geneId){
+  geneName <- subset(rowData(sce.endo),gene_id==geneId,"gene_name",drop=TRUE)
+  gdata <- data.frame(
+    logcounts = assay(sce.endo, "logcounts")[geneId,],
+    colData(sce.endo)[,c("Infection","Status","Time")],
+    row.names = colnames(sce.endo)
+  )
+  ggplot(gdata, aes(gsub("-", "\n", Infection), logcounts)) + 
+    geom_violin(
+      aes(fill = Infection, alpha = Status),
+      draw_quantiles = c(0.25, 0.5, 0.75)
+    ) +
+    geom_jitter(width = 0.1, alpha = 0.5, size = 0.5) +
+    facet_grid(Time ~ Status) +
+    scale_fill_manual(values = col.infection) +
+    scale_alpha_discrete("Status", range = c(0.3, 0.5)) +
+    ggtitle(sprintf("%s - %s", geneId, geneName)) +
+    theme_minimal() +
+    labs(y = "Normalised expression", x = "Infection") +
+    guides(alpha = "none")
+}
+```
+
+* functions to visualise *scde* estimate of expression and
+  differential expression
+  for a given gene (identifier)
+  in a given contrast
+  within a specific time point (code shown for 2h time point only):
+  
+```{r single.scde.2h}
+single.scde.2h <- function(gene, groupTarget, groupRef){
+  gT <- sprintf("2h_%s", groupTarget); gR <- sprintf("2h_%s", groupRef)
+  sg.test <- factor(colData(sce.ifm.2h)[,"Group"], levels = c(gT, gR))
+  scde.test.gene.expression.difference(
+    gene, o.ifm.2h, cd.ifm.2h, o.prior.2h, sg.test,
+    n.cores = 4, verbose = 1
+  )
+}
+```
+
+```{r single.scde.4h6h, echo=FALSE}
+single.scde.4h <- function(gene, groupTarget, groupRef){
+  gT <- sprintf("4h_%s", groupTarget); gR <- sprintf("4h_%s", groupRef)
+  sg.test <- factor(co.Data(sce.ifm.4h)[,"Group"], levels = c(gT, gR))
+  scde.test.gene.expression.difference(
+    gene, o.ifm.4h, cd.ifm.4h, o.prior.4h, sg.test,
+    n.cores = 4, verbose = 1
+  )
+}
+single.scde.6h <- function(gene, groupTarget, groupRef){
+  gT <- sprintf("6h_%s", groupTarget); gR <- sprintf("6h_%s", groupRef)
+  sg.test <- factor(colData(sce.ifm.6h)[,"Group"], levels = c(gT, gR))
+  scde.test.gene.expression.difference(
+    gene, o.ifm.6h, cd.ifm.6h, o.prior.6h, sg.test,
+    n.cores = 4, verbose = 1
+  )
+}
+```
+
+* various significance levels:
+
+```{r volcano.sig}
+sig.levels <- c(0.05, 0.01)
+volcano.sig <- data.frame(
+  P = sig.levels,
+  level = as.character(sig.levels)
+)
+```
+
+* a function to visualise *scde* differential expression statistics, and
+  return a table with those statistics augmented by a an empirical *P* value
+  computed from the *Z* score returned by *scde*:
+
+```{r volcano.mle}
+volcano.mle <- function(x, sub = NULL){
+  varName <- deparse(substitute(x))
+  x <- convert.z.score(x)
+  gg <- ggplot(x, aes(mle, -log10(p.value))) +
+    geom_point(aes(colour = (cZ != 0))) +
+    geom_hline(aes(yintercept=-log10(p.value),linetype=level),volcano.sig) +
+    ggtitle(varName, sub)
+  print(gg)
+  return(x)
+}
+```
+
+## Contrasts {.tabset}
+
+### List
+
+```{r contrasts.time}
+contrasts.2h <- list(
+  c("2h_STM-D23580_Infected", "2h_Mock_Uninfected"), # vs. Mock
+  c("2h_STM-LT2_Infected", "2h_Mock_Uninfected"),
+  c("2h_STM-D23580_Exposed", "2h_Mock_Uninfected"),
+  c("2h_STM-LT2_Exposed", "2h_Mock_Uninfected"),
+  c("2h_STM-D23580_Infected", "2h_STM-LT2_Infected"), # direct
+  c("2h_STM-D23580_Infected", "2h_STM-D23580_Exposed"),
+  c("2h_STM-LT2_Infected", "2h_STM-LT2_Exposed"),
+  c("2h_STM-D23580_Exposed", "2h_STM-LT2_Exposed")
+)
+contrasts.4h <- list(
+  c("4h_STM-D23580_Infected", "4h_Mock_Uninfected"), # 4h
+  c("4h_STM-LT2_Infected", "4h_Mock_Uninfected"),
+  c("4h_STM-D23580_Exposed", "4h_Mock_Uninfected"),
+  c("4h_STM-LT2_Exposed", "4h_Mock_Uninfected"),
+  c("4h_STM-D23580_Infected", "4h_STM-LT2_Infected"), # 4h
+  c("4h_STM-D23580_Infected", "4h_STM-D23580_Exposed"),
+  c("4h_STM-LT2_Infected", "4h_STM-LT2_Exposed"),
+  c("4h_STM-D23580_Exposed", "4h_STM-LT2_Exposed")
+)
+contrasts.6h <- list(
+  c("6h_STM-D23580_Infected", "6h_Mock_Uninfected"), # 6h
+  c("6h_STM-LT2_Infected", "6h_Mock_Uninfected"),
+  c("6h_STM-D23580_Exposed", "6h_Mock_Uninfected"),
+  c("6h_STM-LT2_Exposed", "6h_Mock_Uninfected"),
+  c("6h_STM-D23580_Infected", "6h_STM-LT2_Infected"), # 6h
+  c("6h_STM-D23580_Infected", "6h_STM-D23580_Exposed"),
+  c("6h_STM-LT2_Infected", "6h_STM-LT2_Exposed"),
+  c("6h_STM-D23580_Exposed", "6h_STM-LT2_Exposed")
+)
+```
+
+### 2h
+
+```{r contrasts.2h_run, eval=FALSE}
+stopifnot(all(rownames(o.ifm.2h) == colnames(cd.ifm.2h)))
+for (contrastNames in contrasts.2h){
+  groupTarget <- contrastNames[1]; groupRef <- contrastNames[2]
+  sg.test <- factor(sce.ifm.2h$Group, levels = c(groupTarget, groupRef))
+  names(sg.test) <- colnames(sce.ifm.2h); summary(sg.test)
+  contrastName <- sprintf("%s-%s", groupTarget, groupRef); message(contrastName)
+  scde.res[[contrastName]] <- scde.expression.difference(
+    o.ifm.2h, cd.ifm.2h, o.prior.2h, sg.test, n.cores = 4, verbose = 1
+  )
+}
+```
+
+### 4h
+
+```{r contrasts.4h_run, eval=FALSE}
+stopifnot(all(rownames(o.ifm.4h) == colnames(cd.ifm.4h)))
+for (contrastNames in contrasts.4h){
+  groupTarget <- contrastNames[1]; groupRef <- contrastNames[2]
+  sg.test <- factor(sce.ifm.4h$Group, levels = c(groupTarget, groupRef))
+  names(sg.test) <- colnames(sce.ifm.4h); summary(sg.test)
+  contrastName <- sprintf("%s-%s", groupTarget, groupRef); message(contrastName)
+  scde.res[[contrastName]] <- scde.expression.difference(
+    o.ifm.4h, cd.ifm.4h, o.prior.4h, sg.test, n.cores = 4, verbose = 1
+  )
+}
+```
+
+### 6h
+
+```{r contrasts.6h_run, eval=FALSE}
+stopifnot(all(rownames(o.ifm.6h) == colnames(cd.ifm.6h)))
+for (contrastNames in contrasts.6h){
+  groupTarget <- contrastNames[1]; groupRef <- contrastNames[2]
+  sg.test <- factor(sce.ifm.6h$Group, levels = c(groupTarget, groupRef))
+  names(sg.test) <- colnames(sce.ifm.6h); summary(sg.test)
+  contrastName <- sprintf("%s-%s", groupTarget, groupRef); message(contrastName)
+  scde.res[[contrastName]] <- scde.expression.difference(
+    o.ifm.6h, cd.ifm.6h, o.prior.6h, sg.test, n.cores = 4, verbose = 1
+  )
+}
+```
+
+```{r scde.table_csv, echo=FALSE, eval=FALSE}
+saveRDS(scde.res, "rds/scde_group.rds")
+for (contrastName in names(scde.res)){
+  scde.table <- scde.res[[contrastName]]
+  scde.table <- convert.z.score(addGeneName(orderResults(scde.table)))
+  csv.file <- file.path(outdir, sprintf("SCDE_%s.csv", contrastName))
+  write.csv(scde.table, csv.file)
+}
+```
+
+# Volcano plots {.tabset}
+
+Let us first identify the extreme values of maximum likelihood estimate of
+fold-change to scale subsequent plot for comparability and symmetry of axes:
+
+```{r mleRange}
+mleRange <-
+  max(abs(do.call("c", lapply(scde.res, function(x){return(x$mle)}))))*c(-1,1)
+```
+
+## Uninfected
+
+```{r volcano_uninfected, echo=FALSE, fig.height=9}
+v.data <- do.call(
+  "rbind",
+  lapply(
+    grep("Uninfected", names(scde.res), value = TRUE),
+    function(contrastName){
+      timepoint <- gsub("([[:digit:]]h)_.*", "\\1", contrastName)
+      contrastTreatment <-
+        gsub("[[:digit:]]h_(.*)-[[:digit:]]h_(.*)", "\\1\n\\2", contrastName)
+      x <- data.frame(
+        Gene = rownames(scde.res[[contrastName]]),
+        scde.res[[contrastName]][,c("mle", "Z", "cZ")],
+        Contrast = gsub("_", " ", contrastTreatment),
+        Time = timepoint
+      )
+      x <- convert.z.score(x)
+    }
+  )
+)
+ggplot(v.data) +
+  geom_point(aes(mle, -log10(p.value), colour = (cZ != 0)), size = 0.5) +
+  facet_grid(Contrast ~ Time) +
+  scale_x_continuous(limits = mleRange) +
+  geom_hline(
+    aes(yintercept = -log10(P), linetype = level),
+    data = volcano.sig
+  ) + theme_minimal()
+```
+
+## Direct
+
+```{r volcano_direct, echo=FALSE, fig.height=9}
+v.data <- do.call(
+  "rbind",
+  lapply(
+    grep("Uninfected", names(scde.res), value = TRUE, invert = TRUE),
+    function(contrastName){
+      timepoint <- gsub("([[:digit:]]h)_.*", "\\1", contrastName)
+      contrastTreatment <-
+        gsub("[[:digit:]]h_(.*)-[[:digit:]]h_(.*)", "\\1\n\\2", contrastName)
+      x <- data.frame(
+        Gene = rownames(scde.res[[contrastName]]),
+        scde.res[[contrastName]][,c("mle", "Z", "cZ")],
+        Contrast = gsub("_", " ", contrastTreatment),
+        Time = timepoint
+      )
+      x <- convert.z.score(x)
+      x
+    }
+  )
+)
+ggplot(v.data) +
+  geom_point(aes(mle, -log10(p.value), colour = (cZ != 0)), size = 0.5) +
+  facet_grid(Contrast ~ Time) + scale_x_continuous(limits = mleRange) +
+  geom_hline(
+    aes(yintercept = -log10(P), linetype = level), data = volcano.sig
+  ) + theme_minimal()
+```
+
+```{r Vogel_volcano_4h_D23_InfExp, include=FALSE}
+z.range <- max(abs(v.data$Z)) * c(-1,1)
+p.range <- rev(-log10(range(v.data$p.value)))
+sub.data <- subset(
+  v.data,
+  Contrast == "STM-D23580 Infected\nSTM-D23580 Exposed" & Time == "4h"
+)
+geneData <- subset(dplyr::mutate(
+  sub.data,
+  gene_name = rowData(sce.ifm.4h[as.character(sub.data$Gene),])[,"gene_name"]),
+  gene_name %in% c(
+    "CD40","CD83","EBI3","CD1A","PLAT", # 5
+    "MS4A4A","NIT1","CTSD","APOC1","APOE","S100A9","CTSL" # 7
+  )
+)
+ggplot(sub.data) +
+  geom_point(aes(Z, -log10(p.value), colour = p.value < 0.01), size = 0.5) +
+  geom_hline(yintercept = -log10(0.01), linetype = "dashed", alpha = 0.25) +
+  geom_text_repel(
+    aes(Z, -log10(p.value), label = gene_name), geneData,
+    size = 2, min.segment.length = unit(0, "mm"), alpha = 0.75,
+    nudge_x = ifelse(geneData$Z > 0, 1, -1), nudge_y = 0, segment.size = 0.2,
+    fontface = "bold"
+  ) +
+  scale_x_continuous(limits = z.range) +
+  scale_y_continuous(limits = p.range) +
+  theme_bw() +
+  labs(
+    title = "4h STM-D23580", subtitle = "Infected / Exposed",
+    y = expression(-log[10]*" ("*italic(P)*"-value)")
+  )
+ggsave(file.path(outdir, "4h_volcano_D23580_Vogel.pdf"), height=5, width=6.5)
+```
+
+```{r Shalek_volcano_4h_D23_InfExp, include=FALSE}
+ggplot(sub.data) +
+  geom_point(
+    aes(mle, -log10(p.value), colour = p.value < 0.01),
+    size = 0.5, alpha = 0.25
+  ) +
+  geom_hline(yintercept = -log10(0.01), linetype = "dashed") +
+  geom_text_repel(
+    aes(mle, -log10(p.value), label = gene_name), geneData,
+    size = 2, min.segment.length = unit(0, "mm"), fontface = "bold"
+  ) +
+  scale_x_continuous(limits = mleRange) +
+  scale_y_continuous(limits = p.range) +
+  theme_bw() +
+  labs(
+    title = "4h STM-D23580", subtitle = "Infected / Exposed",
+    y = expression(-log[10]*" ("*italic(P)*"-value)")
+  )
+ggsave(file.path(outdir, "4h_volcano_D23580_Shalek.pdf"), height=5, width=6.5)
+```
+
+```{r Vogel_volcano_4h_LT2_InfExp, include=FALSE}
+sub.data <- subset(
+  v.data,
+  Contrast == "STM-LT2 Infected\nSTM-LT2 Exposed" & Time == "4h"
+)
+geneData <- subset(dplyr::mutate(
+  sub.data,
+  gene_name = rowData(sce.ifm.4h[as.character(sub.data$Gene),])[,"gene_name"]),
+  gene_name %in% c(
+    "PLAT","VPS25","FAM3A",
+    "MS4A4A","CCL26","STAB1","CTSL","SNX1","CTSD"
+  )
+)
+ggplot(sub.data) +
+  geom_point(aes(Z, -log10(p.value), colour = p.value < 0.01), size = 0.5) +
+  geom_hline(yintercept = -log10(0.01), linetype = "dashed", alpha = 0.25) +
+  geom_text_repel(
+    aes(Z, -log10(p.value), label = gene_name), geneData,
+    size = 2, min.segment.length = unit(0, "mm"), alpha = 0.75,
+    nudge_x = ifelse(geneData$Z > 0, 1, -1), nudge_y = 0, segment.size = 0.2,
+    fontface = "bold"
+  ) +
+  scale_x_continuous(limits = z.range) +
+  scale_y_continuous(limits = p.range) +
+  theme_bw() +
+  labs(
+    title = "4h STM-LT2", subtitle = "Infected / Exposed",
+    y = expression(-log[10]*" ("*italic(P)*"-value)")
+  )
+ggsave(file.path(outdir, "4h_volcano_LT2_Vogel.pdf"), height=5, width=6.5)
+```
+
+```{r Shalek_volcano_4h_LT2_InfExp, include=FALSE}
+ggplot(sub.data) +
+  geom_point(
+    aes(mle, -log10(p.value), colour = p.value < 0.01),
+    size = 0.5, alpha = 0.25
+  ) +
+  geom_hline(yintercept = -log10(0.01), linetype = "dashed") +
+  geom_text_repel(
+    aes(mle, -log10(p.value), label = gene_name), geneData,
+    size = 2, min.segment.length = unit(0, "mm"), fontface = "bold"
+  ) +
+  scale_x_continuous(limits = mleRange) +
+  scale_y_continuous(limits = p.range) +
+  theme_bw() +
+  labs(
+    title = "4h STM-LT2", subtitle = "Infected / Exposed",
+    y = expression(-log[10]*" ("*italic(P)*"-value)")
+  )
+ggsave(file.path(outdir, "4h_volcano_LT2_Shalek.pdf"), height=5, width=6.5)
+```
+
+```{r Vogel_volcano_6h_D23LT2_Infected, include=FALSE}
+z.range <- max(abs(v.data$Z)) * c(-1,1)
+p.range <- rev(-log10(range(v.data$p.value)))
+sub.data <- subset(
+  v.data,
+  Contrast == "STM-D23580 Infected\nSTM-LT2 Infected" & Time == "6h"
+)
+geneData <- subset(dplyr::mutate(
+  sub.data,
+  gene_name = rowData(sce.ifm.6h[as.character(sub.data$Gene),])[,"gene_name"]),
+  gene_name %in% c(
+    "MARCH1", "CLEC16A", # 2
+    "CLECL1" # 1
+  )
+)
+ggplot(sub.data) +
+  geom_point(aes(Z, -log10(p.value), colour = p.value < 0.01), size = 0.5) +
+  geom_hline(yintercept = -log10(0.01), linetype = "dashed", alpha = 0.25) +
+  geom_text_repel(
+    aes(Z, -log10(p.value), label = gene_name), geneData,
+    size = 2, min.segment.length = unit(0, "mm"), alpha = 0.75,
+    nudge_x = ifelse(geneData$Z > 0, 1, -1), nudge_y = 0, segment.size = 0.2,
+    fontface = "bold"
+  ) +
+  scale_x_continuous(limits = z.range) +
+  scale_y_continuous(limits = p.range) +
+  theme_bw() +
+  labs(
+    title = "6h Infected", subtitle = "STM-D23580 / STM-LT2",
+    y = expression(-log[10]*" ("*italic(P)*"-value)")
+  )
+ggsave(file.path(outdir, "6h_volcano_Infected_Vogel.pdf"), height=5, width=6.5)
+```
+
+# Count DE genes at various cut-offs {.tabset}
+
+## Uninfected
+
+```{r countDE_control, echo=FALSE, results='asis'}
+DE.uninfected <- do.call(
+  "rbind",
+  lapply(
+    grep("Uninfected", names(scde.res), value = TRUE),
+    function(contrastName){
+      x.res <- scde.res[[contrastName]][,c("Z", "cZ")]
+      x.res <- convert.z.score(x.res)
+      x.table <- data.frame(
+        P.01 = sum(x.res$p.value < 0.01),
+        P.05 = sum(x.res$p.value < 0.05),
+        cZ = sum(x.res$cZ != 0),
+        row.names = contrastName
+      )
+      return(x.table)
+    }
+  )
+)
+pander::pandoc.table(DE.uninfected)
+```
+
+## Direct
+
+```{r countDE_direct, echo=FALSE, results='asis'}
+DE.direct <- do.call(
+  "rbind",
+  lapply(
+    grep("Uninfected", names(scde.res), value = TRUE, invert = TRUE),
+    function(contrastName){
+      x.res <- scde.res[[contrastName]][,c("Z", "cZ")]
+      x.res <- convert.z.score(x.res)
+      x.table <- data.frame(
+        P.01 = sum(x.res$p.value < 0.01),
+        P.05 = sum(x.res$p.value < 0.05),
+        cZ = sum(x.res$cZ != 0),
+        row.names = contrastName
+      )
+      return(x.table)
+    }
+  )
+)
+pander::pandoc.table(DE.direct)
+```
+
+```{r DE.countUpDown, include=FALSE}
+DE.count <- data.frame()
+for (x.time in c("2h", "4h", "6h")){
+  for (x.infection in c("STM-LT2", "STM-D23580")){
+    contrastName <- sprintf(
+      "%s_%s_Infected-%s_%s_Exposed",
+      x.time, x.infection, x.time, x.infection
+    )
+    x.res <- scde.res[[contrastName]][,c("Z", "cZ")]
+    x.res <- convert.z.score(x.res)
+    DE.count <- rbind(DE.count, data.frame(
+      Time = x.time, Infection = x.infection, Direction = "Up",
+      Count = with(x.res, sum(Z > 0 & p.value < 0.01))
+    ))
+    DE.count <- rbind(DE.count, data.frame(
+      Time = x.time, Infection = x.infection, Direction = "Down",
+      Count = with(x.res, -sum(Z < 0 & p.value < 0.01))
+    ))
+  }
+}
+ggplot(DE.count, aes(Time, Count, colour = Infection)) +
+  scale_colour_manual(values = col.infection) +
+  geom_point(size = 3) +
+  geom_line(aes(group = interaction(Infection, Direction))) +
+  geom_abline(intercept = 0, slope = 0, linetype = "dashed") +
+  scale_y_continuous(
+    limits = max(range(DE.count$Count)) * c(-1,1),
+    labels = function(breaks){as.character(abs(as.numeric(breaks)))}
+  ) +
+  theme_minimal() +
+  labs(
+    title = "Infected / Exposed",
+    y = "Count of differentially expressed genes"
+  )
+ggsave(file.path(outdir, "DE_counts.pdf"), width=7, height=4)
+```
+
+# Gene ontology {#GO}
+
+Let us use the [goseq](http://bioconductor.org/packages/goseq) package to
+identify the most enriched gene ontologies among the various lists of DE genes.
+Note that we restrict the results to GO categories associated with at least
+**10** genes, for robustness.
+
+Let us first define:
+
+* a list to store the GO enrichment tables returned by *goseq*
+
+```{r goseq.res_init, eval=FALSE}
+goseq.res <- list()
+```
+
+* the gene length information reported by *featureCounts*:
+
+```{r geneLengths}
+geneLengths <- width(sce.endo)
+names(geneLengths) <- rownames(sce.endo)
+```
+
+## Compute {.tabset}
+
+Let us identify over- and under-represented GO categories in DE genes
+identified in each contrast,
+using as background the list of genes detected at each time point:
+
+### 2h
+
+```{r GO_2h_DE, eval=FALSE}
+bg.2h <- rownames(cd.ifm.2h)
+for (contrastName in grep("^2h", names(scde.res), value = TRUE)){
+  message(contrastName); scde.table <- scde.res[[contrastName]]
+  scde.table <- convert.z.score(scde.table)
+  scde.table <- subset(scde.table, p.value < 0.01)
+  de.genes <- (bg.2h %in% rownames(scde.table))
+  names(de.genes) <- bg.2h; table(de.genes)
+  pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes)])
+  go.res <- goseq(pwf, "hg38", "ensGene")
+  goseq.res[[contrastName]] <- go.res
+  saveRDS(goseq.res, "rds/goseq_group.rds") # checkpoint
+}
+```
+
+### 4h
+
+```{r GO_4h_DE, eval=FALSE}
+bg.4h <- rownames(cd.ifm.4h)
+for (contrastName in grep("^4h", names(scde.res), value = TRUE)){
+  message(contrastName); scde.table <- scde.res[[contrastName]]
+  scde.table <- convert.z.score(scde.table)
+  scde.table <- subset(scde.table, p.value < 0.01)
+  de.genes <- (bg.4h %in% rownames(scde.table))
+  names(de.genes) <- bg.4h; table(de.genes)
+  pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes)])
+  go.res <- goseq(pwf, "hg38", "ensGene")
+  goseq.res[[contrastName]] <- go.res
+  saveRDS(goseq.res, "rds/goseq_group.rds") # checkpoint
+}
+```
+
+### 6h
+
+```{r GO_6h_DE, eval=FALSE}
+bg.6h <- rownames(cd.ifm.6h)
+for (contrastName in grep("^6h", names(scde.res), value = TRUE)){
+  message(contrastName); scde.table <- scde.res[[contrastName]]
+  scde.table <- convert.z.score(scde.table)
+  scde.table <- subset(scde.table, p.value < 0.01)
+  de.genes <- (bg.6h %in% rownames(scde.table))
+  names(de.genes) <- bg.6h; table(de.genes)
+  pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes)])
+  go.res <- goseq(pwf, "hg38", "ensGene")
+  goseq.res[[contrastName]] <- go.res
+  saveRDS(goseq.res, "rds/goseq_group.rds") # checkpoint
+}
+```
+
+```{r goseq.table_csv, echo=FALSE, eval=FALSE}
+for (contrastName in names(goseq.res)){
+  goseq.table <- goseq.res[[contrastName]]
+  write.csv(
+    goseq.table,
+    file.path(outdir, sprintf("SCDE_GO_%s.csv", contrastName)))
+}
+```
+
+# Expression profile of selected genes {.tabset}
+
+Least significant gene record (P ~ 0.01)
+in contrast D23580 vs. LT2 infected at 6h:
+
+```{r ex.scde.last.sig}
+ex.scde.last.sig <-
+  addGeneName(tail(
+    subset(
+      orderResults(convert.z.score(
+        scde.res[["6h_STM-D23580_Infected-6h_STM-LT2_Infected"]]
+        )),
+      p.value < 0.01
+    ),
+  1
+))
+```
+
+```{r ex.scde.last.sig_table, echo=FALSE, results='asis'}
+pander::pandoc.table(ex.scde.last.sig)
+```
+
+
+## `r rownames(ex.scde.last.sig)` {.tabset}
+
+Last significant gene record (P ~ 0.01)
+in contrast D23580 vs. LT2 infected at 6h:
+
+### *scran*
+
+```{r normExprsById_ex.scde.last.sig}
+normExprsById(rownames(ex.scde.last.sig))
+```
+
+### *scde*
+
+```{r single.scde.6h_ex.scde.last.sig}
+single.scde.6h(rownames(ex.scde.last.sig), "STM-D23580_Infected", "STM-LT2_Infected")
+```
+
+## TLR2 {.tabset}
+
+Up-regulated in D23580 infected vs. exposed ($P < 10^{-4}$),
+while $NS$ in LT2 (infected, 2h):
+
+### *scran*
+
+```{r normExprsById_TLR2}
+normExprsById("ENSG00000137462")
+```
+
+### *scde* D23580
+
+```{r single.scde.6h_D23580_TLR2}
+single.scde.6h("ENSG00000137462", "STM-D23580_Infected", "STM-D23580_Exposed")
+```
+
+### *scde* LT2
+
+```{r single.scde.6h_LT2_TLR2}
+single.scde.6h("ENSG00000137462", "STM-LT2_Infected", "STM-LT2_Exposed")
+```
+
+## IL10 {.tabset}
+
+Up-regulated in D23580 infected vs. uninfected at 4h ($P < 5 \times 10^{-4}$),
+while $NS$ in LT2 ($P \approx 0.40$):
+
+### *scran*
+
+```{r normExprsById_IL10}
+normExprsById("ENSG00000136634")
+```
+
+### *scde* D23580
+
+```{r single.scde.6h_D23580_IL10}
+single.scde.6h("ENSG00000136634", "STM-D23580_Infected", "STM-D23580_Exposed")
+```
+
+### *scde* LT2
+
+```{r single.scde.6h_LT2_IL10}
+single.scde.6h("ENSG00000136634", "STM-LT2_Infected", "STM-LT2_Exposed")
+```
+
+
+## RAB2B {.tabset}
+
+Up-regulated in D23580 vs. LT2 (infected, 2h):
+
+### *scran*
+
+```{r normExprsById_RAB2B}
+normExprsById("ENSG00000129472")
+```
+
+### *scde*
+
+```{r single.scde.2h_RAB2B}
+single.scde.2h("ENSG00000129472", "STM-D23580_Infected", "STM-LT2_Infected")
+```
+
+## RAB29 {.tabset}
+
+Gene of interest: *P*-value ~ 0.025 between D23580 and LT2 infected at 6h:
+
+### *scran*
+
+```{r normExprsById_RAB29}
+normExprsById("ENSG00000117280")
+```
+
+### *scde*
+
+```{r single.scde.6h_RAB29}
+single.scde.6h("ENSG00000117280", "STM-D23580_Infected", "STM-LT2_Infected")
+```
+
+# Comparison of fold-change estimates
+
+## Contrasts {.tabset}
+
+Let us define:
+
+* the required columns in the *scde* result tables
+
+```{r resCols}
+resCols <- c("mle","Z")
+```
+
+* a function used to annotate each gene in the tables of *scde* results
+  with the significance of differential expression in the pair of contrasts
+  compared:
+
+```{r add.sig.XY}
+add.sig.XY <- function(x, cutoff = 0.01){
+  sig.levels <- c(NA_character_, "X", "Y", "Both")
+  alpha.levels <- c(0.3, 1, 1, 1)
+  sig.x <- (x$p.value.x < cutoff); sig.y <- (x$p.value.y < cutoff)
+  x$p.01 <- sig.levels[1 + sig.x + 2 * sig.y]
+  x$alpha <- alpha.levels[1 + sig.x + 2 * sig.y]
+  return(x)
+}
+```
+
+* a function used to annotate each gene in the tables of *scde* results
+  whether it is significantly differentially expressed in opposite direction
+  in the pair of contrasts compared:
+
+```{r addOpposite}
+addOpposite <- function(x, cutoff = 0.01){
+  x$opposite <- NA_character_
+  x.sig.idx <- (x$p.value.x < cutoff & x$p.value.y < cutoff)
+  x.opposite <- (x$mle.x * x$mle.y) < 0
+  x[x.sig.idx, "opposite"] <- x.opposite[x.sig.idx]
+  return(x)
+}
+```
+
+* the list of contrasts to contrast:
+
+```{r contrasts.contrasts.time}
+contrasts.contrasts.2h <- list(
+c("2h_STM-D23580_Infected-2h_Mock_Uninfected","2h_STM-LT2_Infected-2h_Mock_Uninfected"),
+c("2h_STM-D23580_Infected-2h_Mock_Uninfected","2h_STM-D23580_Exposed-2h_Mock_Uninfected"),
+c("2h_STM-LT2_Infected-2h_Mock_Uninfected","2h_STM-LT2_Exposed-2h_Mock_Uninfected"),
+c("2h_STM-D23580_Exposed-2h_Mock_Uninfected","2h_STM-LT2_Exposed-2h_Mock_Uninfected")
+)
+contrasts.contrasts.4h <- list(
+c("4h_STM-D23580_Infected-4h_Mock_Uninfected","4h_STM-LT2_Infected-4h_Mock_Uninfected"),
+c("4h_STM-D23580_Infected-4h_Mock_Uninfected","4h_STM-D23580_Exposed-4h_Mock_Uninfected"),
+c("4h_STM-LT2_Infected-4h_Mock_Uninfected","4h_STM-LT2_Exposed-4h_Mock_Uninfected"),
+c("4h_STM-D23580_Exposed-4h_Mock_Uninfected","4h_STM-LT2_Exposed-4h_Mock_Uninfected")
+)
+contrasts.contrasts.6h <- list(
+c("6h_STM-D23580_Infected-6h_Mock_Uninfected","6h_STM-LT2_Infected-6h_Mock_Uninfected"),
+c("6h_STM-D23580_Infected-6h_Mock_Uninfected","6h_STM-D23580_Exposed-6h_Mock_Uninfected"),
+c("6h_STM-LT2_Infected-6h_Mock_Uninfected","6h_STM-LT2_Exposed-6h_Mock_Uninfected"),
+c("6h_STM-D23580_Exposed-6h_Mock_Uninfected","6h_STM-LT2_Exposed-6h_Mock_Uninfected")
+)
+```
+
+### 2h
+
+```{r corPlot_2h, echo=FALSE, fig.height=7}
+v.data <- do.call(
+  "rbind",
+  lapply(
+    contrasts.contrasts.2h,
+    function(contrastNames){
+      cn1 <- contrastNames[1]; cn2 <- contrastNames[2]
+      tn1<-gsub("[[:digit:]]h_(.*)-[[:digit:]]h_(.*)", "\\1-\\2", cn1)
+      tn2<-gsub("[[:digit:]]h_(.*)-[[:digit:]]h_(.*)", "\\1-\\2", cn2)
+      x1 <- scde.res[[cn1]][,resCols]; x2 <- scde.res[[cn2]][,resCols]
+      x1 <- convert.z.score(x1); x2 <- convert.z.score(x2)
+      x1$Contrast <- gsub("_", " ", tn1);x2$Contrast <- gsub("_", " ", tn2)
+      colnames(x1) <- gsub("$", ".y", colnames(x1))
+      colnames(x2) <- gsub("$", ".x", colnames(x2))
+      x <- cbind(x1, x2)
+      x <- add.sig.XY(x)
+      x$Contrast <- sprintf("Y : %s\nX : %s", tn1, tn2)
+      return(x)
+    }
+  )
+)
+ggplot(v.data) +
+  geom_point(aes(mle.x, mle.y, colour = p.01, alpha = alpha), size = 0.5) +
+  facet_wrap(~ Contrast) +
+  scale_x_continuous(limits=mleRange) +
+  scale_y_continuous(limits=mleRange) +
+  labs(title = "2h", colour = expression(italic(P)*" < 0.01")) +
+  scale_alpha_continuous(guide = FALSE) + labs(x="",y="") +
+  theme_minimal()
+```
+
+```{r compare.2h_csv, echo=FALSE, eval=FALSE}
+for (contrastName in unique(v.data$Contrast)){
+  v.subset <- subset(addGeneName(v.data), Contrast == contrastName)
+  v.subset$Contrast <- gsub("\n", "-", v.subset$Contrast)
+  v.subset <- addOpposite(v.subset)
+  c.y <- gsub(" ", "_", unique(v.subset$Contrast.y))
+  c.x <- gsub(" ", "_", unique(v.subset$Contrast.x))
+  message(c.y); message(c.x)
+  csvFile <- file.path(outdir, sprintf("SCDE_compare.2h_%s-2h_%s.csv", c.y, c.x))
+  message(csvFile)
+  write.csv(v.subset, csvFile)
+}
+```
+
+### 4h
+
+```{r corPlot_4h, echo=FALSE, fig.height=7}
+v.data <- do.call(
+  "rbind",
+  lapply(
+    contrasts.contrasts.4h,
+    function(contrastNames){
+      cn1 <- contrastNames[1]; cn2 <- contrastNames[2]
+      tn1<-gsub("[[:digit:]]h_(.*)-[[:digit:]]h_(.*)", "\\1-\\2", cn1)
+      tn2<-gsub("[[:digit:]]h_(.*)-[[:digit:]]h_(.*)", "\\1-\\2", cn2)
+      x1 <- scde.res[[cn1]][,resCols]; x2 <- scde.res[[cn2]][,resCols]
+      x1 <- convert.z.score(x1); x2 <- convert.z.score(x2)
+      x1$Contrast <- gsub("_", " ", tn1);x2$Contrast <- gsub("_", " ", tn2)
+      colnames(x1) <- gsub("$", ".y", colnames(x1))
+      colnames(x2) <- gsub("$", ".x", colnames(x2))
+      x <- cbind(x1, x2)
+      x <- add.sig.XY(x)
+      x$Contrast <- sprintf("Y : %s\nX : %s", tn1, tn2)
+      return(x)
+    }
+  )
+)
+ggplot(v.data) +
+  geom_point(aes(mle.x, mle.y, colour = p.01, alpha = alpha), size = 0.5) +
+  facet_wrap(~ Contrast) +
+  scale_x_continuous(limits=mleRange) +
+  scale_y_continuous(limits=mleRange) +
+  labs(title = "4h", colour = expression(italic(P)*" < 0.01")) +
+  scale_alpha_continuous(guide = FALSE) + labs(x="",y="") +
+  theme_minimal()
+```
+
+```{r compare.4h_csv, echo=FALSE, eval=FALSE}
+for (contrastName in unique(v.data$Contrast)){
+  v.subset <- subset(addGeneName(v.data), Contrast == contrastName)
+  v.subset$Contrast <- gsub("\n", "-", v.subset$Contrast)
+  v.subset <- addOpposite(v.subset)
+  c.y <- gsub(" ", "_", unique(v.subset$Contrast.y))
+  c.x <- gsub(" ", "_", unique(v.subset$Contrast.x))
+  message(c.y); message(c.x)
+  csvFile <- file.path(outdir, sprintf("SCDE_compare.4h_%s-4h_%s.csv", c.y, c.x))
+  message(csvFile)
+  write.csv(v.subset, csvFile)
+}
+```
+
+### 6h
+
+```{r corPlot_6h, echo=FALSE, fig.height=7}
+v.data <- do.call(
+  "rbind",
+  lapply(
+    contrasts.contrasts.6h,
+    function(contrastNames){
+      cn1 <- contrastNames[1]; cn2 <- contrastNames[2]
+      tn1<-gsub("[[:digit:]]h_(.*)-[[:digit:]]h_(.*)", "\\1-\\2", cn1)
+      tn2<-gsub("[[:digit:]]h_(.*)-[[:digit:]]h_(.*)", "\\1-\\2", cn2)
+      x1 <- scde.res[[cn1]][,resCols]; x2 <- scde.res[[cn2]][,resCols]
+      x1 <- convert.z.score(x1); x2 <- convert.z.score(x2)
+      x1$Contrast <- gsub("_", " ", tn1);x2$Contrast <- gsub("_", " ", tn2)
+      colnames(x1) <- gsub("$", ".y", colnames(x1))
+      colnames(x2) <- gsub("$", ".x", colnames(x2))
+      x <- cbind(x1, x2)
+      x <- add.sig.XY(x)
+      x$Contrast <- sprintf("Y : %s\nX : %s", tn1, tn2)
+      return(x)
+    }
+  )
+)
+ggplot(v.data) +
+  geom_point(aes(mle.x, mle.y, colour = p.01, alpha = alpha), size = 0.5) +
+  facet_wrap(~ Contrast) +
+  scale_x_continuous(limits=mleRange) +
+  scale_y_continuous(limits=mleRange) +
+  labs(title = "6h", colour = expression(italic(P)*" < 0.01")) +
+  scale_alpha_continuous(guide = FALSE) + labs(x="",y="") +
+  theme_minimal()
+```
+
+```{r compare.6h_csv, echo=FALSE, eval=FALSE}
+for (contrastName in unique(v.data$Contrast)){
+  v.subset <- subset(addGeneName(v.data), Contrast == contrastName)
+  v.subset$Contrast <- gsub("\n", "-", v.subset$Contrast)
+  v.subset <- addOpposite(v.subset)
+  c.y <- gsub(" ", "_", unique(v.subset$Contrast.y))
+  c.x <- gsub(" ", "_", unique(v.subset$Contrast.x))
+  message(c.y); message(c.x)
+  csvFile <- file.path(outdir, sprintf("SCDE_compare.6h_%s-6h_%s.csv", c.y, c.x))
+  message(csvFile)
+  write.csv(v.subset, csvFile)
+}
+```
