@@ -35,7 +35,7 @@ from
 
 ```{r mixC}
 mixC <- read.table(
-  "../expdata/cms_095046.txt", header = TRUE, sep = "\t",
+  "expdata/cms_095046.txt", header = TRUE, sep = "\t",
   stringsAsFactors = FALSE
   )[,c("ERCC.ID","concentration.in.Mix.1..attomoles.ul.")]
 rownames(mixC) <- mixC$ERCC.ID
