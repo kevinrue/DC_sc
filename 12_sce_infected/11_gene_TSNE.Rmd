@@ -1,0 +1,159 @@
+---
+title: "Gene expression levels overlaid onto tSNE view"
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+stopifnot(
+  require(scater),
+  require(scran),
+  require(ggplot2),
+  require(SummarizedExperiment),
+  require(RColorBrewer),
+  require(circlize),
+  require(ComplexHeatmap)
+)
+sce.endo <- readRDS("rds/sce.endo_clusters.rds")
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.endo$Time)[1:3]
+names(col.infection) <- levels(sce.endo$Infection)
+names(col.status) <- levels(sce.endo$Status)
+outdir <- "11_gene_TSNE_out"; dir.create(outdir, showWarnings = FALSE)
+pdfWidth <- 7; pdfHeight <- 5
+pdfName <- "tSNE_gene_%s.pdf"
+```
+
+# Helper values and functions
+
+Let us first define some values useful to design colour scales:
+
+```{r colours}
+range.exprs <- range(assay(sce.endo, "logcounts"))
+col.gene <- RColorBrewer::brewer.pal(11, "RdYlBu")
+col.treatment <- RColorBrewer::brewer.pal(9, "Paired")[c(9,3,1,4,2)]
+names(col.treatment) <- levels(sce.endo$Treatment)
+```
+
+Let us then define a few convenience functions:
+
+* to fetch the gene ID associated with a gene name
+
+```{r geneNameToID}
+geneNameToID <- function(x){
+  geneId <- with(rowData(sce.endo), gene_id[match(x, gene_name)])
+  if (length(geneId) > 1){
+    warning("Multiple IDs found. Use ID instead")
+    return(data.frame(
+      gene_name = x,
+      gene_id = geneId
+    ))
+  } else if (length(geneId) == 0){
+    stop("gene_name not found")
+  }
+  return(geneId)
+}
+```
+
+* to fetch the necessary expression and phenotype data
+
+```{r geneDataByName}
+geneDataByName <- function(x){
+  geneId <- geneNameToID(x)
+  ggData <- data.frame(
+    gene = assay(sce.endo, "logcounts")[geneId,],
+    dimension1 = reducedDim(sce.endo, "TSNE")[,1],
+    dimension2 = reducedDim(sce.endo, "TSNE")[,2],
+    colData(sce.endo)[,c("Time","Infection","Status","Treatment")]
+  )
+  return(ggData)
+}
+```
+
+* to draw the figure
+
+```{r plotByName}
+plotByName <- function(x){
+  geneId <- geneNameToID(x)
+  ggData <- geneDataByName(x)
+  # return(ggData)
+  ggplot(ggData, aes(dimension1, dimension2, shape = paste(Infection, Status))) +
+    geom_point(aes(colour = gene), alpha = 0.75, size = 1.5) +
+    scale_color_gradient2(
+      low = col.gene[11], mid = col.gene[5], high = col.gene[1],
+      midpoint = mean(range.exprs),
+      limits = range.exprs
+    ) +
+    scale_fill_manual(values = col.treatment) +
+    labs(
+      title = sprintf("%s", x),
+      subtitle = sprintf("%s", geneId),
+      x = "Dimension 1",
+      y = "Dimension 2",
+      colour = "logcounts",
+      fill = "Treatment",
+      shape = "Treatment") +
+    theme_bw()
+}
+```
+
+# Genes (alphabetical order) {.tabset}
+
+The above convenience function make it straightforward to produce a figure
+for any gene of interest:
+
+## IL12B
+
+```{r IL12B, echo=FALSE}
+geneName <- "IL12B"
+plotByName(geneName)
+```
+
+```{r IL12B_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName)),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## IL1B
+
+```{r IL1B, echo=FALSE}
+geneName <- "IL1B"
+plotByName(geneName)
+```
+
+```{r IL1B_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName)),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## IL23A
+
+```{r IL23A, echo=FALSE}
+geneName <- "IL23A"
+plotByName(geneName)
+```
+
+```{r IL23A_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName)),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## CXCL8
+
+```{r CXCL8, echo=FALSE}
+geneName <- "CXCL8"
+plotByName(geneName)
+```
+
+```{r CXCL8_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName)),
+  height = pdfHeight, width = pdfWidth)
+```
