@@ -137,7 +137,14 @@ ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
 ```
 
 ```{r reducedDimension_pdf.2h, include=FALSE}
-ggsave(file.path(outdir, "tSNE_clusters_2h.pdf"), width = 6, height = 4)
+ggsave(file.path(outdir, "tSNE_clusters_2h_shape.pdf"), width = 6, height = 4, useDingbats=FALSE)
+gg <- ggplot(tmpGG, aes(X1, X2, colour = Cluster)) +
+  geom_point() +
+  labs(x="Dimension 1",y="Dimension 2",title="2h") +
+  scale_color_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+ggsave(file.path(outdir, "tSNE_clusters_2h.pdf"), gg, width = 5, height = 4, useDingbats=FALSE)
 ```
 
 Cross-tabulated counts of cells by cluster and experimental treatment:
@@ -163,7 +170,7 @@ tmpGG <- ggplot(data.frame(colData(sce.2h))) +
   ) +
   labs(x = NULL, y = "Cells", fill = "Cluster")
 tmpGG
-ggsave(file.path(outdir, "cluster_count_2h_facet.pdf"), width = 9, height = 4)
+ggsave(file.path(outdir, "cluster_count_2h_facet.pdf"), width = 9, height = 4, useDingbats=FALSE)
 ggsave(
   file.path(outdir, "cluster_count_2h_facetWrap.pdf"),
   ggplot(data.frame(colData(sce.2h))) +
@@ -180,7 +187,7 @@ ggsave(
       axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
     ) +
     labs(x = NULL, y = "Cells", fill = "Cluster"),
-  width = 9, height = 8
+  width = 9, height = 8, useDingbats=FALSE
 )
 ggsave(
   file.path(outdir, "cluster_count_2h.pdf"),
@@ -193,7 +200,7 @@ ggsave(
       axis.text.y = element_text(size = rel(1.5))
     ) +
   labs(x = NULL, y = "Cells", fill = "Cluster"),
-  width = 6, height = 5
+  width = 6, height = 5, useDingbats=FALSE
 )
 ```
 
@@ -218,7 +225,14 @@ ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
 ```
 
 ```{r reducedDimension_pdf.4h, include=FALSE}
-ggsave(file.path(outdir, "tSNE_clusters_4h.pdf"), width = 6, height = 4)
+ggsave(file.path(outdir, "tSNE_clusters_4h_shape.pdf"), width = 6, height = 4, useDingbats=FALSE)
+gg <- ggplot(tmpGG, aes(X1, X2, colour = Cluster)) +
+  geom_point() +
+  labs(x="Dimension 1",y="Dimension 2",title="4h") +
+  scale_color_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+ggsave(file.path(outdir, "tSNE_clusters_4h.pdf"), gg, width = 5, height = 4, useDingbats=FALSE)
 ```
 
 Cross-tabulated counts of cells by cluster and experimental treatment:
@@ -240,7 +254,7 @@ tmpGG <- ggplot(data.frame(colData(sce.4h))) +
     axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
   ) + labs(y = "Cells", fill = "Cluster", x = NULL)
 tmpGG
-ggsave(file.path(outdir, "cluster_count_4h_facet.pdf"), width = 9, height = 4)
+ggsave(file.path(outdir, "cluster_count_4h_facet.pdf"), width = 9, height = 4, useDingbats=FALSE)
 ggsave(
   file.path(outdir, "cluster_count_4h_facetWrap.pdf"),
   ggplot(data.frame(colData(sce.4h))) +
@@ -258,7 +272,7 @@ ggsave(
         angle=90,hjust=1,vjust=0.5,face="bold", size = rel(1.25))
     ) +
     labs(x = NULL, y = "Cells", fill = "Cluster"),
-  width = 9, height = 5
+  width = 9, height = 5, useDingbats=FALSE
 )
 ggsave(
   file.path(outdir, "cluster_count_4h_vertical.pdf"),
@@ -276,7 +290,7 @@ ggsave(
       axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
     ) +
     labs(x = NULL, y = "Cells", fill = "Cluster"),
-  width = 9, height = 18
+  width = 9, height = 18, useDingbats=FALSE
 )
 ggsave(
   file.path(outdir, "cluster_count_4h.pdf"),
@@ -289,7 +303,7 @@ ggsave(
       axis.text.y = element_text(size = rel(1.5))
     ) +
   labs(x = NULL, y = "Cells", fill = "Cluster"),
-  width = 6, height = 5
+  width = 6, height = 5, useDingbats=FALSE
 )
 ```
 
@@ -307,7 +321,14 @@ ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
 ```
 
 ```{r reducedDimension_pdf.6h, include=FALSE}
-ggsave(file.path(outdir, "tSNE_clusters_6h.pdf"), width = 6, height = 4)
+ggsave(file.path(outdir, "tSNE_clusters_6h.pdf"), width = 6, height = 4, useDingbats=FALSE)
+gg <- ggplot(tmpGG, aes(X1, X2, colour = Cluster)) +
+  geom_point() +
+  labs(x="Dimension 1",y="Dimension 2",title="6h") +
+  scale_color_manual(values = col.cluster, na.value = col.cluster["NA"]) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+ggsave(file.path(outdir, "tSNE_clusters_6h.pdf"), gg, width = 5, height = 4, useDingbats=FALSE)
 ```
 
 Cross-tabulated counts of cells by cluster and experimental treatment:
@@ -329,7 +350,7 @@ tmpGG <- ggplot(data.frame(colData(sce.6h))) +
     axis.text.x = element_text(angle=90,hjust=1,vjust=0.5,face="bold")
   ) + labs(y = "Cells", fill = "Cluster")
 tmpGG
-ggsave(file.path(outdir, "cluster_count_6h_facet.pdf"), width = 9, height = 4)
+ggsave(file.path(outdir, "cluster_count_6h_facet.pdf"), width = 9, height = 4, useDingbats=FALSE)
 ggsave(
   file.path(outdir, "cluster_count_6h_facetWrap.pdf"),
   ggplot(data.frame(colData(sce.6h))) +
@@ -347,7 +368,7 @@ ggsave(
         angle=90,hjust=1,vjust=0.5,face="bold", size = rel(1.25))
     ) +
     labs(x = NULL, y = "Cells", fill = "Cluster"),
-  width = 9, height = 5
+  width = 9, height = 5, useDingbats=FALSE
 )
 ggsave(
   file.path(outdir, "cluster_count_6h.pdf"),
@@ -360,6 +381,6 @@ ggsave(
       axis.text.y = element_text(size = rel(1.5))
     ) +
   labs(x = NULL, y = "Cells", fill = "Cluster"),
-  width = 6, height = 5
+  width = 6, height = 5, useDingbats=FALSE
 )
 ```
