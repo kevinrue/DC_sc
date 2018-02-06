@@ -224,6 +224,34 @@ ggsave(
   height = pdfHeight, width = pdfWidth)
 ```
 
+## CD1A
+
+```{r CD1A, echo=FALSE, fig.height=7}
+geneName <- "CD1A"
+plotByNameFacetTime(geneName)
+```
+
+```{r CD1A_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "4h")),
+  plotByNameSubset(geneName, time = "4h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## CD83
+
+```{r CD83, echo=FALSE, fig.height=7}
+geneName <- "CD83"
+plotByNameFacetTime(geneName)
+```
+
+```{r CD83_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "4h")),
+  plotByNameSubset(geneName, time = "4h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
 ## CLECL1
 
 ```{r CLECL1, echo=FALSE, fig.height=7}
