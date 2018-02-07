@@ -249,7 +249,11 @@ plotByNameFacetTime(geneName)
 ggsave(
   file.path(outdir, sprintf(pdfName, geneName, "4h")),
   plotByNameSubset(geneName, time = "4h"),
-  height = pdfHeight, width = pdfWidth)
+  height = pdfHeight-1, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameSubset(geneName, time = "6h"),
+  height = pdfHeight-1, width = pdfWidth)
 ```
 
 ## CLECL1
@@ -263,6 +267,10 @@ plotByNameFacetTime(geneName)
 ggsave(
   file.path(outdir, sprintf(pdfName, geneName, "6h")),
   plotByNameSubset(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-infected")),
+  plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Infected")),
   height = pdfHeight, width = pdfWidth)
 ```
 
@@ -417,6 +425,10 @@ ggsave(
   file.path(outdir, sprintf(pdfName, geneName, "6h")),
   plotByNameSubset(geneName, "6h"),
   height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-infected")),
+  plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Infected")),
+  height = pdfHeight, width = pdfWidth)
 ```
 
 ## IL12B
@@ -484,6 +496,10 @@ ggsave(
 ggsave(
   file.path(outdir, sprintf(pdfName, geneName, "6h")),
   plotByNameSubset(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-infected")),
+  plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Infected")),
   height = pdfHeight, width = pdfWidth)
 ```
 
@@ -594,6 +610,20 @@ ggsave(
     infection = c("Mock","STM-LT2","STM-D23580"),
     status = c("Uninfected","Exposed","Infected")
   ),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## VPS8
+
+```{r VPS8, echo=FALSE, fig.height=7}
+geneName <- "VPS8"
+plotByNameFacetTime(geneName)
+```
+
+```{r VPS8_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-infected")),
+  plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Infected")),
   height = pdfHeight, width = pdfWidth)
 ```
 
