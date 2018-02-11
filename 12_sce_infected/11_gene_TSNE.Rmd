@@ -116,7 +116,7 @@ plotByName(geneName)
 ```{r IL12B_pdf, include=FALSE}
 ggsave(
   file.path(outdir, sprintf(pdfName, geneName)),
-  height = pdfHeight, width = pdfWidth)
+  height = pdfHeight, width = pdfWidth, useDingbats=FALSE)
 ```
 
 ## IL1B
@@ -129,7 +129,7 @@ plotByName(geneName)
 ```{r IL1B_pdf, include=FALSE}
 ggsave(
   file.path(outdir, sprintf(pdfName, geneName)),
-  height = pdfHeight, width = pdfWidth)
+  height = pdfHeight, width = pdfWidth, useDingbats=FALSE)
 ```
 
 ## IL23A
@@ -142,7 +142,7 @@ plotByName(geneName)
 ```{r IL23A_pdf, include=FALSE}
 ggsave(
   file.path(outdir, sprintf(pdfName, geneName)),
-  height = pdfHeight, width = pdfWidth)
+  height = pdfHeight, width = pdfWidth, useDingbats=FALSE)
 ```
 
 ## CXCL8
@@ -155,5 +155,5 @@ plotByName(geneName)
 ```{r CXCL8_pdf, include=FALSE}
 ggsave(
   file.path(outdir, sprintf(pdfName, geneName)),
-  height = pdfHeight, width = pdfWidth)
+  height = pdfHeight, width = pdfWidth, useDingbats=FALSE)
 ```
