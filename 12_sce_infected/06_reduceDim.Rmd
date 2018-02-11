@@ -163,7 +163,7 @@ explain the largest amount of variance in the endogenous features.
 
 ```{r plotPCASCESet}
 sce.norm <- runPCA(sce.norm, ncomponents = 3, exprs_values = "logcounts",
-  feature_set = NULL, scale_features = TRUE, pca_data_input = "logcounts")
+  feature_set = NULL, scale_features = TRUE)
 ```
 
 #### Principal components 1 and 2 {.tabset}
@@ -245,7 +245,7 @@ ggplot(ggPCA, aes(PC1, PC2)) +
   PCAtheme + theme(
     legend.text = element_text(size = 6),
     legend.position = "right")
-ggsave(file.path(outdir, "PCA_status.pdf"), height = 5, width = 7)
+ggsave(file.path(outdir, "PCA_status.pdf"), height = 5, width = 7, useDingbats=FALSE)
 ```
 
 #### Additional principal components {.tabset}
@@ -269,7 +269,9 @@ ggplot(
 ```
 
 ```{r PercentVariance_pdf, include=FALSE}
-ggsave(file.path(outdir, "PCA_variance_explained.pdf"), height = 5, width = 7)
+ggsave(
+  file.path(outdir, "PCA_variance_explained.pdf"),
+  height = 5, width = 7, useDingbats=FALSE)
 ```
 
 
@@ -493,20 +495,20 @@ posterPCA
 ggsave(
   file.path(outdir, "poster_tSNE_right.pdf"),
   posterPCA,
-  width = 7, height = 5)
+  width = 7, height = 5, useDingbats=FALSE)
 ggsave(
   file.path(outdir, "poster_tSNE_right_blankAxes.pdf"),
   posterPCA + theme(
     axis.text = element_blank(),
     axis.ticks = element_blank()
   ) + labs(x=NULL, y=NULL),
-  width = 7, height = 5)
+  width = 7, height = 5, useDingbats=FALSE)
 ggsave(
   file.path(outdir, "poster_tSNE_bottom.pdf"),
   posterPCA + theme(
     legend.position = "bottom", legend.box = "vertical"
   ),
-  width = 6, height = 6)
+  width = 6, height = 6, useDingbats=FALSE)
 ```
 
 #### Status {#tSNEstatus}
@@ -748,7 +750,7 @@ plotReducedDim(
 ```{r tSNE_CD86_pdf, include=FALSE}
 ggsave(
   file.path(outdir, "20170525_lab-meeting_tSNE_CD86.pdf"),
-  width = 5, height = 5)
+  width = 5, height = 5, useDingbats=FALSE)
 ```
 
 #### MARCH1
@@ -765,7 +767,7 @@ plotReducedDim(
 ```{r tSNE_MARCH1_pdf, include=FALSE}
 ggsave(
   file.path(outdir, "20170525_lab-meeting_tSNE_MARCH1.pdf"),
-  width = 5, height = 5)
+  width = 5, height = 5, useDingbats=FALSE)
 ```
 
 #### IL10
@@ -781,7 +783,8 @@ plotReducedDim(
 
 ```{r tSNE_IL10_pdf, include=FALSE}
 ggsave(
-  file.path(outdir, "20170525_lab-meeting_tSNE_IL10.pdf"), width = 5, height = 5)
+  file.path(outdir, "20170525_lab-meeting_tSNE_IL10.pdf"),
+  width = 5, height = 5, useDingbats=FALSE)
 ```
 
 ## Diffusion map
