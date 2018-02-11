@@ -137,7 +137,7 @@ ht_2h <- Heatmap(
   top_annotation = ha_2h,
   row_order = hvg.endo.clust$order, column_order = NULL,
   cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
-  show_row_names = FALSE, show_column_names = FALSE, width = unit(4, "inches")
+  show_row_names = FALSE, show_column_names = FALSE, width = unit(5, "inches")
 )
 ht_4h <- Heatmap(
   assay(sce.4h, "logcounts"), col = colorMap,
@@ -146,7 +146,7 @@ ht_4h <- Heatmap(
   row_order = hvg.endo.clust$order, column_order = NULL,
   cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
   show_row_names = FALSE, show_column_names = FALSE,
-  show_heatmap_legend = FALSE, width = unit(4, "inches")
+  show_heatmap_legend = FALSE, width = unit(6, "inches")
 )
 ht_6h <- Heatmap(
   assay(sce.6h, "logcounts"), col = colorMap,
@@ -155,7 +155,7 @@ ht_6h <- Heatmap(
   row_order = hvg.endo.clust$order, column_order = NULL,
   cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
   show_row_names = FALSE, show_column_names = FALSE,
-  show_heatmap_legend = FALSE , width = unit(4, "inches")
+  show_heatmap_legend = FALSE , width = unit(6, "inches")
 )
 ```
 
@@ -247,18 +247,15 @@ write.csv(gene_k, file.path(dirOut, "gene_k_10.csv"), row.names = FALSE)
 ```{r}
 anno.xlsx <- file.path("_004_in/gene_k_10.xlsx")
 anno.data <- xlsx::read.xlsx(anno.xlsx, sheetName = "gene_k_10")
-anno.subset <- subset(anno.data, Heatmap == "x", select=c("gene_name","gene_id"))
+anno.subset <- subset(anno.data, Heatmap2 == "x", select=c("gene_name","gene_id"))
 gene.idx = match(anno.subset$gene_id, rownames(sce.6h))
 ra <- rowAnnotation(
   link = row_anno_link(
     at = gene.idx, labels = as.character(anno.subset$gene_name),
-    labels_gp = gpar(cex=0.3), link_width = unit(0.5, "inches")
+    labels_gp = gpar(cex=1), link_width = unit(0.5, "inches")
     ), width = max_text_width(labels)
 )
-```
-
-```{r}
-pdf(file.path(dirOut, "heatmap_panel_time_k_split_annoLink.pdf"), height = 10, width = 17)
+pdf(file.path(dirOut, "heatmap_panel_time_k_split_annoLink.pdf"), height = 10, width = 21)
 draw(
   object = ht_2h + ht_4h + ht_6h + ht_tree + ra,
   main_heatmap = 4,
@@ -278,10 +275,7 @@ ht_tree_noSplit <- Heatmap(
   show_row_names = FALSE, show_column_names = FALSE,
   width = unit(1/2, "inches")
 )
-```
-
-```{r}
-pdf(file.path(dirOut, "heatmap_panel_time_k_annoLink.pdf"), height = 10, width = 15)
+pdf(file.path(dirOut, "heatmap_panel_time_k_annoLink.pdf"), height = 10, width = 21)
 draw(
   object = ht_2h + ht_4h + ht_6h + ht_tree_noSplit + ra,
   main_heatmap = 4,
@@ -289,4 +283,3 @@ draw(
 )
 dev.off()
 ```
-
