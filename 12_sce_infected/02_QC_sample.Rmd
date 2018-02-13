@@ -2,6 +2,8 @@
 title: "Sample-level quality control"
 bibliography:
   bibtex.bib
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -46,6 +48,7 @@ sampleQCtheme <-
   theme(
     axis.ticks.x = element_blank(), axis.text.x = element_blank(),
     panel.grid.major.x = element_blank(),
+    panel.grid.minor = element_blank(),
     legend.position = "bottom", legend.box = "vertical")
 ```
 
@@ -55,6 +58,7 @@ groupQCtheme <-
   theme(
     axis.text.x = element_text(angle=90, hjust = 1, vjust = 0.5, size = rel(0.6)),
     legend.position = "bottom", legend.box = "vertical",
+    panel.grid.minor = element_blank(),
     plot.title = element_text(hjust = 0.5)
   )
 ```
@@ -143,7 +147,7 @@ plot.GC <-
 # plot.GC
 ggsave(
   file.path(outdir, "GC_sample.pdf"),
-  plot.GC + guides(colour = "none", shape = "none"), width = 6, height = 4
+  plot.GC + guides(colour = "none", shape = "none"), width = 8, height = 4.25
 )
 plot.GC <-
   ggplot(
@@ -165,7 +169,7 @@ plot.GC <-
 plot.GC
 ggsave(
   file.path(outdir, "GC_group.pdf"),
-  plot.GC + guides(colour = "none", shape = "none"), width = 6, height = 4
+  plot.GC + guides(colour = "none", shape = "none"), width = 8, height = 4.25
 )
 ```
 
@@ -218,7 +222,7 @@ plot.aligned <-
 # plot.aligned
 ggsave(
   file.path(outdir, "alignment_rate_sample.pdf"),
-  plot.aligned + guides(colour = "none", shape = "none"), width = 6, height = 4
+  plot.aligned + guides(colour = "none", shape = "none"), width = 8, height = 4.25
 )
 plot.aligned <-
   ggplot(
@@ -241,7 +245,7 @@ plot.aligned <-
 plot.aligned
 ggsave(
   file.path(outdir, "alignment_rate_group.pdf"),
-  plot.aligned + guides(colour = "none", shape = "none"), width = 6, height = 4
+  plot.aligned + guides(colour = "none", shape = "none"), width = 8, height = 4.25
 )
 ```
 
@@ -315,7 +319,7 @@ plot.cAssigned <-
 # plot.cAssigned
 ggsave(
   file.path(outdir, "assigned_count_sample.pdf"),
-  plot.cAssigned + guides(colour = "none", shape = "none"), width = 6, height = 4
+  plot.cAssigned + guides(colour = "none", shape = "none"), width = 8, height = 4.25
 )
 plot.cAssigned <-
   ggplot(
@@ -337,7 +341,7 @@ plot.cAssigned <-
 plot.cAssigned
 ggsave(
   file.path(outdir, "assigned_count_group.pdf"),
-  plot.cAssigned + guides(colour = "none", shape = "none"), width = 6, height = 4
+  plot.cAssigned + guides(colour = "none", shape = "none"), width = 8, height = 4.25
 )
 ```
 
@@ -390,7 +394,7 @@ plot.pAssigned <-
 # plot.pAssigned
 ggsave(
   file.path(outdir, "assigned_rate_sample.pdf"),
-  plot.pAssigned + guides(colour = "none", shape = "none"), width = 6, height = 4
+  plot.pAssigned + guides(colour = "none", shape = "none"), width = 8, height = 4.25
 )
 plot.pAssigned <-
   ggplot(
@@ -413,7 +417,7 @@ plot.pAssigned <-
 plot.pAssigned
 ggsave(
   file.path(outdir, "assigned_rate_group.pdf"),
-  plot.pAssigned + guides(colour = "none", shape = "none"), width = 6, height = 4
+  plot.pAssigned + guides(colour = "none", shape = "none"), width = 8, height = 4.25
 )
 ```
 
@@ -633,7 +637,7 @@ plot.top50 <-
 # plot.top50
 ggsave(
   file.path(outdir, "complexity_50_sample.pdf"),
-  plot.top50 + guides(colour = "none", shape = "none"), width = 6, height = 4
+  plot.top50 + guides(colour = "none", shape = "none"), width = 8, height = 4.25
 )
 plot.top50 <-
   ggplot(
@@ -656,7 +660,7 @@ plot.top50 <-
 plot.top50
 ggsave(
   file.path(outdir, "complexity_50_group.pdf"),
-  plot.top50 + guides(colour = "none", shape = "none"), width = 6, height = 4
+  plot.top50 + guides(colour = "none", shape = "none"), width = 8, height = 4.25
 )
 ```
 
@@ -690,7 +694,7 @@ plot.top100 <-
 # plot.top100
 ggsave(
   file.path(outdir, "complexity_100_sample.pdf"),
-  plot.top100 + guides(colour = "none", shape = "none"), width = 6, height = 4
+  plot.top100 + guides(colour = "none", shape = "none"), width = 8, height = 4.25
 )
 plot.top100 <-
   ggplot(
@@ -713,7 +717,7 @@ plot.top100 <-
 plot.top100
 ggsave(
   file.path(outdir, "complexity_100_group.pdf"),
-  plot.top100 + guides(colour = "none", shape = "none"), width = 6, height = 4
+  plot.top100 + guides(colour = "none", shape = "none"), width = 8, height = 4.25
 )
 ```
 
@@ -753,7 +757,7 @@ plot.top200 <-
 # plot.top200
 ggsave(
   file.path(outdir, "complexity_200_sample.pdf"),
-  plot.top200 + guides(colour = "none", shape = "none"), width = 6, height = 4
+  plot.top200 + guides(colour = "none", shape = "none"), width = 8, height = 4.25
 )
 plot.top200 <-
   ggplot(
@@ -776,7 +780,7 @@ plot.top200 <-
 plot.top200
 ggsave(
   file.path(outdir, "complexity_200_group.pdf"),
-  plot.top100 + guides(colour = "none", shape = "none"), width = 6, height = 4
+  plot.top200 + guides(colour = "none", shape = "none"), width = 8, height = 4.25
 )
 ```
 
@@ -839,7 +843,7 @@ plot.features <-
 # plot.features
 ggsave(
   file.path(outdir, "features_count_sample.pdf"),
-  plot.features + guides(colour = "none", shape = "none"), width = 6, height = 4
+  plot.features + guides(colour = "none", shape = "none"), width = 8, height = 4.25
 )
 plot.features <-
   ggplot(
@@ -862,7 +866,7 @@ plot.features <-
 plot.features
 ggsave(
   file.path(outdir, "features_count_group.pdf"),
-  plot.features + guides(colour = "none", shape = "none"), width = 6, height = 4
+  plot.features + guides(colour = "none", shape = "none"), width = 8, height = 4.25
 )
 ```
 
@@ -919,7 +923,7 @@ plot.ERCC <-
 ggsave(
   file.path(outdir, "ERCC_sample.pdf"),
   plot.ERCC + guides(colour = "none", shape = "none"),
-  width = 6, height = 4
+  width = 8, height = 4.25
 )
 plot.ERCC <-
   ggplot(
@@ -943,7 +947,7 @@ plot.ERCC
 ggsave(
   file.path(outdir, "ERCC_group.pdf"),
   plot.ERCC + guides(colour = "none", shape = "none"),
-  width = 6, height = 4
+  width = 8, height = 4.25
 )
 ```
 
@@ -1004,7 +1008,7 @@ plot.MT <-
 ggsave(
   file.path(outdir, "MT_sample.pdf"),
   plot.MT + guides(colour = "none", shape = "none"),
-  width = 6, height = 4
+  width = 8, height = 4.25
 )
 plot.MT <-
   ggplot(
@@ -1027,7 +1031,7 @@ plot.MT
 ggsave(
   file.path(outdir, "MT_group.pdf"),
   plot.MT + guides(colour = "none", shape = "none"),
-  width = 6, height = 4
+  width = 8, height = 4.25
 )
 ```
 
@@ -1263,5 +1267,5 @@ plot.ERCC <-
 plot.ERCC
 ggsave(
   file.path(outdir, "ERCC_legend.pdf"), plot.ERCC,
-  width = 6, height = 4)
+  width = 8, height = 4.25)
 ```
