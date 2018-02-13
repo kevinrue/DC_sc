@@ -1,0 +1,129 @@
+---
+title: "Feature selection"
+bibliography:
+  bibtex.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+stopifnot(
+  require(SingleCellExperiment),
+  require(RColorBrewer),
+  require(ggplot2),
+  requireNamespace("edgeR"),
+  require(scater),
+  requireNamespace("limma")
+)
+sce.mini <- readRDS("rds/sce.minibulks.excludeD3.rds")
+ERCCs <- grep("^ERCC-[[:digit:]]+$", rownames(sce.mini), value = TRUE)
+MTs <- names(rowRanges(sce.mini)[seqnames(sce.mini) == "MT",])
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.mini$Time)[1:3]
+names(col.infection) <- levels(sce.mini$Infection)[1:3]
+names(col.status) <- levels(sce.mini$Status)
+outdir <- "003_out_v2"; dir.create(outdir, showWarnings = FALSE)
+```
+
+# Overview of feature detection levels
+
+Having selected single cells that pass all quality control criteria in the
+previous sections, let us identify features that are robustly detected across
+single cells in the data set.
+Indeed, features detected in a small count of cells, or expressed at very
+low levels carry limited information for differential expression analyses;
+moreover, those features negatively affect the performance of normalisation
+algorithms, due to the large number of dropout (*i.e.*, zero count) events
+[@67; @Brennecke_2013].
+
+## Counts per million (CPM)
+
+First, let us initalise the matrix of CPM:
+
+```{r cpm}
+assay(sce.mini, "cpm") <- edgeR::cpm(counts(sce.mini))
+range(colSums(assay(sce.mini, "cpm")))
+```
+
+**Note:**
+The `SingleCellExperiment::cpm` method is an *accessor* to the corresponding slot of
+`SingleCellExperiment` objects, while the `edgeR::cpm` method *calculates* normalised
+counts per million (CPM) for given a matrix of read counts.
+Furthermore, in the absence of _size factors_, CPM are computed using the
+total count of read (*i.e.*, library size) for each sample,
+without further normalisation of library sizes between samples.
+
+# Selection of detected features {#selectFeatures}
+
+In the context of the present multifactorial experimental design,
+it is expected that many genes display detectable expression levels in
+only a subset of experimental conditions (*e.g.*, genes induced upon bacterial stimuli or time-dependent).
+
+Consequently, let us define informative endogenous features as those
+that display an average expression level above an expression threshold
+of **10** counts per million (CPM) in at least
+at least **1** experimental group (3 replicate per group).
+
+First, let us obtain---for each feature---the average expression level within
+each group:
+
+```{r avgCPMbyGroup}
+avgCPMbyGroup <- apply(
+  assay(sce.mini, "cpm")[!isSpike(sce.mini, "ERCC"),],
+  1,
+  function(x){
+  tapply(x, sce.mini$Group, "mean")
+})
+avgCPMbyGroup <- reshape2::melt(
+  avgCPMbyGroup, varnames = c("Group", "Feature"), value.name = "AvgCPM")
+avgCPMbyGroup[,c("Time","Infection","Status")] <-
+  limma::strsplit2(avgCPMbyGroup$Group, "_")
+```
+
+Let us then define the count of groups in which each gene is detected
+at a average above **10** CPM:
+
+```{r groupsOver10CPM}
+genesOver10CPM <- with(
+  avgCPMbyGroup,
+  tapply(AvgCPM, Feature, function(x){sum(x > 10) >= 1})
+)
+```
+
+Let us now retain for further analysis:
+
+* endogenous features detected above **10** CPM in
+  at least **1** experimental group of cells
+
+```{r detectedFeatures}
+detectedFeatures <- names(which(genesOver10CPM))
+```
+
+```{r keep}
+keepEndogenous <- (rownames(sce.mini) %in% detectedFeatures) &
+  (!isSpike(sce.mini, "ERCC"))
+table(keepEndogenous)
+```
+
+Finally, we may extract detected features
+(endogenous and ERCC spike-in molecules) into a new `SCESet`:
+
+```{r sce.filtered}
+sce.filtered <- sce.mini[keepEndogenous,]
+dim(sce.filtered)
+```
+
+# References
+
+<!-- As HTML pages are built independently, objects need to be saved to disk
+and imported as needed by the other R mardown files -->
+
+```{r save_sce.mini, include=FALSE}
+saveRDS(sce.filtered, "rds/sce.minibulks.filtered_excludeD3.rds")
+```

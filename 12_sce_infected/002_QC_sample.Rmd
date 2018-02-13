@@ -1,0 +1,1151 @@
+---
+title: "Quality control of mini-bulk samples"
+bibliography:
+  bibtex.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+stopifnot(
+  require(SingleCellExperiment),
+  require(ggplot2),
+  require(RColorBrewer),
+  require(scater),
+  require(ggrepel),
+  require(ComplexHeatmap)
+)
+sce.mini <- readRDS("rds/sce.minibulks.rds")
+outdir <- "002_out"; dir.create(outdir, showWarnings = FALSE)
+sce.mini$GroupLabel <- with(colData(sce.mini), factor(
+  gsub("_", " ", Group),
+  gsub("_", " ", levels(Group))
+))
+```
+
+# Plotting themes
+
+First of all, let us define:
+
+* theme elements used throughout various figures in the following sections:
+
+```{r sampleQCtheme}
+sampleQCtheme <-
+  theme_minimal() +
+  theme(
+    axis.ticks.x = element_blank(), axis.text.x = element_blank(),
+    panel.grid.major.x = element_blank(),
+    legend.position = "bottom", legend.box = "vertical")
+```
+
+```{r groupQCtheme}
+groupQCtheme <-
+  theme_bw() +
+  theme(
+    axis.text.x = element_text(angle=90, hjust = 1, vjust = 0.5, size = rel(0.6)),
+    legend.position = "bottom", legend.box = "vertical",
+    plot.title = element_text(hjust = 0.5)
+  )
+```
+
+* a set of colours used to indicate phenotype information consistently
+  across the subsequent figures:
+
+```{r colours}
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.mini$Time)[1:3]
+names(col.infection) <- levels(sce.mini$Infection)
+names(col.status) <- levels(sce.mini$Status)
+```
+
+* let us also initialise a `data.frame` that will be used to store outliers
+  identified in each of the quality control filters defined below:
+
+```{r outliers}
+outliers <- data.frame(row.names = colnames(sce.mini))
+```
+
+# FastQC / MultiQC
+
+## GC content (*FastQC*)
+
+GC content is species-specific; it can be estimated from the annotated transcriptome or the sequenced data. Therefore, GC content excessively
+different from the majority of samples can indicate issues during
+library preparation or contamination.
+
+Let us identify as outliers single cells that display a GC content
+excessively *different* from the median of *single cell* samples,
+here beyond **3** MADs:
+
+```{r GC}
+outliers$GC <- isOutlier(sce.mini$FastQC_percent_gc, 3)
+table(outliers$GC)
+```
+
+Let us visualise outliers, along with blank and bulk samples for reference:
+
+```{r plot.GC, echo=FALSE, fig.height=5}
+GC.M <- median(sce.mini$FastQC_percent_gc)
+GC.MAD <- mad(sce.mini$FastQC_percent_gc)
+plot.GC <-
+  ggplot(data.frame(colData(sce.mini)), aes(Sample, FastQC_percent_gc)) +
+  # geom_rug(sides = "l", alpha=0.25) +
+  geom_hline(
+    yintercept = GC.M + 3 * c(1,-1) * GC.MAD, colour = "red", alpha = 0.5) +
+  geom_hline(yintercept = GC.M, alpha=0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Time), data.frame(colData(sce.mini)[outliers$GC,]), alpha = 0.6,
+    min.segment.length = unit(0, "lines")) +
+  labs(y = "% GC (FastQC)", x = "Samples") +
+  scale_y_continuous(limits = c(0,100)) +
+  scale_colour_manual(values = col.infection) +
+  sampleQCtheme
+# plot.GC
+ggsave(
+  file.path(outdir, "GC_sample.pdf"),
+  plot.GC + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
+plot.GC <-
+  ggplot(
+    data.frame(colData(sce.mini)),
+    aes(GroupLabel, FastQC_percent_gc)) +
+  geom_violin(aes(colour = Infection), alpha = 0.25) +
+  geom_hline(
+    yintercept = GC.M + 3 * c(1,-1) * GC.MAD, colour = "red",alpha = 0.5) +
+  geom_hline(yintercept = GC.M, alpha=0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Donor),
+    data.frame(colData(sce.mini)[outliers$GC,]),
+    alpha = 0.6, min.segment.length = unit(0, "lines"), size = rel(2)) +
+  labs(title = "% GC (FastQC)", x = NULL, y = NULL) +
+  scale_y_continuous(limits = c(0,100)) +
+  scale_colour_manual(values = col.infection) +
+  groupQCtheme
+plot.GC
+ggsave(
+  file.path(outdir, "GC_group.pdf"),
+  plot.GC + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
+```
+
+For reference:
+
+* single cells
+    - median: `r sprintf("%.0f%%", GC.M)`
+* cut-offs
+    - upper bound: `r sprintf("%.0f%%", GC.M+GC.MAD*3)`
+    - lower bound: `r sprintf("%.0f%%", GC.M-GC.MAD*3)`
+
+## Alignment rate (*HISAT2*)
+
+Technical issues introduced during library preparation may result
+in an excessively *low* alignment rate.
+Nevertheless, libraries with slightly lower alignment rates may still yield
+a library size comparable to the majority of samples.
+
+For those reasons reasons,
+let us identify as outliers single cells with an alignment rate
+excessively *lower* than the median of *single cell* samples,
+here beyond **3** MADs:
+
+```{r AlignedPercent}
+outliers$AlignedPercent <- isOutlier(sce.mini$Bowtie.2_overall_alignment_rate, 3, "lower")
+table(outliers$AlignedPercent)
+```
+
+Let us visualise outliers, along with blank and bulk samples for reference:
+
+```{r plot.aligned, echo=FALSE, fig.height=5}
+align.M <- median(sce.mini$Bowtie.2_overall_alignment_rate)
+align.MAD <- mad(sce.mini$Bowtie.2_overall_alignment_rate)
+plot.aligned <-
+  ggplot(
+    data.frame(colData(sce.mini)),
+    aes(Sample, Bowtie.2_overall_alignment_rate)) +
+  geom_hline(yintercept = align.M, alpha = 0.5) +
+  geom_hline(
+    yintercept = align.M + 3*c(1,-1)*align.MAD,
+    colour = "red", linetype = 2:1, alpha = 0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Time),
+    data.frame(colData(sce.mini))[outliers$AlignedPercent,],
+    alpha = 0.6, min.segment.length = unit(0, "lines")) +
+  scale_y_continuous(limits = c(0,100)) +
+  scale_colour_manual(values = col.infection) +
+  labs(y = "Overall alignment rate (HISAT2)", x = "Samples") + sampleQCtheme
+# plot.aligned
+ggsave(
+  file.path(outdir, "alignment_rate_sample.pdf"),
+  plot.aligned + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
+plot.aligned <-
+  ggplot(
+    data.frame(colData(sce.mini)),
+    aes(GroupLabel, Bowtie.2_overall_alignment_rate)) +
+  geom_violin(aes(colour = Infection), alpha = 0.25) +
+  geom_hline(
+    yintercept = align.M + 3 * c(1,-1) * align.MAD,
+    colour = "red", linetype = 2:1, alpha = 0.5) +
+  geom_hline(yintercept = align.M, alpha=0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Donor),
+    data.frame(colData(sce.mini)[outliers$AlignedPercent,]),
+    alpha = 0.6, min.segment.length = unit(0, "lines"), size = rel(2)) +
+  labs(title = "Overall alignment rate (HISAT2)", y=NULL, x=NULL) +
+  scale_y_continuous(limits = c(0,100)) +
+  scale_colour_manual(values = col.infection) +
+  groupQCtheme
+plot.aligned
+ggsave(
+  file.path(outdir, "alignment_rate_group.pdf"),
+  plot.aligned + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
+```
+
+For reference:
+
+* single cells
+    - median: `r sprintf("%.0f%%", align.M)`
+* cut-off
+    - lower bound: `r sprintf("%.0f%%", align.M-align.MAD*3)`
+
+```{r posterAligned, include=FALSE}
+posterAligned <-
+  ggplot(data.frame(colData(sce.mini)), aes(Sample, Bowtie.2_overall_alignment_rate)) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_hline(
+    yintercept = align.M + 3*c(1,-1)*align.MAD,
+    colour ="red", linetype = 2:1) +
+  geom_hline(yintercept = align.M) +
+  geom_text_repel(
+    aes(label = Time),
+    data.frame(colData(sce.mini))[outliers$AlignedPercent,],
+    alpha = 0.4, min.segment.length = unit(0, "lines")) +
+  scale_y_continuous(limits = c(0,100)) +
+  ylab("Overall alignment rate (HISAT2)") +
+  scale_color_manual(values = col.infection) +
+  theme(axis.text.x = element_blank(), axis.ticks.x = element_blank())
+ggsave(
+  file.path(outdir, "poster_alignedQC.pdf"), posterAligned,
+  width = 9, height = 6)
+```
+
+## Assigned reads / Library size (*featureCounts*) {#assigned}
+
+An excessively small count of aligned reads assigned to 
+annotated genomics features (*i.e.*, library size) may indicate
+technical issues during library preparation or low quality samples.
+Moreover, library size excessively different from the
+majority of samples may introduce
+bias due to under- or over-sampling of RNA fragments, and negatively affect
+the performance of between-sample normalisation algorithms.
+
+Let us identify as outliers single cells
+with a count of assigned read pairs (*i.e.* library size)
+excessively *different* from the median of *single cell* samples,
+here beyond **3** MADs:
+
+```{r AssignedCount}
+outliers$AssignedCount <- isOutlier(sce.mini$featureCounts_Assigned, 3, log = TRUE)
+table(outliers$AssignedCount)
+```
+
+Let us visualise outliers, along with blank and bulk samples, for reference:
+
+```{r plot.cAssigned, echo=FALSE, fig.height=5}
+cAssigned.M <- median(log10(sce.mini$featureCounts_Assigned))
+cAssigned.MAD <- mad(log10(sce.mini$featureCounts_Assigned))
+plot.cAssigned <-
+  ggplot(data.frame(colData(sce.mini)), aes(Sample, featureCounts_Assigned)) +
+  geom_hline(
+    yintercept = 10^(cAssigned.M + 3*c(1,-1)*cAssigned.MAD),
+    colour = "red", alpha = 0.5) +
+  geom_hline(yintercept = 10^(cAssigned.M), alpha = 0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Time), data.frame(colData(sce.mini))[outliers$AssignedCount,],
+    alpha = 0.6, min.segment.length = unit(0, "lines")
+  ) +
+  scale_color_manual(values = col.infection) +
+  labs(y = "Count assigned (featureCounts)", x = "Samples") +
+  sampleQCtheme
+# plot.cAssigned
+ggsave(
+  file.path(outdir, "assigned_count_sample.pdf"),
+  plot.cAssigned + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
+plot.cAssigned <-
+  ggplot(
+    data.frame(colData(sce.mini)),
+    aes(GroupLabel, featureCounts_Assigned)) +
+  geom_violin(aes(colour = Infection), alpha = 0.25) +
+  geom_hline(
+    yintercept = 10^(cAssigned.M + 3 * c(1,-1) * cAssigned.MAD),
+    colour = "red", alpha = 0.5) +
+  geom_hline(yintercept = 10^cAssigned.M, alpha=0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Donor),
+    data.frame(colData(sce.mini)[outliers$AssignedCount,]),
+    alpha = 0.6, min.segment.length = unit(0, "lines"), size = rel(2)) +
+  labs(title = "Count assigned (featureCounts)", y = NULL, x = NULL) +
+  scale_colour_manual(values = col.infection) +
+  groupQCtheme
+plot.cAssigned
+ggsave(
+  file.path(outdir, "assigned_count_group.pdf"),
+  plot.cAssigned + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
+```
+
+For reference:
+
+* single cells
+    - median: `r sprintf("%.1fe+06", 10^cAssigned.M/1E6)`
+* cut-offs
+    - lower bound:
+      `r sprintf("%.1fe+06", 10^(cAssigned.M-cAssigned.MAD*3)/1E6)`
+    - upper bound:
+      `r sprintf("%.1fe+06", 10^(cAssigned.M+cAssigned.MAD*3)/1E6)`
+
+## Percentage assigned (*featureCounts*)
+
+Similarly, unusually *low* assignment rate of reads to annotated genomic
+features may indicate technical issue; for instance during
+poly-A selection.
+
+Let us identify as outliers single cells
+with a rate of assigned reads
+excessively *lower* than the median of *single cell* samples,
+here beyond **3** MADs:
+
+```{r AssignedPercent}
+outliers$AssignedPercent <- isOutlier(sce.mini$featureCounts_percent_assigned, 3)
+table(outliers$AssignedPercent)
+```
+
+Let us visualise outliers, along with blank and bulk samples, for reference:
+
+```{r plot.pAssigned, echo=FALSE, fig.height=5}
+pAssigned.M <- median(sce.mini$featureCounts_percent_assigned)
+pAssigned.MAD <- mad(sce.mini$featureCounts_percent_assigned)
+plot.pAssigned <-
+  ggplot(data.frame(colData(sce.mini)), aes(Sample, featureCounts_percent_assigned)) +
+  geom_hline(
+    yintercept = (pAssigned.M + 3*c(1,-1)*pAssigned.MAD), colour = "red",
+    linetype = 2:1, alpha = 0.5) +
+  geom_hline(yintercept = pAssigned.M, alpha = 0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Time), data.frame(colData(sce.mini))[outliers$AssignedPercent,],
+    alpha = 0.6, min.segment.length = unit(0, "lines")
+  ) +
+  scale_y_continuous(limits = c(0,100)) +
+  scale_colour_manual(values = col.infection) +
+  labs(y = "% assigned (featureCounts)", x = "Samples") +
+  sampleQCtheme
+# plot.pAssigned
+ggsave(
+  file.path(outdir, "assigned_rate_sample.pdf"),
+  plot.pAssigned + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
+plot.pAssigned <-
+  ggplot(
+    data.frame(colData(sce.mini)),
+    aes(GroupLabel, featureCounts_percent_assigned)) +
+  geom_violin(aes(colour = Infection), alpha = 0.25) +
+  geom_hline(
+    yintercept = pAssigned.M + 3 * c(1,-1) * pAssigned.MAD,
+    colour = "red", linetype = 2:1, alpha = 0.5) +
+  geom_hline(yintercept = pAssigned.M, alpha=0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Donor),
+    data.frame(colData(sce.mini)[outliers$AssignedPercent,]),
+    alpha = 0.6, min.segment.length = unit(0, "lines"), size = rel(2)) +
+  labs(title = "% assigned (featureCounts)", x=NULL, y=NULL) +
+  scale_y_continuous(limits = c(0,100)) +
+  scale_colour_manual(values = col.infection) +
+  groupQCtheme
+plot.pAssigned
+ggsave(
+  file.path(outdir, "alignment_rate_group.pdf"),
+  plot.pAssigned + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
+```
+
+For reference:
+
+* single cells
+    - median: `r sprintf("%.0f%%", pAssigned.M)`
+* cut-off
+    - lower bound:
+      `r sprintf("%.0f%%", pAssigned.M-pAssigned.MAD*3)`
+
+## Summary
+
+Let us display the count of cells identified as outliers for each of the
+filters so far:
+
+```{r fastqc.fr}
+fastqc.fr <- FilterRules(colnames(outliers))
+fastqc.fr
+```
+
+```{r fastqc.fr_table, results='asis', echo=FALSE}
+pander::pandoc.table(
+  data.frame(
+    Fail = summary(evalSeparately(fastqc.fr, outliers)),
+    Pass = summary(!evalSeparately(fastqc.fr, outliers))
+))
+```
+
+**Note:**
+In the above table, the first row simply indicates the total count
+of cells before any filtering;
+conversely, the last row indicates the count of cells that failed or
+passed, respectively, _all_ filters.
+
+# *scater*
+
+## Calculation of QC metrics {#calculateQCMetrics}
+
+The following sections require the estimation of several QC metrics that
+leverage control features, as means to identify outliers among single cells
+(there are no control samples available in this data set).
+
+Let us apply the [scater](http://bioconductor.org/packages/scater)
+`calculateQCMetrics` to calculate the relevant QC metrics in the
+data set, using set of spike-in control features:
+
+```{r sc_QC}
+sce.mini <- calculateQCMetrics(
+  sce.mini,
+  feature_controls = list(
+    ERCC = isSpike(sce.mini, "ERCC"),
+    MT = as.logical(seqnames(sce.mini) == "MT")
+  )
+)
+```
+
+## Library size
+
+The library size refers to the total count of reads assigned to 
+annotated features in each individual sample.
+
+Here, let us simply show the direct relation between
+`log10_total_counts` computed by `calculateQCMetrics`
+and the `featureCounts_Assigned` counts
+detected by [MultiQC](http://multiqc.info) in
+an earlier section [above](#assigned):
+
+```{r scater_outliers_totalCounts}
+with(
+  data.frame(colData(sce.mini)),
+  all(abs(log10_total_counts == log10(featureCounts_Assigned+1)))
+)
+```
+
+As a result, this metric is identical to the *featureCounts_Assigned*
+metric described [above](#assigned); and thereby would
+unnecessarily identify the same outliers.
+
+## Library complexity {#libraryComplexity}
+
+*Library complexity* refers to the proportion of assigned reads accounted for
+by the $N$ most abundant features within each individual sample, with values
+for $N$ usually ranging from tens to hundreds.
+It is expected to observe a lower library complexity in single cells relative
+to bulk samples, due to higher dropout events in single cells, and the union of
+multiple phenotypes within bulk samples.
+In contrast, blank samples are expected to have extremely low library
+complexity, as only up to **92** ERCC spike-ins sequences are expected in those
+libraries, in contrast to thousands of genomic features in biological samples.
+
+In the `SingleCellExperiment` object augmnented by QC metrics,
+let us visualise the
+library complexity profile against experimental phenotype information:
+
+```{r all_libraryComplexity}
+plotScater(
+  sce.mini, block1 = "Status", block2 = "Infection",
+  colour_by = "Time", nfeatures = 300, exprs_values = "counts",
+  line_width = 0.5
+)
+```
+
+First, from a QC perspective:
+
+* Blank samples show a very low library complexity, as expected.
+* Bulk samples show a generally high library complexity, as expected.
+* Single cells generally show a complexity profile comparable to that of bulk
+  samples, indicative of healthy dendritic cells and unbiased sampling of
+  diverse transcripts.
+* A small subset of single cells (*e.g.*, `exposed:D23580:6h`,`exposed:LT2:4h`, 
+  `infected:D23580:4h`, `infected:D23580:6h`, `infected:LT2:6h`) show
+  suspiciously low library complexity; suggestive of technical issues during
+  library prepration (*e.g.*, amplification bias, dropout events).
+  Those single cells must therefore be treated as outliers, and be removed from
+  the data set prior to feature selection, normalisation, and subsequent
+  analyses.
+
+Now, from a biological perspective, interesting observations may be made:
+
+* Library complexity seems to decrease with `Time` in `exposed` and `infected`
+  samples in cells exposed to or infected by bacteria, in contrast to
+  control uninfected cells.
+  This may indicate a polarisation of single cells toward
+  specialised phenotype(s) after infection or exposure
+  (*e.g.*, cytokine production, antigen presentation).
+  + `Mock` (*i.e.*, `uninfected`) single cells tend to show a consistent,
+    relatively high library complexity
+  + Both `LT2` and `D23580` infections show a gradual decrease of library
+    complexity over time. This observation *might* be more pronounced
+    for `D23580`.
+
+## Most abundant features
+
+Although abundantly expressed features are an expected aspect of cell biology
+(*e.g.*, myosin in muscle cells, clusters of differentiation in immune cells)
+which may contribute to the identification and classification of cell types,
+overly abundant features in RNA-Seq libraries
+may indicate issues during library preparation;
+in particular, cDNA amplification bias.
+Moreover, when a small number of highly abundant features
+account for an excessive proportion of sequenced reads,
+expression levels for the vast majority of other genes may not be
+estimated with sufficient accuracy.
+
+### Identification {.tabset}
+
+Let us identify as outliers single cells
+in which the `50`, `100`, and `200` most abundant features account for a
+proportion of library size
+excessively *higher* than the median of *single cell* samples,
+here beyond **3** MADs:
+
+#### Top 50
+
+```{r scater_outliers_top50}
+outliers$top50 <- isOutlier(sce.mini$pct_counts_top_50_features, 3)
+table(outliers$top50)
+```
+
+#### Top 100
+
+```{r scater_outliers_top100}
+outliers$top100 <- isOutlier(sce.mini$pct_counts_top_100_features, 3)
+table(outliers$top100)
+```
+
+#### Top 200
+
+```{r scater_outliers_top200}
+outliers$top200 <- isOutlier(sce.mini$pct_counts_top_200_features, 3)
+table(outliers$top200)
+```
+
+### Visualisation {.tabset}
+
+Let us visualise outliers, along with blank and bulk samples, for reference:
+
+#### 50
+
+```{r plot.top50, echo=FALSE, fig.height=5}
+top50.M <- median(sce.mini$pct_counts_top_50_features)
+top50.MAD <- mad(sce.mini$pct_counts_top_50_features)
+plot.top50 <-
+  ggplot(data.frame(colData(sce.mini)), aes(Sample, pct_counts_top_50_features)) +
+  geom_hline(
+    yintercept = top50.M + 3*c(-1,1)*top50.MAD,
+    colour = "red", linetype = 2:1, alpha = 0.5) +
+  geom_hline(yintercept = top50.M, alpha = 0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Donor),
+    data.frame(colData(sce.mini)[outliers$top50,]),
+    alpha = 0.6, min.segment.length = unit(0, "lines")) +
+  labs(y = "% counts (top 50 features)", x = "Samples") +
+  scale_y_continuous(limits = c(0,100)) +
+  scale_color_manual(values = col.infection) +
+  sampleQCtheme
+# plot.top50
+ggsave(
+  file.path(outdir, "complexity_50_sample.pdf"),
+  plot.top50 + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
+plot.top50 <-
+  ggplot(
+    data.frame(colData(sce.mini)),
+    aes(GroupLabel, pct_counts_top_50_features)) +
+  geom_violin(aes(colour = Infection), alpha = 0.25) +
+  geom_hline(
+    yintercept = top50.M + 3*c(-1,1)*top50.MAD,
+    colour = "red", linetype = 2:1, alpha = 0.5) +
+  geom_hline(yintercept = top50.M, alpha = 0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Donor),
+    data.frame(colData(sce.mini)[outliers$top50,]),
+    alpha = 0.6, min.segment.length = unit(0, "lines"), size = rel(2)) +
+  scale_y_continuous(limits = c(0,100)) +
+  scale_color_manual(values = col.infection) +
+  labs(title = "% counts (top 50 features)", x=NULL, y=NULL) +
+  groupQCtheme
+plot.top50
+ggsave(
+  file.path(outdir, "complexity_50_group.pdf"),
+  plot.top50 + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
+```
+
+For reference:
+
+* single cells
+    - median: `r sprintf("%.0f%%", top50.M)`
+* cut-off
+    - upper bound: `r sprintf("%.0f%%", top50.M+top50.MAD*3)`
+
+#### 100
+
+```{r plot.top100, echo=FALSE, fig.height=5}
+top100.M <- median(sce.mini$pct_counts_top_100_features)
+top100.MAD <- mad(sce.mini$pct_counts_top_100_features)
+plot.top100 <-
+  ggplot(data.frame(colData(sce.mini)), aes(Sample, pct_counts_top_100_features)) +
+  geom_hline(
+    yintercept = top100.M + 3*c(-1,1)*top100.MAD,
+    colour = "red", linetype = 2:1, alpha=0.4) +
+  geom_hline(yintercept = top100.M, alpha=0.4) +
+  geom_point(aes(colour = Infection, shape = Status), alpha=0.75) +
+  geom_text_repel(
+    aes(label = Donor),
+    data.frame(colData(sce.mini)[outliers$top100,]),
+    alpha = 0.6, min.segment.length = unit(0, "lines")) +
+  scale_y_continuous(limits = c(0,100)) +
+  scale_colour_manual(values = col.infection) +
+  labs(y = "% counts (top 100 features)", x = "Samples") +
+  sampleQCtheme
+# plot.top100
+ggsave(
+  file.path(outdir, "complexity_100_sample.pdf"),
+  plot.top100 + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
+plot.top100 <-
+  ggplot(
+    data.frame(colData(sce.mini)),
+    aes(GroupLabel, pct_counts_top_100_features)) +
+  geom_violin(aes(colour = Infection), alpha = 0.25) +
+  geom_hline(
+    yintercept = top100.M + 3*c(-1,1)*top100.MAD,
+    colour = "red", linetype = 2:1, alpha = 0.5) +
+  geom_hline(yintercept = top100.M, alpha = 0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Donor),
+    data.frame(colData(sce.mini)[outliers$top100,]),
+    alpha = 0.6, min.segment.length = unit(0, "lines"), size = rel(2)) +
+  scale_y_continuous(limits = c(0,100)) +
+  scale_color_manual(values = col.infection) +
+  labs(title = "% counts (top 100 features)", x=NULL, y=NULL) +
+  groupQCtheme
+plot.top100
+ggsave(
+  file.path(outdir, "complexity_100_group.pdf"),
+  plot.top100 + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
+```
+
+For reference:
+
+* single cells
+    - median: `r sprintf("%.0f%%", top100.M)`
+* cut-off
+    - upper bound: `r sprintf("%.0f%%", top100.M+top100.MAD*3)`
+
+**Note**:
+Two `infected:D23580` samples appear near (below) the cut-off
+threshold.
+This observation can be related to the overall library complexity figure
+shown [earlier](#libraryComplexity).
+
+#### 200
+
+```{r scater_ggplot_top200, echo=FALSE, fig.height=5}
+top200.M <- median(sce.mini$pct_counts_top_200_features)
+top200.MAD <- mad(sce.mini$pct_counts_top_200_features)
+plot.top200 <-
+  ggplot(data.frame(colData(sce.mini)), aes(Sample, pct_counts_top_200_features)) +
+  geom_hline(
+    yintercept = top200.M + 3*c(-1,1)*top200.MAD,
+    colour = "red", linetype = 2:1, alpha=0.4) +
+  geom_hline(yintercept = top200.M, alpha=0.4) +
+  geom_point(aes(colour = Infection, shape = Status), alpha=0.75) +
+  geom_text_repel(
+    aes(label = Donor),
+    data.frame(colData(sce.mini)[outliers$top200,]),
+    alpha = 0.6, min.segment.length = unit(0, "lines")) +
+  scale_y_continuous(limits = c(0,100)) +
+  scale_colour_manual(values = col.infection) +
+  labs(y = "% counts (top 100 features)", x = "Samples") +
+  sampleQCtheme
+# plot.top200
+ggsave(
+  file.path(outdir, "complexity_200_sample.pdf"),
+  plot.top200 + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
+plot.top200 <-
+  ggplot(
+    data.frame(colData(sce.mini)),
+    aes(GroupLabel, pct_counts_top_200_features)) +
+  geom_violin(aes(colour = Infection), alpha = 0.25) +
+  geom_hline(
+    yintercept = top200.M + 3*c(-1,1)*top200.MAD,
+    colour = "red", linetype = 2:1, alpha = 0.5) +
+  geom_hline(yintercept = top200.M, alpha = 0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Donor),
+    data.frame(colData(sce.mini)[outliers$top200,]),
+    alpha = 0.6, min.segment.length = unit(0, "lines"), size = rel(2)) +
+  scale_y_continuous(limits = c(0,100)) +
+  scale_color_manual(values = col.infection) +
+  labs(title = "% counts (top 200 features)", x=NULL, y=NULL) +
+  groupQCtheme
+plot.top200
+ggsave(
+  file.path(outdir, "complexity_200_group.pdf"),
+  plot.top100 + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
+```
+
+For reference:
+
+* single cells
+    - median: `r sprintf("%.0f%%", top200.M)`
+* cut-off
+    - upper bound: `r sprintf("%.0f%%", top200.M+top200.MAD*3)`
+
+**Note**:
+Two `infected:D23580` samples appear near (below) the cut-off threshold.
+This observation can be related to the overall library complexity figure
+shown [earlier](#libraryComplexity).
+
+## Count of detected features
+
+A notion closely related to library complexity is the count of features
+detected within each individual sample. Although the definition of "detection
+level" may be debated, we will consider here any feature with non-zero count.
+
+Abnormal counts of detected features may be indicative of technical issue
+during RNA capture and library preparation; for instance,
+excessively *low* counts of detected features may indicate RNA degradation,
+while excessively *high* counts of detected features may indicate capture of
+multiple cells.
+
+Owing to the considerable amount of variation that results from the relaxed
+definition of detection level above, let us apply a somewhat stringent cut-off
+of **2** MADs to identify as outliers single cells
+with a count of detected features
+excessively *lower* than the median of *single cell* samples,
+here beyond **2** MADs::
+
+```{r scater_outliers_features}
+outliers$FeaturesCount <- isOutlier(sce.mini$total_features, 2, "lower")
+table(outliers$FeaturesCount)
+```
+
+Let us visualise outliers, along with blank and bulk samples, for reference:
+
+```{r plot.features, echo=FALSE, fig.height=5}
+features.M <- median(sce.mini$total_features)
+features.MAD <- mad(sce.mini$total_features)
+plot.features <-
+  ggplot(data.frame(colData(sce.mini)), aes(Sample, total_features)) +
+  geom_hline(yintercept = features.M, alpha = 0.5) +
+  geom_hline(
+    yintercept = features.M + 2 * c(-1,1) * features.MAD, colour = "red",
+    linetype = 1:2, alpha = 0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Donor),
+    data.frame(colData(sce.mini)[outliers$FeaturesCount,]),
+    alpha = 0.6, min.segment.length = unit(0, "lines")) +
+  scale_colour_manual(values = col.infection) +
+  scale_y_continuous(limits=c(0,max(sce.mini$total_features))*1.1) +
+  labs(y = "Count of detected features", x = "Samples") +
+  sampleQCtheme
+# plot.features
+ggsave(
+  file.path(outdir, "features_count_sample.pdf"),
+  plot.features + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
+plot.features <-
+  ggplot(
+    data.frame(colData(sce.mini)),
+    aes(GroupLabel, total_features)) +
+  geom_violin(aes(colour = Infection), alpha=0.25) +
+  geom_hline(yintercept = features.M, alpha = 0.5) +
+  geom_hline(
+    yintercept = features.M + 2 * c(-1,1) * features.MAD, colour = "red",
+    linetype = 1:2, alpha = 0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Donor),
+    data.frame(colData(sce.mini)[outliers$FeaturesCount,]),
+    alpha = 0.6, min.segment.length = unit(0, "lines"), size = rel(2)) +
+  scale_colour_manual(values = col.infection) +
+  scale_y_continuous(limits=c(0,max(sce.mini$total_features))*1.1) +
+  labs(title = "Count of detected features", x=NULL, y=NULL) +
+  groupQCtheme
+plot.features
+ggsave(
+  file.path(outdir, "features_count_group.pdf"),
+  plot.features + guides(colour = "none", shape = "none"), width = 6, height = 4
+)
+```
+
+For reference:
+
+* single cells
+    - median: `r features.M`
+* cut-offs
+    - lower bound:
+      `r sprintf("%.1f", features.M-2*features.MAD)`
+
+## ERCC content {#ERCCoutliers}
+
+An identical--yet very small--quantity of ERCC spike-in features is added
+to each sample prior to library preparation.
+As a result, technical variation and issues during library preparation may be
+estimated from the proportion of reads assigned to those spike-in features;
+an excessive proportion of reads assigned to ERCC spike-in features may
+indicate eukaryotic RNA degradation,
+while excessive variation may indicate cDNA amplication bias.
+
+Due to the limited amount of variation that results from the generally
+low levels of ERCC spike-in features detected,
+let us apply a somewhat relaxed cut-off of **5** MADs
+to identify as outliers single cells an ERCC content excessively *higher* than
+the median of *single cell* samples:
+
+```{r scater_outliers_ercc}
+outliers$ERCC <- isOutlier(sce.mini$pct_counts_ERCC, 5, "higher")
+table(outliers$ERCC)
+```
+
+Let us visualise those outliers, along with blank and bulk samples
+for reference:
+
+```{r scater_ggplot_ERCC, echo=FALSE, fig.height=5, warning=FALSE}
+ERCC.M <- median(sce.mini$pct_counts_ERCC)
+ERCC.MAD <- mad(sce.mini$pct_counts_ERCC)
+plot.ERCC <-
+  ggplot(data.frame(colData(sce.mini)), aes(Sample, pct_counts_ERCC)) +
+  geom_hline(yintercept = ERCC.M, alpha = 0.5) +
+  geom_hline(
+    yintercept = ERCC.M + 5*c(-1,1)*ERCC.MAD,
+    colour = "red", linetype = 2:1, alpha = 0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Time), data.frame(colData(sce.mini))[outliers$ERCC,], alpha = 0.6,
+    min.segment.length = unit(0, "lines")) +
+  scale_y_continuous(limits = c(0, 100)) +
+  scale_colour_manual(values = col.infection) +
+  labs(y = "ERCC content (% counts)") +
+  sampleQCtheme
+# plot.ERCC
+ggsave(
+  file.path(outdir, "ERCC_sample.pdf"),
+  plot.ERCC + guides(colour = "none", shape = "none"),
+  width = 6, height = 4
+)
+plot.ERCC <-
+  ggplot(
+    data.frame(colData(sce.mini)),
+    aes(interaction(Time, Infection, Status, sep=" "), pct_counts_ERCC)) +
+  geom_violin(aes(colour = Infection), alpha=0.25) +
+  geom_hline(yintercept = ERCC.M, alpha = 0.5) +
+  geom_hline(
+    yintercept = ERCC.M + 5*c(-1,1)*ERCC.MAD,
+    colour = "red", linetype = 2:1, alpha = 0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Donor),
+    data.frame(colData(sce.mini)[outliers$ERCC,]),
+    alpha = 0.6, min.segment.length = unit(0, "lines"), size = rel(2)) +
+  scale_y_continuous(limits = c(0, 100)) +
+  scale_colour_manual(values = col.infection) +
+  labs(title = "ERCC content (% counts)", y=NULL, x=NULL) +
+  groupQCtheme
+plot.ERCC
+ggsave(
+  file.path(outdir, "ERCC_group.pdf"),
+  plot.ERCC + guides(colour = "none", shape = "none"),
+  width = 6, height = 4
+)
+```
+
+For reference:
+
+* single cells
+    - median: `r sprintf("%.0f%%", ERCC.M)`
+* cut-offs
+    - upper bound:
+      `r sprintf("%.0f%%", ERCC.M+ERCC.MAD*5)`
+
+## Mitochondrial content {#MTcontent}
+
+Similarly to ERCC spike-in features, mitochondrial RNA may be used
+as an endogenous source of control features;
+the limited count of genes encoded on the mitochondrial chromosome
+relative to the human chromosomes implies that,
+even at their highest levels of expression,
+mitochondrial genes are expected to account for a *low* proportion
+of the total read count in each sample.
+Consequently, abnormally *high* proportions of reads assigned to mitochondrial
+gene features may be indicative of technical issue during RNA capture and
+library preparation, or abnormal count of mitochondria within the single cells.
+
+Conversely, an unusually *low* proportion of reads assigned to mitochondrial
+gene features may also indicate issues related to RNA capture and
+library preparation.
+
+Let us identify as outliers single cells for which the proportion of reads
+assigned to mitochondrial gene features is excessively *higher*
+than the median of *single cell* samples:
+
+```{r scater_outliers_MT}
+outliers$MT <- isOutlier(sce.mini$pct_counts_MT, 3, "higher")
+table(outliers$MT)
+```
+
+Let us visualise those outliers, along with blank and bulk samples
+for reference:
+
+```{r scater_ggplot_MT, echo=FALSE, fig.height=5, warning=FALSE}
+MT.M <- median(sce.mini$pct_counts_MT)
+MT.MAD <- mad(sce.mini$pct_counts_MT)
+plot.MT <-
+  ggplot(data.frame(colData(sce.mini)), aes(Sample, pct_counts_MT)) +
+  geom_hline(yintercept = MT.M, alpha = 0.4) +
+  geom_hline(
+    yintercept = MT.M + 3 * c(-1,1) * MT.MAD, colour = "red",
+    linetype = 2:1, alpha = 0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Time), data.frame(colData(sce.mini))[outliers$MT,], alpha = 0.6,
+    min.segment.length = unit(0, "lines")) +
+  scale_colour_manual(values = col.infection) +
+  scale_y_continuous(limits = c(0, 100)) +
+  labs(y = "MT content (% counts)", x = "Samples") + sampleQCtheme
+# plot.MT
+ggsave(
+  file.path(outdir, "MT_sample.pdf"),
+  plot.MT + guides(colour = "none", shape = "none"),
+  width = 6, height = 4
+)
+plot.MT <-
+  ggplot(
+    data.frame(colData(sce.mini)),
+    aes(interaction(Time, Infection, Status, sep=" "), pct_counts_MT)) +
+  geom_hline(yintercept = MT.M, alpha = 0.4) +
+  geom_hline(
+    yintercept = MT.M + 3 * c(-1,1) * MT.MAD, colour = "red",
+    linetype = 2:1, alpha = 0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Donor),
+    data.frame(colData(sce.mini)[outliers$MT,]),
+    alpha = 0.6, min.segment.length = unit(0, "lines"), size = rel(2)) +
+  scale_colour_manual(values = col.infection) +
+  scale_y_continuous(limits = c(0, 100)) +
+  labs(title = "MT content (% counts)", x=NULL, y=NULL) +
+  groupQCtheme
+plot.MT
+ggsave(
+  file.path(outdir, "MT_group.pdf"),
+  plot.MT + guides(colour = "none", shape = "none"),
+  width = 6, height = 4
+)
+```
+
+For reference:
+
+* single cells
+    - median: `r sprintf("%.0f%%", MT.M)`
+* cut-offs
+    - upper bound:
+      `r sprintf("%.0f%%", MT.M+MT.MAD*5)`
+
+## Summary
+
+Let us display the count of cells identified as outliers for each of the
+filters in this section:
+
+```{r scater.fr}
+scater.fr <- FilterRules(setdiff(colnames(outliers), names(fastqc.fr)))
+scater.fr
+```
+
+```{r scater.fr_table, results='asis', echo=FALSE}
+pander::pandoc.table(
+  data.frame(
+    Fail = summary(evalSeparately(scater.fr, outliers)),
+    Pass = summary(!evalSeparately(scater.fr, outliers))
+))
+```
+
+# Global summary of QC metrics
+
+## By filter
+
+Let us now collect the results of *all* the QC metrics obtained in the previous
+sections, and display the count of cells :
+
+```{r all.fr}
+all.fr <- FilterRules(colnames(outliers))
+all.fr
+```
+
+```{r all.fr_table, results='asis', echo=FALSE}
+pander::pandoc.table(data.frame(
+    Fail = summary(evalSeparately(all.fr, outliers)),
+    Pass = summary(!evalSeparately(all.fr, outliers))
+))
+```
+
+In the table above, none of the cells fails *all* the filters;
+this demonstrates the importance of each individual filter, despite the
+apparent relatedness and overlap between many of the metrics.
+
+## Heat map summary view
+
+Let us define an order of sample that groups single cells by
+experimental phenotypes:
+
+```{r sampleSupervisedOrder}
+cells.order <- with(colData(sce.mini), order(Time, Status, Infection,Donor))
+```
+
+We may then display the QC metrics failed by each single cell as red cells
+in an heat map:
+
+```{r QC_heatmap, fig.height=7, echo=FALSE}
+hm_row <- rowAnnotation(
+  df = data.frame(colData(sce.mini))[cells.order, c("Time", "Infection", "Status","Donor")],
+  col = list(
+    Time = col.time,
+    Status = col.status,
+    Infection = col.infection
+  )
+)
+hm <- Heatmap(
+  matrix(c("Pass","Fail")[
+    as(evalSeparately(all.fr, outliers)[cells.order,], "matrix") + 1
+  ], nrow(outliers), ncol(outliers), dimnames = dimnames(outliers)),
+  name = "Filter",
+  col = c("Pass" = "lightblue", "Fail" = "red"),
+  cluster_rows = FALSE, show_row_names = FALSE, cluster_columns = FALSE,
+  split = sce.mini$Time[cells.order]
+)
+draw(hm + hm_row)
+pdf(file.path(outdir, "Heatmap_QC_time.pdf"), height = 6, width = 4)
+draw(hm + hm_row)
+dev.off()
+hm <- Heatmap(
+  matrix(c("Pass","Fail")[
+    as(evalSeparately(all.fr, outliers)[cells.order,], "matrix") + 1
+  ], nrow(outliers), ncol(outliers), dimnames = dimnames(outliers)),
+  name = "Filter",
+  col = c("Pass" = "lightblue", "Fail" = "red"),
+  cluster_rows = FALSE, show_row_names = FALSE, cluster_columns = FALSE,
+  split = colData(sce.mini)[cells.order,c("Time","Infection","Status")],
+  combined_name_fun = function(x) paste(x, collapse = "\n"),
+  row_title_gp = gpar(fontsize = 7)
+)
+pdf(file.path(outdir, "Heatmap_QC_group.pdf"), height = 8, width = 4)
+draw(hm + hm_row)
+dev.off()
+```
+
+```{r table_outliers, include=FALSE}
+# Combine phenotype, QC metrics and filter results
+FR.table <- as(evalSeparately(all.fr, outliers), "matrix")
+colnames(FR.table) <- paste("Filter", colnames(FR.table), sep = ".")
+FR.table <- cbind(DataFrame(Filter_Sum=rowSums(FR.table)), FR.table, colData(sce.mini))
+rownames(FR.table) <- colnames(sce.mini)
+# Export a table of cells that failed any filter
+write.csv(
+  subset(FR.table, Filter_Sum > 0),
+  file.path(outdir, "Outliers_data.csv"))
+write.csv(
+  subset(FR.table, Filter_Sum == 0),
+  file.path(outdir, "Pass_data.csv"))
+write.csv(
+  FR.table,
+  file.path(outdir, "all_data.csv"))
+```
+
+<!-- As HTML pages are built independently, objects need to be saved to disk
+and imported as needed by the other R mardown files -->
+
+[^1]: Note that shared theme settings are defined in the
+[Themes](00a_themes.html) panel.
+
+```{r ggplot_ERCC_label_legend, include=FALSE, fig.height=5, warning=FALSE}
+# ERCC plot with legend for manuscript figures
+plot.ERCC <-
+  ggplot(data.frame(colData(sce.mini)), aes(Sample, pct_counts_ERCC)) +
+  geom_hline(yintercept = ERCC.M, alpha = 0.5) +
+  geom_hline(
+    yintercept = ERCC.M + 5*c(-1,1)*ERCC.MAD,
+    colour = "red", linetype = 2:1, alpha = 0.5) +
+  geom_point(aes(colour = Infection, shape = Status), alpha = 0.75) +
+  geom_text_repel(
+    aes(label = Time), data.frame(colData(sce.mini))[outliers$ERCC,], alpha = 0.6,
+    min.segment.length = unit(0, "lines")) +
+  scale_y_continuous(limits = c(0, 100)) +
+  scale_color_manual(values = col.infection) +
+  labs(y = "ERCC content (% counts)") +
+  sampleQCtheme
+plot.ERCC
+ggsave(
+  file.path(outdir, "ERCC_legend.pdf"), plot.ERCC,
+  width = 6, height = 4)
+```
+
+# Selection of samples
+
+## Initial unfiltered approach
+
+For the purpose of this validation analysis,
+let us retain _all_ the mini-bulk samples for downstream analyses.
+We will however bear in mind that samples from donor `D3` tend to fail
+more QC metrics than other donors, in case those samples appear as outliers
+in dowbnstream analyses (*e.g.*, dimensionality reduction).
+
+## Exclude donor D3
+
+As a result of findings in downstream steps
+(sample QC and dimensionality reduction such as PCA), let us exclude all
+samples from donor `D3`, as multiple samples from this donor appear as
+outliers.
+
+```{r sce.excludeD3}
+sce.excludeD3 <- sce.mini[,sce.mini$Donor != "D3"]
+dim(sce.excludeD3)
+```
+
+```{r save_sce.excludeD3, include=FALSE}
+saveRDS(sce.excludeD3, "rds/sce.minibulks.excludeD3.rds")
+```
+
+
