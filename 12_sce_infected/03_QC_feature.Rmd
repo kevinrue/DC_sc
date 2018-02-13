@@ -281,11 +281,12 @@ ggplot() +
   geom_label(aes(label = MoreOne), detectedCPM, x=4, y=700, size=2, alpha=0.5) +
   scale_fill_manual(values = col.infection) +
   facet_grid(Infection + Status ~ Time) + labs(y = "Features") +
-  labs(x = "log10(Average CPM)") + theme_bw()
+  labs(x = "log10(Average CPM)") + theme_bw() +
+  theme(legend.position = "bottom")
 ```
 
 ```{r histogram_avgCPM_pdf, include=FALSE}
-ggsave("03_out/countFeaturesByAvgLogCPM.pdf", height = 8, width = 6)
+ggsave("03_out/countFeaturesByAvgLogCPM.pdf", height = 9, width = 6)
 ```
 
 ### Violin
