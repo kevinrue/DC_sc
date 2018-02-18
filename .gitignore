@@ -1,7 +1,6 @@
 # Web folder
 .htaccess
 _site
-
 # Compiled vignettes
 *.pdf
 *.html
@@ -59,6 +58,6 @@ vignettes/*.pdf
 packrat/lib*/
 tutos/
 img/
-
 # Jay Hinton STM RNA-seq
 11_Hinton_STM/
+InsertDC/
