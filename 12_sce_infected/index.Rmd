@@ -1,10 +1,6 @@
 ---
-title: "Index"
-date: '`r sub("^0", "", format(Sys.Date(), "%d %B %Y"))`'
+title: "Welcome !"
 ---
-<!-- date field above copied from BiocStyle to dynamically update it.-->
-
-Welcome !
 
 # Introduction
 
