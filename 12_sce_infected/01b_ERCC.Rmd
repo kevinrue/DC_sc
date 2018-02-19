@@ -2,6 +2,8 @@
 title: "ERCC spike-in content"
 bibliography:
   bibtex.bib
+editor_options: 
+  chunk_output_type: console
 ---
 
 ```{r setup, include=FALSE}
@@ -10,6 +12,11 @@ stopifnot(
   requireNamespace("pander")
 )
 ```
+
+<style>
+body {
+text-align: justify}
+</style>
 
 # Objective
 

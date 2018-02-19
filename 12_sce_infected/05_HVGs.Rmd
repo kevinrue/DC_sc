@@ -6,6 +6,11 @@ editor_options:
   chunk_output_type: console
 ---
 
+<style>
+body {
+text-align: justify}
+</style>
+
 <!-- As HTML pages are built independently, large objects need to be
 reimported from disk, and smaller ones quickly recomputed. -->
 
@@ -473,22 +478,7 @@ hvg.endo.clust <- hclust(hvg.endo.d)
 rm(hvg.endo.d)
 ```
 
-We may immediately produce a heat map that uses the above gene clustering,
-while grouping samples arbitrarily according to their respective
-`Time`, `Status`, and `Infection` phenotype:
-
-```{r heatmap_supervised}
-ht_supervised <- Heatmap(
-  norm.endo.hvg,
-  name = "log-counts", column_title = "Normalised expression",
-  top_annotation = h_column,
-  row_order = hvg.endo.clust$order,
-  cluster_rows = hvg.endo.clust, cluster_columns = FALSE,
-  show_row_names = FALSE, show_column_names = FALSE
-)
-```
-
-Now, let us cluster single cells according to their expression profile,
+We may then cluster single cells according to their expression profile,
 *within each of the experimental groups* (*i.e.*, `Time:Infection:Status`):
 
 ```{r sample.order}
@@ -663,12 +653,6 @@ h_tf <- Heatmap(
   tf_l + 0, name = "TF activity", col = c("0" = "white", "1" = "red"),
   column_names_gp = gpar(fontsize = 8),
   show_heatmap_legend = FALSE, width = unit(5, "mm"))
-```
-
-## Supervised
-
-```{r ht_supervised, fig.height=7, echo=FALSE}
-draw(ht_supervised + h_top + h_ifn + h_death + h_lipid + h_tf)
 ```
 
 ## Semi-supervised
@@ -911,241 +895,5 @@ ggplot(hvgsPerGroup) +
   ) + geom_label(aes(x = Treatment, y = 0, label = Cells)) +
   facet_grid(. ~ Time)
 ```
-
-## GO enrichment {.tabset}
-
-For convenience, this section separates the code chunks from the result tables
-in multiple panels.
-
-### Preprocessing
-
-Let us use again the [goseq](http://bioconductor.org/packages/goseq) package to
-identify the most enriched gene ontologies among the HVGs identified
-within each experimental group of cells.
-Note that we restrict the results to GO categories associated with at least
-**10** genes, for robustness:
-
-```{r GO.withinGroup, message=FALSE, warning=FALSE}
-GO.HVGs.group <- list()
-for (groupName in names(HVGs.group)){
-  hvgs <- as.integer(rownames(sce.endo) %in% rownames(HVGs.group[[groupName]]))
-  names(hvgs) <- rownames(sce.endo)
-  table(hvgs)
-  geneLengths <- read.delim(
-    "../expdata/counts/WTCHG_305264_201201", row.names = 1)[,1, drop = FALSE]
-  pwf <- nullp(hvgs, bias.data=geneLengths[names(hvgs),], plot.fit=FALSE)
-  GO.out <- goseq(pwf, "hg38", "ensGene")
-  GO.out$ontology <- as.factor(GO.out$ontology)
-  write.csv(
-    GO.out, file.path(outdir, sprintf("GO_HVGs_%s.csv", groupName)),
-    row.names = FALSE)
-  GO.out.trim <- dplyr::arrange(
-    subset(
-      GO.out,
-      p.adjust(over_represented_pvalue, "BH") < 0.05 & numInCat >= 10
-    ),
-    over_represented_pvalue
-  )
-  GO.HVGs.group[[groupName]] <- GO.out.trim
-}
-```
-
-## TNFAIP2 over time {.tabset}
-
-In this section, let us examine more closely how the distribution
-of *TNFAIP2* expression levels evolves over time within each
-experimental group of stimulated cells:
-
-```{r TNFAIP2normExprsMelt, include=FALSE}
-TNFAIP2normExprsMelt <- reshape2::melt(
-  assay(sce.norm, "logcounts")[
-    subset(rowData(sce.endo), gene_name=="TNFAIP2", "gene_id", drop = TRUE),
-    sce.norm$Infection != "Mock", drop=FALSE
-  ],
-  varnames = c("Feature","Sample"), value.name = "logcounts")
-TNFAIP2normExprsMelt <- merge(
-  TNFAIP2normExprsMelt, colData(sce.norm)[,c("Sample","Treatment","Time")])
-TNFAIP2normExprsMelt <- data.frame(merge(
-  TNFAIP2normExprsMelt, data.frame(
-    Feature = rownames(sce.norm),
-    gene_name = rowData(sce.norm)[,"gene_name"])
-  ))
-```
-
-```{r TNFAIP2}
-ggplot(TNFAIP2normExprsMelt) +
-  geom_density(aes(logcounts, colour=Time)) +
-  facet_wrap(~Treatment) +
-  theme_minimal()
-```
-
-## Technical noise fit
-
-We may also plot the biological component of variance against the mean
-normalised expression level (log-count) of each gene in each group.
-
-For this, let us first estimate the technical coefficient of variation as a
-function of the mean using the [scran](http://bioconductor.org/packages/scran)
-`technicalCV2` function for each group of cells:
-
-```{r CV2data, fig.height=9}
-CV2data <- data.frame()
-for (groupName in names(dVar.groups)){
-  techCV2 <- technicalCV2(
-    sce.norm[,sce.norm$Group == groupName],
-    spike.type = "ERCC", assay.type="counts"
-  )
-  geneNames <- rownames(techCV2)
-  CV2data <- rbind(CV2data, data.frame(
-    CV2 = techCV2$cv2,
-    meanScaledCount = techCV2$mean,
-    trend = techCV2$trend,
-    HVG = geneNames %in% rownames(HVGs.group[[groupName]]),
-    Time = gsub("(.*h)_.*", "\\1", groupName),
-    Infection = gsub(".*h_(.*)_.*", "\\1", groupName),
-    Status = gsub(".*h_.*_(.*)", "\\1", groupName),
-    Feature = geneNames
-  ))
-}
-```
-
-We may then display the estimated $CV^2$ against the average scaled read count,
-while indicating the fitted variance-mean dependence (solid red curve), and
-the HVGs detected [earlier](#HVGsWithinGroups)
-
-```{r CV2plot, warning=FALSE, fig.height=7}
-ggplot(CV2data) +
-  geom_point(aes(meanScaledCount, CV2, colour = HVG), size = 0.2, alpha = 0.3) +
-  geom_smooth(
-    aes(meanScaledCount, CV2, fill = HVG), colour = "dimgray",
-    size = 0.5, alpha = 0.5) +
-  scale_x_log10() + scale_y_log10() +
-  facet_grid(Infection + Status ~ Time) +
-  coord_fixed() +
-  labs(x = "Average scaled read count", y = expression(CV^{2})) +
-  theme_minimal() +
-  theme(
-    legend.text = element_text(size=7), legend.title = element_text(size=7)
-  )
-```
-
-
-```{r vennExport, include=FALSE}
-# Export Venn diagram figures
-for (time in levels(sce.norm$Time)){
-  groupNames <- grep(time, names(HVGs.group), value = TRUE)
-  hvgsList <- lapply(HVGs.group[groupNames], rownames)
-  names(hvgsList) <- gsub(paste0(time,"_"), "", names(hvgsList))
-  #venn.diagram(hvgsList, filename = sprintf("HVGs/%s_venn.tiff", time))
-  pdf(
-    file.path(outdir, sprintf("HVGs_%s_venn.pdf", time)),
-    width = 6, height = 6)
-  venn(hvgsList)
-  dev.off()
-}
-```
-
-```{r HVGs4hStim, warning=FALSE, include=FALSE}
-# [earlier tSNE results](06_cluster_normalised#tSNEstatus)
-# larger differences between D23 exp/inf relative to LT2
-idx.4hStim <- which(sce.norm$Time == "4h" & sce.norm$Infection != "Mock")
-dm <- model.matrix(~Plate, data = colData(sce.norm)[idx.4hStim,])
-var.fit.endo <- trendVar(
-  sce.norm[,idx.4hStim], assay.type="logcounts", method = "loess", design = dm,
-  use.spikes = FALSE, span = 0.1
-)
-var.out.endo.4h <- decomposeVar(sce.norm[,idx.4hStim], var.fit.endo)
-plot(
-  var.out.endo.4h$mean, var.out.endo.4h$total, pch=16, cex=0.2,
-  xlab="Mean log-expression", ylab="Variance of log-expression",
-  main = "4h stimulated"
-)
-o <- order(var.out.endo.4h$mean)
-lines(var.out.endo.4h$mean[o], var.out.endo.4h$tech[o], col="dodgerblue", lwd=2)
-spike.fit <- trendVar(sce.norm[,idx.4hStim], use.spikes=TRUE)
-points(spike.fit$mean, spike.fit$var, col="red", pch=16)
-var.out.endo.4h <- cbind(
-  Symbol=with(
-      rowData(sce.norm), gene_name[match(rownames(var.out.endo.4h),gene_id)]),
-  var.out.endo.4h
-)
-write.csv(
-  var.out.endo.4h,
-  file.path(outdir, sprintf("HVGs_4h_stimulated_full.csv", group)))
-hvg.out <- var.out.endo.4h[which(
-  var.out.endo.4h$FDR <= 0.05 & var.out.endo.4h$bio >= 0.5
-  ),]
-write.csv(
-  hvg.out,
-  file.path(outdir, sprintf("HVGs_4h_stimulated_significant.csv", group)))
-sce.endo.4hStim <- sce.norm[rownames(hvg.out),idx.4hStim]
-#sce.endo.4hStim <- sce.endo[,with(as.data.frame(colData(sce.endo)),order(Time,Status,Infection))]
-dim(sce.endo.4hStim)
-norm.endo.4hStim <- assay(sce.endo.4hStim, "logcounts")
-sce.endo.4hStim <-
-  sce.endo.4hStim[,with(colData(sce.endo.4hStim), order(Infection,Status))]
-dim(norm.endo.4hStim)
-h_column <- HeatmapAnnotation(
-  df = data.frame(colData(sce.endo.4hStim)[,c("Status", "Infection")]),
-  col = list(
-    Status = col.status,
-    Infection = col.infection
-  )
-)
-ht_supervised <- Heatmap(
-  norm.endo.4hStim,
-  name = "logcounts", column_title = "Normalised expression",
-  top_annotation = h_column,
-  # row_order = hvg.endo.clust$order,
-  # cluster_rows = hvg.endo.clust, 
-  cluster_columns = FALSE,
-  show_row_names = FALSE, show_column_names = FALSE
-)
-draw(ht_supervised)
-```
-
-```{r euclid4h, include=FALSE}
-d.e <- dist(t(norm.endo.4hStim), diag = TRUE, upper = TRUE)
-mat.e <- as.matrix(d.e)
-h.e <- hclust(d.e, method = "ward.D2")
-ord.e <- mat.e[h.e$order, h.e$order]
-rm(mat.e)
-ht_column <- HeatmapAnnotation(
-  df = as.data.frame(colData(sce.endo.4hStim)[h.e$order,c("Status", "Infection")]),
-  col = list(
-    Status = col.status,
-    Infection = col.infection
-  )
-)
-Heatmap(
-  ord.e, name = "distance", column_title = "Euclidian distance",
-  top_annotation = ht_column,
-  cluster_rows = FALSE, cluster_columns = FALSE,
-  show_row_names = FALSE, show_column_names = FALSE
-)
-```
-
-
-```{r spearman4h, include=FALSE}
-c.s <- MKmisc::corDist(t(norm.endo.4hStim), "spearman",diag=TRUE,upper=TRUE)
-mat.c.s <- as.matrix(c.s)
-h.c.s <- hclust(c.s)
-ord.c.s <- mat.c.s[h.c.s$order, h.c.s$order]
-rm(c.s)
-ht_column <- HeatmapAnnotation(
-  df = as.data.frame(colData(sce.endo.4hStim)[h.c.s$order,c("Status", "Infection")]),
-  col = list(
-    Status = col.status,
-    Infection = col.infection
-  )
-)
-Heatmap(
-  ord.c.s, name = "distance", column_title = "Spearman absolute correlation distance",
-  top_annotation = ht_column,
-  cluster_rows = FALSE, cluster_columns = FALSE,
-  show_row_names = FALSE, show_column_names = FALSE
-)
-```
-
 
 # References

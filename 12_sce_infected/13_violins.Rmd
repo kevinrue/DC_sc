@@ -4,6 +4,11 @@ editor_options:
   chunk_output_type: console
 ---
 
+<style>
+body {
+text-align: justify}
+</style>
+
 <!-- As HTML pages are built independently, large objects need to be
 reimported from disk, and smaller ones quickly recomputed. -->
 
@@ -627,11 +632,7 @@ ggsave(
   height = pdfHeight, width = pdfWidth)
 ```
 
-# Gene sets
-
-## Set 1
-
-```{r GOInames}
+```{r GOInames, include=FALSE}
 GOInames <- c(
   "KLHL2","COPS7B","USP1","USPL1","TRIM39", # autophagy
   "CLASP1","STXBP1","MVB12A","BLOC1S3", # intracellular traffic/ endosomal recycling

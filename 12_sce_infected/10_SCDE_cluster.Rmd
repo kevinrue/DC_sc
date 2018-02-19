@@ -6,6 +6,11 @@ editor_options:
   chunk_output_type: console
 ---
 
+<style>
+body {
+text-align: justify}
+</style>
+
 <!-- As HTML pages are built independently, large objects need to be
 reimported from disk, and smaller ones quickly recomputed. -->
 
@@ -487,101 +492,3 @@ v.data <- data.frame(
 )
 pander::pandoc.table(v.data)
 ```
-
-# Gene ontology
-
-Let us use the [goseq](http://bioconductor.org/packages/goseq) package to
-identify the most enriched gene ontologies among the various lists of DE genes.
-Note that we restrict the results to GO categories associated with at least
-**10** genes, for robustness.
-
-Let us first define:
-
-* a list to store the GO enrichment tables returned by *goseq*
-
-```{r goseq.res_init, eval=FALSE}
-goseq.res <- list()
-```
-
-* the gene length information reported by *featureCounts*:
-
-```{r geneLengths}
-geneLengths <- width(sce.endo)
-names(geneLengths) <- rownames(sce.endo)
-```
-
-Let us identify over- and under-represented GO categories in DE genes
-identified in each contrast,
-using as background the list of genes detected at each time point:
-
-## Estimate enrichment {.tabset}
-
-### 2h (2 vs 1)
-
-```{r GO_2h_DE, eval=FALSE}
-contrastName <- "2h_cluster2-cluster1"
-bg.2h <- rownames(cd.ifm.2h)
-scde.table <- scde.res[[contrastName]]
-scde.table <- convert.z.score(scde.table)
-scde.table <- subset(scde.table, p.value < 0.01)
-de.genes <- (bg.2h %in% rownames(scde.table))
-names(de.genes) <- bg.2h; table(de.genes)
-pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes)])
-go.res <- goseq(pwf, "hg38", "ensGene")
-goseq.res[[contrastName]] <- go.res
-```
-
-### 4h (2 vs 1)
-
-```{r GO_4h_DE, eval=FALSE}
-contrastName <- "4h_cluster2-cluster1"
-bg.4h <- rownames(cd.ifm.4h)
-scde.table <- scde.res[[contrastName]]
-scde.table <- convert.z.score(scde.table)
-scde.table <- subset(scde.table, p.value < 0.01)
-de.genes <- (bg.4h %in% rownames(scde.table))
-names(de.genes) <- bg.4h; table(de.genes)
-pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes)])
-go.res <- goseq(pwf, "hg38", "ensGene")
-goseq.res[[contrastName]] <- go.res
-```
-
-### 6h (2 vs 1)
-
-```{r GO_6h_DE, eval=FALSE}
-contrastName <- "6h_cluster2-cluster1"
-bg.6h <- rownames(cd.ifm.6h)
-scde.table <- scde.res[[contrastName]]
-scde.table <- convert.z.score(scde.table)
-scde.table <- subset(scde.table, p.value < 0.01)
-de.genes <- (bg.6h %in% rownames(scde.table))
-names(de.genes) <- bg.6h; table(de.genes)
-pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes)])
-go.res <- goseq(pwf, "hg38", "ensGene")
-goseq.res[[contrastName]] <- go.res
-```
-
-```{r goseq.res, echo=FALSE, eval=FALSE}
-saveRDS(goseq.res, "rds/goseq_cluster_res.rds")
-for (contrastName in names(goseq.res)){
-  goseq.table <- goseq.res[[contrastName]]
-  csvFile <- sprintf("SCDE_cluster_direct_GO_%s.csv", contrastName)
-  write.csv(goseq.table, file.path(outdir, csvFile))
-}
-```
-
-```{r include=FALSE}
-# testing
-geneName <- "IL1A"
-x_time <- "4h"
-geneId <- subset(rowData(sce.endo), gene_name == geneName, "gene_id", drop = TRUE)
-idxCells <- which(sce.endo$Time %in% x_time)
-ggdata <- data.frame(
-  logcounts = assay(sce.endo)[geneId, idxCells],
-  cluster = colData(sce.endo)[idxCells, sprintf("quickCluster.%s", x_time)],
-  colData(sce.endo)[idxCells, c("Time","Infection","Status")]
-)
-ggplot(ggdata, aes(cluster, logcounts)) +
-  geom_jitter(height = 0)
-```
-
