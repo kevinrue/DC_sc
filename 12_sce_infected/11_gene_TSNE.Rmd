@@ -1,6 +1,13 @@
 ---
-title: "Gene expression levels overlaid onto tSNE view"
+title: "Gene expression levels overlaid onto t-SNE view"
+editor_options: 
+  chunk_output_type: console
 ---
+
+<style>
+body {
+text-align: justify}
+</style>
 
 <!-- As HTML pages are built independently, large objects need to be
 reimported from disk, and smaller ones quickly recomputed. -->

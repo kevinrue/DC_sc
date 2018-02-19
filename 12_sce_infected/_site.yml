@@ -71,12 +71,9 @@ navbar:
     - text: GoT (Gene on TSNE)
       href: 11_gene_TSNE.html
       icon: fa-spinner
-    - text: Density
-      href: 12_density.html
-      icon: fa-area-chart
     - text: Violins
       href: 13_violins.html
-      icon: fa-snapchat-ghost
+      icon: ion-ios-pint
   - text: About
     href: about.html
     icon: fa-info
