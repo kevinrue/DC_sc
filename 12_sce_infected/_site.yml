@@ -93,8 +93,10 @@ output:
     lib_dir: site_libs
     self_contained: no
 exclude:
-- rds
-- test_*
-- '*_out'
+  - rds
+  - test_*
+  - '*_out*'
+  - '*model.fits.pdf'
+  - 'expdata'
 output_dir: _site
 
