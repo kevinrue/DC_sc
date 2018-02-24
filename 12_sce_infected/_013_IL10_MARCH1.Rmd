@@ -1,0 +1,115 @@
+---
+title: "IL-10 and MARCH1"
+author: "Kevin Rue-Albrecht"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+stopifnot(
+  require(SingleCellExperiment),
+  require(RColorBrewer),
+  require(ggplot2)
+)
+dirOut <- "_013_IL10_MARCH1_out"; dir.create(dirOut)
+pdfFacetHeight <- 10; pdfFacetWidth <- 10
+```
+
+# Load previous data
+
+`SingleCellExperiment` object:
+
+```{r sce.norm}
+sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
+sce.norm
+```
+
+# Normalised data
+
+## Fetch
+
+```{r geneIdXY}
+geneNameX <- "IL10"; geneNameY <- "MARCH1"
+geneIdX <- with(rowData(sce.norm), gene_id[match(geneNameX, gene_name)])
+geneIdY <- with(rowData(sce.norm), gene_id[match(geneNameY, gene_name)])
+```
+
+## Process
+
+```{r ggdata}
+norm_data <- data.frame(
+  geneX = assay(sce.norm, "logcounts")[geneIdX,],
+  geneY = assay(sce.norm, "logcounts")[geneIdY,],
+  colData(sce.norm)[,c("Time","Infection","Status")]
+)
+colnames(norm_data)[1:2] <- c(geneIdX, geneIdY)
+```
+
+## Visualise
+
+### Data points
+
+```{r geom_point_all, echo=FALSE}
+ggplot(norm_data, aes_string(x=geneIdX, y=geneIdY)) +
+  geom_point(aes(color = Status)) +
+  theme_bw() +
+  facet_grid(Infection ~ Time) +
+  labs(title = "All cells", x = geneNameX, y = geneNameY)
+```
+
+```{r geom_point_all_pdf}
+ggsave(file.path(dirOut, "geom_point_all.pdf"), height = pdfFacetHeight, width = pdfFacetWidth)
+```
+
+### Hexagonal bins
+
+```{r geom_hex_all, echo=FALSE}
+ggplot(norm_data, aes_string(x=geneIdX, y=geneIdY)) +
+  geom_hex(binwidth = 0.5) +
+  theme_bw() +
+  facet_grid(Infection ~ Time) +
+  labs(fill = "Cells", title = "All cells", x = geneNameX, y = geneNameY)
+```
+
+```{r geom_hex_all_pdf}
+ggsave(file.path(dirOut, "geom_hex_all.pdf"), height = pdfFacetHeight, width = pdfFacetWidth)
+```
+
+### Hexagonal bins (separate infected/exposed) {.tabset}
+
+#### Infected
+
+```{r geom_hex_Infected, echo=FALSE}
+ggplot(subset(norm_data, Status != "Exposed"), aes_string(x=geneIdX, y=geneIdY)) +
+  geom_hex(binwidth = 0.5) +
+  theme_bw() +
+  facet_grid(Infection ~ Time) +
+  labs(fill = "Cells", title = "All cells", x = geneNameX, y = geneNameY)
+```
+
+```{r geom_hex_Infected_pdf}
+ggsave(file.path(dirOut, "geom_hex_Infected.pdf"), height = pdfFacetHeight, width = pdfFacetWidth)
+```
+
+#### Exposed
+
+```{r geom_hex_Exposed, echo=FALSE}
+ggplot(subset(norm_data, Status != "Infected"), aes_string(x=geneIdX, y=geneIdY)) +
+  geom_hex(binwidth = 0.5) +
+  theme_bw() +
+  facet_grid(Infection ~ Time) +
+  labs(fill = "Cells", title = "All cells", x = geneNameX, y = geneNameY)
+```
+
+```{r geom_hex_Exposed_pdf}
+ggsave(file.path(dirOut, "geom_hex_Infected.pdf"), height = pdfFacetHeight, width = pdfFacetWidth)
+```
+
+# Scaled data
+
+```{r eval=FALSE}
+ggdata
+```
+
