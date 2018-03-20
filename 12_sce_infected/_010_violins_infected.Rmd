@@ -161,6 +161,39 @@ gg <- ggplot(ggdata, aes(x_logcounts, y_logcounts)) +
 ggsave(file.path(outdir, "mean_2h_infected_label.pdf"), gg, height=5, width=6.5)
 ```
 
+```{r mean_2h_infected_label_curated.pdf}
+conditions <- c("2h_STM-D23580_Infected","2h_STM-LT2_Infected")
+ggdata <- data.frame(
+  y_logcounts = rowMeans(assay(sce.endo, "logcounts")[,sce.endo$Group == conditions[1]]),
+  x_logcounts = rowMeans(assay(sce.endo, "logcounts")[,sce.endo$Group == conditions[2]]),
+  DE = rownames(sce.endo) %in% row.names(res_table)[res_table$p.value < 0.01],
+  gene_name = rowData(sce.endo)[,"gene_name"]
+)
+ggdata$Curated <- as.character(ggdata$gene_name) %in% c(
+  "CHST13","DUSP2","LRRC23","KIFC2","MALAT1","SLC25A17"
+)
+axes_range <- c(0, max(c(ggdata$y_logcounts, ggdata$x_logcounts)))
+gg <- ggplot(ggdata, aes(x_logcounts, y_logcounts)) +
+  geom_point(aes(colour = DE, alpha = DE, size = DE)) +
+  geom_text_repel(
+    aes(label = gene_name),
+    subset(ggdata, Curated), min.segment.length = unit(0,"lines")) +
+  scale_colour_manual(values = sig_colors) +
+  scale_alpha_manual(values = sig_alpha) +
+  scale_size_manual(values = sig_size) +
+  scale_y_continuous(limits = axes_range) +
+  scale_x_continuous(limits = axes_range) +
+  labs(
+    title = "2h", subtitle = "STM-D23580 / STM-LT2",
+    y = "STM-D23580", x = "STM-LT2"
+  ) +
+  guides(colour="none", size="none", alpha="none") +
+  coord_fixed() +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank()); gg
+ggsave(file.path(outdir, "mean_2h_infected_label_curated.pdf"), gg, height=5, width=6.5)
+```
+
 ## 4h
 
 ```{r volcano_4h_infected.pdf}
@@ -246,6 +279,40 @@ gg <- ggplot(ggdata, aes(x_logcounts, y_logcounts)) +
 ggsave(file.path(outdir, "mean_4h_infected_label.pdf"), gg, height=5, width=6.5)
 ```
 
+```{r mean_4h_infected_label_curated.pdf}
+conditions <- c("4h_STM-D23580_Infected","4h_STM-LT2_Infected")
+ggdata <- data.frame(
+  y_logcounts = rowMeans(assay(sce.endo, "logcounts")[,sce.endo$Group == conditions[1]]),
+  x_logcounts = rowMeans(assay(sce.endo, "logcounts")[,sce.endo$Group == conditions[2]]),
+  DE = rownames(sce.endo) %in% row.names(res_table)[res_table$p.value < 0.01],
+  gene_name = rowData(sce.endo)[,"gene_name"]
+)
+ggdata$Curated <- as.character(ggdata$gene_name) %in% c(
+  "IFT57","CH25H","BCL3","RIPK3","SLC47A1","DUSP6","CCL22","APOBEC3A"
+)
+axes_range <- c(0, max(c(ggdata$y_logcounts, ggdata$x_logcounts)))
+gg <- ggplot(ggdata, aes(x_logcounts, y_logcounts)) +
+  geom_point(aes(colour = DE, alpha = DE, size = DE)) +
+  geom_text_repel(
+    aes(label = gene_name),
+    subset(ggdata, Curated), min.segment.length = unit(0,"lines")) +
+  scale_colour_manual(values = sig_colors) +
+  scale_alpha_manual(values = sig_alpha) +
+  scale_size_manual(values = sig_size) +
+  scale_y_continuous(limits = axes_range) +
+  scale_x_continuous(limits = axes_range) +
+  labs(
+    title = "4h", subtitle = "STM-D23580 / STM-LT2",
+    y = "STM-D23580", x = "STM-LT2"
+  ) +
+  guides(colour="none", size="none", alpha="none") +
+  coord_fixed() +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank()); gg
+ggsave(file.path(outdir, "mean_4h_infected_label_curated.pdf"), gg, height=5, width=6.5)
+```
+
+
 ## 6h
 
 ```{r volcano_6h_infected.pdf}
@@ -329,4 +396,37 @@ gg <- ggplot(ggdata, aes(x_logcounts, y_logcounts)) +
   theme_bw() +
   theme(panel.grid.minor = element_blank()); gg
 ggsave(file.path(outdir, "mean_6h_infected_label.pdf"), gg, height=5, width=6.5)
+```
+
+```{r mean_6h_infected_label_curated.pdf}
+conditions <- c("6h_STM-D23580_Infected","6h_STM-LT2_Infected")
+ggdata <- data.frame(
+  y_logcounts = rowMeans(assay(sce.endo, "logcounts")[,sce.endo$Group == conditions[1]]),
+  x_logcounts = rowMeans(assay(sce.endo, "logcounts")[,sce.endo$Group == conditions[2]]),
+  DE = rownames(sce.endo) %in% row.names(res_table)[res_table$p.value < 0.01],
+  gene_name = rowData(sce.endo)[,"gene_name"]
+)
+ggdata$Curated <- as.character(ggdata$gene_name) %in% c(
+  "CLEC16A","MARCH1","BLOC1S3","CLECL1","NIT1","NIT2","TFRC"
+)
+axes_range <- c(0, max(c(ggdata$y_logcounts, ggdata$x_logcounts)))
+gg <- ggplot(ggdata, aes(x_logcounts, y_logcounts)) +
+  geom_point(aes(colour = DE, alpha = DE, size = DE)) +
+  geom_text_repel(
+    aes(label = gene_name),
+    subset(ggdata, Curated), min.segment.length = unit(0,"lines")) +
+  scale_colour_manual(values = sig_colors) +
+  scale_alpha_manual(values = sig_alpha) +
+  scale_size_manual(values = sig_size) +
+  scale_y_continuous(limits = axes_range) +
+  scale_x_continuous(limits = axes_range) +
+  labs(
+    title = "6h", subtitle = "STM-D23580 / STM-LT2",
+    y = "STM-D23580", x = "STM-LT2"
+  ) +
+  guides(colour="none", size="none", alpha="none") +
+  coord_fixed() +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank()); gg
+ggsave(file.path(outdir, "mean_6h_infected_label_curated.pdf"), gg, height=5, width=6.5)
 ```
