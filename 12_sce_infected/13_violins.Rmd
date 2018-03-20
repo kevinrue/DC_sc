@@ -635,7 +635,7 @@ ggsave(
 GOInames <- c(
   "KLHL2","COPS7B","USP1","USPL1","TRIM39", # autophagy
   "CLASP1","STXBP1","MVB12A","BLOC1S3", # intracellular traffic/ endosomal recycling
-  "MARCH1","RNF139","TRIM27","CLECL1", # Ag presentation
+  "MARCH1","RNF139","TRIM27","CLECL1","ICOSLG", # Ag presentation
   "IFT57","CASP3", # apoptosis
   "DNAJC13","TFRC" # iron availability
 )
@@ -694,6 +694,6 @@ gg <- ggplot(tmpDF, aes(TreatmentLabel, logcounts)) +
     strip.background = element_rect(fill = "white"),
     strip.text = element_text(size = rel(2))
   )
-ggsave(file.path(outdir, "violins_6h_horizontal.pdf"), gg, height = 5, width = 40)
+ggsave(file.path(outdir, "violins_6h_horizontal.pdf"), gg, height = 5, width = 42)
 ```
 
