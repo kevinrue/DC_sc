@@ -9,17 +9,6 @@ navbar:
     icon: fa-flask
     menu:
     - text: Background
-    - text: Invasive Salmonelloses
-      icon: fa-bug
-      href: 00a_Introduction_Salmonella.html
-    - text: Dendritic Cells
-      icon: fa-certificate
-      href: 00b_Introduction_DC.html
-    - text: '-------------'
-    - text: Methods
-    - text: Experimental
-      icon: fa-flask
-      href: 00c_experimental_methods.html
     - text: RNA-sequencing
       icon: fa-list
       href: 00d_preprocessing.html
