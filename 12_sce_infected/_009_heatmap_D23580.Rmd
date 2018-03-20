@@ -79,7 +79,7 @@ span_range_logcounts <- max(scale_range_logcounts) - min(scale_range_logcounts)
 
 ## Color scales
 
-```{r blackpurpleyellow_fun}
+```{r redyellowblue_fun}
 redyellowblue_fun <- colorRamp2(
   breaks = seq(-2.5, 2.5, by = 1),
   colors = redyellowblue
@@ -333,7 +333,7 @@ dev.off()
 
 ### Vogel colormap
 
-```{r union_DE_Violetonly_timepoints.pdf}
+```{r union_DE_Violetonly_timepoints.Vogel.pdf}
 #
 samples_2h <- rownames(subset(colData(sce.endo), Time == "2h" & Status == "Infected"))
 samples_4h <- rownames(subset(colData(sce.endo), Time == "4h" & Status == "Infected"))
