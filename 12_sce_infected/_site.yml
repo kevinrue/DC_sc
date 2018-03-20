@@ -97,6 +97,6 @@ exclude:
   - test_*
   - '*_out*'
   - '*model.fits.pdf'
-  - 'expdata'
+  - expdata
 output_dir: _site
 
