@@ -4,6 +4,11 @@ editor_options:
   chunk_output_type: console
 ---
 
+<style>
+body {
+text-align: justify}
+</style>
+
 <!-- As HTML pages are built independently, large objects need to be
 reimported from disk, and smaller ones quickly recomputed. -->
 
@@ -452,7 +457,8 @@ As a consequence, an appropriate value of perplexity is necessary to
 allow data points (here, single cells) to form clusters with a reasonable
 number of nearest neighbours;
 instead, excessively large values of perplexity usually result
-in large 'balls' of uniformly distributed points, as all data points attempt to be equidistant from each other:
+in large 'balls' of uniformly distributed points, as all data points attempt
+to be equidistant from each other:
 
 ```{r plotTSNE}
 sce.norm <- runTSNE(
@@ -1003,8 +1009,8 @@ colorMap.exprs <- colorRamp2(
 
 ```{r heatmap_gene_2h}
 ht_column <- HeatmapAnnotation(
-  df = data.frame(colData(sce.2h)[,c("Time", "Infection", "Status")]),
-  col = list(Time = col.time, Status = col.status, Infection = col.infection)
+  df = data.frame(colData(sce.2h)[,c("Infection", "Status")]),
+  col = list(Status = col.status, Infection = col.infection)
 )
 exprs.2h <- assay(sce.2h, "logcounts")[geneIds.ht,]
 rownames(exprs.2h) <- unlist(geneNames.ht)
@@ -1021,8 +1027,8 @@ ht_gene_2h <- Heatmap(
 
 ```{r heatmap_gene_4h}
 ht_column <- HeatmapAnnotation(
-  df = data.frame(colData(sce.4h)[,c("Time", "Infection", "Status")]),
-  col = list(Time = col.time, Status = col.status, Infection = col.infection)
+  df = data.frame(colData(sce.4h)[,c("Infection", "Status")]),
+  col = list(Status = col.status, Infection = col.infection)
 )
 exprs.4h <- assay(sce.4h, "logcounts")[geneIds.ht,]
 rownames(exprs.4h) <- unlist(geneNames.ht)
@@ -1039,8 +1045,8 @@ ht_gene_4h <- Heatmap(
 
 ```{r heatmap_gene_6h}
 ht_column <- HeatmapAnnotation(
-  df = data.frame(colData(sce.6h)[,c("Time", "Infection", "Status")]),
-  col = list(Time = col.time, Status = col.status, Infection = col.infection)
+  df = data.frame(colData(sce.6h)[,c("Infection", "Status")]),
+  col = list(Status = col.status, Infection = col.infection)
 )
 exprs.6h <- assay(sce.6h, "logcounts")[geneIds.ht,]
 rownames(exprs.6h) <- unlist(geneNames.ht)
@@ -1062,9 +1068,8 @@ ht_gene_list <-
   Heatmap(
     exprs.2h, colorMap.exprs, name = "n.e.", column_title = "2h",
     top_annotation = HeatmapAnnotation(
-      df = data.frame(colData(sce.2h)[,c("Time", "Status", "Infection")]),
+      df = data.frame(colData(sce.2h)[,c("Status", "Infection")]),
         col = list(
-          Time = col.time,
           Status = col.status,
           Infection = col.infection
         ),
@@ -1079,9 +1084,8 @@ ht_gene_list <-
   Heatmap(
     exprs.4h, colorMap.exprs, name = "4h", column_title = "4h",
     top_annotation = HeatmapAnnotation(
-      df = data.frame(colData(sce.4h)[,c("Time", "Status", "Infection")]),
+      df = data.frame(colData(sce.4h)[,c("Status", "Infection")]),
         col = list(
-          Time = col.time,
           Status = col.status,
           Infection = col.infection
         ),
@@ -1093,9 +1097,8 @@ ht_gene_list <-
   Heatmap(
     exprs.6h, colorMap.exprs, name = "6h", column_title = "6h",
     top_annotation = HeatmapAnnotation(
-      df = data.frame(colData(sce.6h)[,c("Time", "Status", "Infection")]),
+      df = data.frame(colData(sce.6h)[,c("Status", "Infection")]),
         col = list(
-          Time = col.time,
           Status = col.status,
           Infection = col.infection
         ),

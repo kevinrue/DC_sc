@@ -3,16 +3,47 @@ title: "About This Project"
 author:
   - name: Anna Aulicino
     email: anna.aulicino@ndm.ox.ac.uk
-    affiliation: MRC, Human Immunology Unit, Weatherall Institute of Molecular
-        Medicine, NIHR Biomedical research centre, University of Oxford,
-        John Radcliffe Hospital, Oxford, UK.
+    affiliation:
+      - &id1 MRC, Human Immunology Unit, Weatherall Institute of Molecular Medicine, NIHR Biomedical research centre, University of Oxford, John Radcliffe Hospital, Oxford, UK.
+      - &id2 Translational Gastroenterology Unit, John Radcliffe Hospital, Headington, Oxford OX3 9DU, UK
   - name: Kévin Rue-Albrecht
     email: kevin.rue-albrecht@kennedy.ox.ac.uk
-    affiliation: Kennedy Institute of Rheumatology,
-        Nuffield Department of Orthopaedics,
-        Rheumatology and Musculoskeletal Sciences, University of Oxford,
-        Headington, Oxford OX3 7FY, UK.
+    affiliation:
+      - &id3 NDM Research Building, University of Oxford, Old Road Campus, Headington, Oxford, United Kingdom
+      - &id4 Kennedy Institute of Rheumatology, Nuffield Department of Orthopaedics, Rheumatology and Musculoskeletal Sciences, University of Oxford, Headington, Oxford OX3 7FY, UK.
+  - name: Lorena Preciado-Llanes
+    affiliation:
+      - *id1
+      - *id2
+  - name: Giorgio Napolitani
+    affiliation: *id1
+  - name: Neil Ashley
+    affiliation:
+      - &id5 'MRC Molecular Haematology Unit, Weatherall Institute of Molecular Medicine, University of Oxford and BRC Blood Theme, NIHR Oxford Biomedical Centre, Oxford, UK.'
+  - name: Adam Cribbs
+    affiliation:
+      - &id6 'MRC WIMM Centre for Computational Biology, Weatherall Institute of Molecular medicine, University of Oxford, Oxford OX3 9DS, UK'
+  - name: Vincenzo Cerundolo
+    affiliation: *id1
+  - name: Andrew J. Pollard
+    affiliation:
+      - &id7 'Oxford Vaccine Group, Department of Paediatrics, University of Oxford and the NIHR Oxford Biomedical Research Centre, United Kingdom.'
+  - name: Melita A. Gordon
+    affiliation:
+      - &id8 University of Liverpool Institute of Infection and Global Health UK, and Malawi-Liverpool Wellcome Trust Clinical Research Programme, Blantyre, Malawi.
+  - name: David Sims
+    affiliation:
+      - *id6
+  - name: Alison Simmons
+    affiliation:
+      - *id1
+      - *id2
 ---
+
+<style>
+body {
+text-align: justify}
+</style>
 
 # Authors and contributions
 
@@ -28,7 +59,7 @@ manuscript preparation and editing.
 
 Computational analyses, manuscript preparation and editing.
 
-## Dr. Lorena Preciado-Lianes
+## Dr. Lorena Preciado-Llanes
 
 Project conception, experimental design, experimental work,
 and manuscript editing.
@@ -167,16 +198,6 @@ An integrated Bayesian hierarchical model where:
   artificially introduced to each analysed cells lysate.
 * The total variability of the expression counts is decomposed into technical
   and biological components.
-  
-### [SCPattern](https://github.com/lengning/SCPattern)
-
-Identify and characterize expression changes in a single cell RNA-seq
-experiment with ordered conditions.
-
-### [WaveCrest](https://github.com/lengning/WaveCrest)
-
-Reconstruct gene expression trajectory in single cell RNA-seq experiments with
-ordered conditions.
 
 # Session info
 

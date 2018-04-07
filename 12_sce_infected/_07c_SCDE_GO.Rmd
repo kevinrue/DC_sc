@@ -1,0 +1,82 @@
+---
+title: "Differential expression between experimental groups using *scde* (c)"
+bibliography:
+  bibtex.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style>
+body {
+text-align: justify}
+</style>
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.norm$Time)[1:3]
+names(col.infection) <- levels(sce.norm$Infection)
+names(col.status) <- levels(sce.norm$Status)
+outdir <- "07_SCDE_out"; dir.create(outdir, showWarnings = FALSE)
+```
+
+### Contrast
+
+```{r devel, include=FALSE}
+list.files(outdir)
+```
+
+```{r contrasts_selected}
+contrasts_selected <- c(
+  "2h_STM-D23580_Infected-2h_STM-LT2_Infected",
+  "4h_STM-D23580_Infected-4h_STM-LT2_Infected",
+  "6h_STM-D23580_Infected-6h_STM-LT2_Infected"
+)
+```
+
+```{r extract_go_table}
+extract_go_table <- function(
+  contrast,
+  columns = c("category","term","numDEInCat","numInCat","over_represented_pvalue"),
+  top = 5
+){
+  go_file <- file.path(outdir, sprintf("SCDE_GO_%s.csv", contrast))
+  stopifnot(file.exists(go_file))
+  go_table <- read.csv(go_file, row.names = 1)
+  go_table <- go_table[order(go_table$over_represented_pvalue),]
+  go_table <- subset(go_table, over_represented_pvalue < 0.01)
+  go_table <- subset(go_table, numInCat > 10)
+  go_table <- subset(go_table, numDEInCat > 3)
+  go_table <- head(go_table, top)
+  if (nrow(go_table) > 0){
+    go_table$gene_ratio <- go_table$numDEInCat / go_table$numInCat
+    go_table$contrast <- gsub("^(.{2}).*", "\\1", contrast)
+  }
+  # go_table$term <- factor(go_table$term, rev(unique(go_table$term)))
+  return(go_table)
+}
+extract_go_tables <- function(contrasts){
+  go_table_list <- lapply(contrasts, "extract_go_table")
+  go_table <- do.call("rbind", go_table_list)
+  return(go_table)
+}
+```
+
+```{r go_tables}
+go_tables <- extract_go_tables(contrasts_selected)
+go_tables$contrast <- as.factor(go_tables$contrast)
+go_tables$term <- factor(go_tables$term, rev(unique(go_tables$term)))
+```
+
+```{r ggplot}
+ggplot(go_tables) +
+  geom_point(aes(
+    contrast, term, gene_ratio,
+    size = gene_ratio, color = over_represented_pvalue)) +
+  theme_minimal()
+```

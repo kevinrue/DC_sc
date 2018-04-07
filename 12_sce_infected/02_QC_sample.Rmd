@@ -6,6 +6,11 @@ editor_options:
   chunk_output_type: console
 ---
 
+<style>
+body {
+text-align: justify}
+</style>
+
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(cache = TRUE)
 stopifnot(

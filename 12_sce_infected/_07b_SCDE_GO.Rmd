@@ -1,0 +1,382 @@
+---
+title: "Differential expression between experimental groups using *scde* (b)"
+bibliography:
+  bibtex.bib
+editor_options: 
+  chunk_output_type: console
+---
+
+<style>
+body {
+text-align: justify}
+</style>
+
+<!-- As HTML pages are built independently, large objects need to be
+reimported from disk, and smaller ones quickly recomputed. -->
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+stopifnot(
+  require(scater),
+  require(scran),
+  require(scde),
+  require(dplyr),
+  require(goseq),
+  require(ggrepel),
+  require(RColorBrewer)
+)
+sce.norm <- readRDS("rds/sce.norm.rds")
+sce.endo <- sce.norm[!isSpike(sce.norm, "ERCC"),]
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.norm$Time)[1:3]
+names(col.infection) <- levels(sce.norm$Infection)
+names(col.status) <- levels(sce.norm$Status)
+outdir <- "07_SCDE_out"; dir.create(outdir, showWarnings = FALSE)
+o.ifm.2h <- readRDS("rds/o.ifm.2h.rds")
+o.ifm.4h <- readRDS("rds/o.ifm.4h.rds")
+o.ifm.6h <- readRDS("rds/o.ifm.6h.rds")
+scde.res <- readRDS("rds/scde_group.rds")
+# goseq.res <- readRDS("rds/goseq_group.rds")
+# Preprocessing
+filterCounts <- function(m, counts = 10, cells = 10){
+  apply(m, 1, function(e){
+    return(sum(e >= counts) >= cells)
+  })
+}
+sce.2h <- sce.endo[,sce.endo$Time == '2h']
+keep.2h <- filterCounts(counts(sce.2h))
+cd.2h <- counts(sce.2h)[keep.2h,]; storage.mode(cd.2h) <- 'integer'
+sce.ifm.2h <- sce.2h[,rownames(o.ifm.2h)]
+sg.ifm.2h <- droplevels(sce.ifm.2h$Group)
+cd.ifm.2h <- counts(sce.ifm.2h)[rownames(cd.2h),]; storage.mode(cd.ifm.2h) <- 'integer'
+o.prior.2h <- scde.expression.prior(
+  models = o.ifm.2h, counts = cd.ifm.2h, show.plot = FALSE
+)
+sce.4h <- sce.endo[,sce.endo$Time == '4h']
+keep.4h <- filterCounts(counts(sce.4h))
+cd.4h <- counts(sce.4h)[keep.4h,]; storage.mode(cd.4h) <- 'integer'
+sce.ifm.4h <- sce.4h[,rownames(o.ifm.4h)]
+sg.ifm.4h <- droplevels(sce.ifm.4h$Group)
+cd.ifm.4h <- counts(sce.ifm.4h)[rownames(cd.4h),]; storage.mode(cd.ifm.4h) <- 'integer'
+o.prior.4h <- scde.expression.prior(
+  models = o.ifm.4h, counts = cd.ifm.4h, show.plot = FALSE
+)
+sce.6h <- sce.endo[,sce.endo$Time == '6h']
+keep.6h <- filterCounts(counts(sce.6h))
+cd.6h <- counts(sce.6h)[keep.6h,]; storage.mode(cd.6h) <- 'integer'
+sce.ifm.6h <- sce.6h[,rownames(o.ifm.6h)]
+sg.ifm.6h <- droplevels(sce.ifm.6h$Group)
+cd.ifm.6h <- counts(sce.ifm.6h)[rownames(cd.6h),]; storage.mode(cd.ifm.6h) <- 'integer'
+o.prior.6h <- scde.expression.prior(
+  models = o.ifm.6h, counts = cd.ifm.6h, show.plot = FALSE
+)
+# other
+convert.z.score <- function(x, one.sided = NULL) {
+  z <- x$Z
+  if(is.null(one.sided)) {
+    pval = pnorm(-abs(z));
+    pval = 2 * pval
+  } else if(one.sided=="-") {
+    pval = pnorm(z);
+  } else {
+    pval = pnorm(-z);
+  }
+    x <- cbind(
+      x,
+      p.value = pval
+  )
+  return(x);
+}
+addGeneName <- function(x){
+  x <- cbind(
+    gene_name = with(rowData(sce.endo), gene_name[match(rownames(x), gene_id)]),
+    x
+  )
+  return(x)
+}
+orderResults <- function(x){
+  x <- x[with(x, order(abs(Z), decreasing = TRUE)),]
+  return(x)
+}
+```
+
+* a function to visualise *scran*-normalised gene expression for a given
+gene:
+
+```{r normExprsById}
+normExprsById <- function(geneId){
+  geneName <- subset(rowData(sce.endo),gene_id==geneId,"gene_name",drop=TRUE)
+  gdata <- data.frame(
+    logcounts = assay(sce.endo, "logcounts")[geneId,],
+    colData(sce.endo)[,c("Infection","Status","Time")],
+    row.names = colnames(sce.endo)
+  )
+  ggplot(gdata, aes(gsub("-", "\n", Infection), logcounts)) + 
+    geom_violin(
+      aes(fill = Infection, alpha = Status),
+      draw_quantiles = c(0.25, 0.5, 0.75)
+    ) +
+    geom_jitter(width = 0.1, alpha = 0.5, size = 0.5) +
+    facet_grid(Time ~ Status) +
+    scale_fill_manual(values = col.infection) +
+    scale_alpha_discrete("Status", range = c(0.3, 0.5)) +
+    ggtitle(sprintf("%s - %s", geneId, geneName)) +
+    theme_minimal() +
+    labs(y = "Normalised expression", x = "Infection") +
+    guides(alpha = "none")
+}
+```
+
+* functions to visualise *scde* estimate of expression and
+  differential expression
+  for a given gene (identifier)
+  in a given contrast
+  within a specific time point (code shown for 2h time point only):
+  
+```{r single.scde.2h}
+single.scde.2h <- function(gene, groupTarget, groupRef){
+  gT <- sprintf("2h_%s", groupTarget); gR <- sprintf("2h_%s", groupRef)
+  sg.test <- factor(colData(sce.ifm.2h)[,"Group"], levels = c(gT, gR))
+  scde.test.gene.expression.difference(
+    gene, o.ifm.2h, cd.ifm.2h, o.prior.2h, sg.test,
+    n.cores = 4, verbose = 1
+  )
+}
+```
+
+```{r single.scde.4h6h, echo=FALSE}
+single.scde.4h <- function(gene, groupTarget, groupRef){
+  gT <- sprintf("4h_%s", groupTarget); gR <- sprintf("4h_%s", groupRef)
+  sg.test <- factor(co.Data(sce.ifm.4h)[,"Group"], levels = c(gT, gR))
+  scde.test.gene.expression.difference(
+    gene, o.ifm.4h, cd.ifm.4h, o.prior.4h, sg.test,
+    n.cores = 4, verbose = 1
+  )
+}
+single.scde.6h <- function(gene, groupTarget, groupRef){
+  gT <- sprintf("6h_%s", groupTarget); gR <- sprintf("6h_%s", groupRef)
+  sg.test <- factor(colData(sce.ifm.6h)[,"Group"], levels = c(gT, gR))
+  scde.test.gene.expression.difference(
+    gene, o.ifm.6h, cd.ifm.6h, o.prior.6h, sg.test,
+    n.cores = 4, verbose = 1
+  )
+}
+```
+
+<!-- Cleaner code for v2
+Remove ERCC spike-ins
+!! Split cells by time
+!! Retain genes detected at each time (10 counts, 10 cells)
+Error model: {cells @ time; genes @ time}
+Prior @ time
+DE: {group on all cells with NA; no batch correction; P-value < 0.01}
+-->
+
+# Gene ontology {#GO}
+
+Let us use the [goseq](http://bioconductor.org/packages/goseq) package to
+identify the most enriched gene ontologies among the various lists of DE genes.
+Note that we restrict the results to GO categories associated with at least
+**10** genes, for robustness.
+
+Let us first define:
+
+* a list to store the GO enrichment tables returned by *goseq*
+
+```{r goseq.res_init, eval=FALSE}
+goseq.res <- list()
+```
+
+* the gene length information reported by *featureCounts*:
+
+```{r geneLengths}
+geneLengths <- width(sce.endo)
+names(geneLengths) <- rownames(sce.endo)
+```
+
+## Compute {.tabset}
+
+Let us identify over- and under-represented GO categories in DE genes
+identified in each contrast,
+using as background the list of genes detected at each time point:
+
+### 2h
+
+```{r GO_2h_DE, eval=FALSE}
+bg.2h <- rownames(cd.ifm.2h)
+for (contrastName in grep("^2h", names(scde.res), value = TRUE)){
+  message(contrastName); scde.table <- scde.res[[contrastName]]
+  scde.table <- convert.z.score(scde.table)
+  scde.table <- subset(scde.table, p.value < 0.01)
+  de.genes <- (bg.2h %in% rownames(scde.table))
+  names(de.genes) <- bg.2h; table(de.genes)
+  pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes)])
+  go.res <- goseq(pwf, "hg38", "ensGene")
+  goseq.res[[contrastName]] <- go.res
+  saveRDS(goseq.res, "rds/goseq_group.rds") # checkpoint
+}
+```
+
+### 4h
+
+```{r GO_4h_DE, eval=FALSE}
+bg.4h <- rownames(cd.ifm.4h)
+for (contrastName in grep("^4h", names(scde.res), value = TRUE)){
+  message(contrastName); scde.table <- scde.res[[contrastName]]
+  scde.table <- convert.z.score(scde.table)
+  scde.table <- subset(scde.table, p.value < 0.01)
+  de.genes <- (bg.4h %in% rownames(scde.table))
+  names(de.genes) <- bg.4h; table(de.genes)
+  pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes)])
+  go.res <- goseq(pwf, "hg38", "ensGene")
+  goseq.res[[contrastName]] <- go.res
+  saveRDS(goseq.res, "rds/goseq_group.rds") # checkpoint
+}
+```
+
+### 6h
+
+```{r GO_6h_DE, eval=FALSE}
+bg.6h <- rownames(cd.ifm.6h)
+for (contrastName in grep("^6h", names(scde.res), value = TRUE)){
+  message(contrastName); scde.table <- scde.res[[contrastName]]
+  scde.table <- convert.z.score(scde.table)
+  scde.table <- subset(scde.table, p.value < 0.01)
+  de.genes <- (bg.6h %in% rownames(scde.table))
+  names(de.genes) <- bg.6h; table(de.genes)
+  pwf <- nullp(de.genes, bias.data = geneLengths[names(de.genes)])
+  go.res <- goseq(pwf, "hg38", "ensGene")
+  goseq.res[[contrastName]] <- go.res
+  saveRDS(goseq.res, "rds/goseq_group.rds") # checkpoint
+}
+```
+
+```{r goseq.table_csv, echo=FALSE, eval=FALSE}
+for (contrastName in names(goseq.res)){
+  goseq.table <- goseq.res[[contrastName]]
+  write.csv(
+    goseq.table,
+    file.path(outdir, sprintf("SCDE_GO_%s.csv", contrastName)))
+}
+```
+
+# Expression profile of selected genes {.tabset}
+
+Least significant gene record (P ~ 0.01)
+in contrast D23580 vs. LT2 infected at 6h:
+
+```{r ex.scde.last.sig}
+ex.scde.last.sig <-
+  addGeneName(tail(
+    subset(
+      orderResults(convert.z.score(
+        scde.res[["6h_STM-D23580_Infected-6h_STM-LT2_Infected"]]
+        )),
+      p.value < 0.01
+    ),
+  1
+))
+```
+
+```{r ex.scde.last.sig_table, echo=FALSE, results='asis'}
+pander::pandoc.table(ex.scde.last.sig)
+```
+
+
+## `r rownames(ex.scde.last.sig)` {.tabset}
+
+Last significant gene record (P ~ 0.01)
+in contrast D23580 vs. LT2 infected at 6h:
+
+### *scran*
+
+```{r normExprsById_ex.scde.last.sig}
+normExprsById(rownames(ex.scde.last.sig))
+```
+
+### *scde*
+
+```{r single.scde.6h_ex.scde.last.sig}
+single.scde.6h(rownames(ex.scde.last.sig), "STM-D23580_Infected", "STM-LT2_Infected")
+```
+
+## TLR2 {.tabset}
+
+Up-regulated in D23580 infected vs. exposed ($P < 10^{-4}$),
+while $NS$ in LT2 (infected, 2h):
+
+### *scran*
+
+```{r normExprsById_TLR2}
+normExprsById("ENSG00000137462")
+```
+
+### *scde* D23580
+
+```{r single.scde.6h_D23580_TLR2}
+single.scde.6h("ENSG00000137462", "STM-D23580_Infected", "STM-D23580_Exposed")
+```
+
+### *scde* LT2
+
+```{r single.scde.6h_LT2_TLR2}
+single.scde.6h("ENSG00000137462", "STM-LT2_Infected", "STM-LT2_Exposed")
+```
+
+## IL10 {.tabset}
+
+Up-regulated in D23580 infected vs. uninfected at 4h ($P < 5 \times 10^{-4}$),
+while $NS$ in LT2 ($P \approx 0.40$):
+
+### *scran*
+
+```{r normExprsById_IL10}
+normExprsById("ENSG00000136634")
+```
+
+### *scde* D23580
+
+```{r single.scde.6h_D23580_IL10}
+single.scde.6h("ENSG00000136634", "STM-D23580_Infected", "STM-D23580_Exposed")
+```
+
+### *scde* LT2
+
+```{r single.scde.6h_LT2_IL10}
+single.scde.6h("ENSG00000136634", "STM-LT2_Infected", "STM-LT2_Exposed")
+```
+
+
+## RAB2B {.tabset}
+
+Up-regulated in D23580 vs. LT2 (infected, 2h):
+
+### *scran*
+
+```{r normExprsById_RAB2B}
+normExprsById("ENSG00000129472")
+```
+
+### *scde*
+
+```{r single.scde.2h_RAB2B}
+single.scde.2h("ENSG00000129472", "STM-D23580_Infected", "STM-LT2_Infected")
+```
+
+## RAB29 {.tabset}
+
+Gene of interest: *P*-value ~ 0.025 between D23580 and LT2 infected at 6h:
+
+### *scran*
+
+```{r normExprsById_RAB29}
+normExprsById("ENSG00000117280")
+```
+
+### *scde*
+
+```{r single.scde.6h_RAB29}
+single.scde.6h("ENSG00000117280", "STM-D23580_Infected", "STM-LT2_Infected")
+```

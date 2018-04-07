@@ -4,6 +4,11 @@ editor_options:
   chunk_output_type: console
 ---
 
+<style>
+body {
+text-align: justify}
+</style>
+
 # Overview {#Overview}
 
 Prior to this vignette, paired-end reads (**2x 75 bp**) were processed as
