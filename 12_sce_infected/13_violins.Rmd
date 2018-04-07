@@ -151,7 +151,8 @@ plotByNameSubset <- function(
     theme_bw() +
     theme(
       legend.key.height = unit(1.75, "lines"),
-      axis.text.y = element_text(size = rel(1.5))
+      axis.text.y = element_text(size = rel(1.5)),
+      panel.grid.minor = element_blank()
     )
 }
 ```
@@ -259,6 +260,14 @@ ggsave(
   file.path(outdir, sprintf(pdfName, geneName, "6h")),
   plotByNameSubset(geneName, time = "6h"),
   height = pdfHeight-1, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("poster3_%s_%s.pdf", geneName, "4h")),
+  plotByNameSubset(geneName, time = "4h"),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("poster3_%s_%s.pdf", geneName, "6h")),
+  plotByNameSubset(geneName, time = "6h"),
+  height = pdfHeight, width = pdfWidth)
 ```
 
 ## CLECL1
