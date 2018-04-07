@@ -496,12 +496,19 @@ posterPCA <- ggplot(
   geom_point(aes(colour = Status, shape = Infection)) + 
   scale_color_manual(values = col.status) +
   geom_label(aes(x, y, label = label), posterLabels, inherit.aes = FALSE) +
-  theme_light()
+  theme_light() +
+  theme(
+    panel.grid.minor = element_blank()
+  )
 posterPCA
 ggsave(
   file.path(outdir, "poster_tSNE_right.pdf"),
   posterPCA,
   width = 7, height = 5, useDingbats=FALSE)
+ggsave(
+  file.path(outdir, "poster3_tSNE_right.pdf"),
+  posterPCA,
+  width = 7, height = 5.5, useDingbats=FALSE)
 ggsave(
   file.path(outdir, "poster_tSNE_right_blankAxes.pdf"),
   posterPCA + theme(
