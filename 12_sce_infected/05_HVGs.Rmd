@@ -856,6 +856,7 @@ par(mfrow=c(1,1))
 
 ```{r saveHVGsGroup, include=FALSE}
 saveRDS(HVGs.group, "rds/HVGs_Group.rds")
+saveRDS(dVar.groups, "rds/dVar.groups.rds")
 ```
 
 In the figure above, note how---in the stimulated cells---the mean-variance
