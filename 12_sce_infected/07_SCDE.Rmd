@@ -342,69 +342,6 @@ orderResults <- function(x){
 }
 ```
 
-* a function to visualise *scran*-normalised gene expression for a given
-gene:
-
-```{r normExprsById}
-normExprsById <- function(geneId){
-  geneName <- subset(rowData(sce.endo),gene_id==geneId,"gene_name",drop=TRUE)
-  gdata <- data.frame(
-    logcounts = assay(sce.endo, "logcounts")[geneId,],
-    colData(sce.endo)[,c("Infection","Status","Time")],
-    row.names = colnames(sce.endo)
-  )
-  ggplot(gdata, aes(gsub("-", "\n", Infection), logcounts)) + 
-    geom_violin(
-      aes(fill = Infection, alpha = Status),
-      draw_quantiles = c(0.25, 0.5, 0.75)
-    ) +
-    geom_jitter(width = 0.1, alpha = 0.5, size = 0.5) +
-    facet_grid(Time ~ Status) +
-    scale_fill_manual(values = col.infection) +
-    scale_alpha_discrete("Status", range = c(0.3, 0.5)) +
-    ggtitle(sprintf("%s - %s", geneId, geneName)) +
-    theme_minimal() +
-    labs(y = "Normalised expression", x = "Infection") +
-    guides(alpha = "none")
-}
-```
-
-* functions to visualise *scde* estimate of expression and
-  differential expression
-  for a given gene (identifier)
-  in a given contrast
-  within a specific time point (code shown for 2h time point only):
-  
-```{r single.scde.2h}
-single.scde.2h <- function(gene, groupTarget, groupRef){
-  gT <- sprintf("2h_%s", groupTarget); gR <- sprintf("2h_%s", groupRef)
-  sg.test <- factor(colData(sce.ifm.2h)[,"Group"], levels = c(gT, gR))
-  scde.test.gene.expression.difference(
-    gene, o.ifm.2h, cd.ifm.2h, o.prior.2h, sg.test,
-    n.cores = 4, verbose = 1
-  )
-}
-```
-
-```{r single.scde.4h6h, echo=FALSE}
-single.scde.4h <- function(gene, groupTarget, groupRef){
-  gT <- sprintf("4h_%s", groupTarget); gR <- sprintf("4h_%s", groupRef)
-  sg.test <- factor(co.Data(sce.ifm.4h)[,"Group"], levels = c(gT, gR))
-  scde.test.gene.expression.difference(
-    gene, o.ifm.4h, cd.ifm.4h, o.prior.4h, sg.test,
-    n.cores = 4, verbose = 1
-  )
-}
-single.scde.6h <- function(gene, groupTarget, groupRef){
-  gT <- sprintf("6h_%s", groupTarget); gR <- sprintf("6h_%s", groupRef)
-  sg.test <- factor(colData(sce.ifm.6h)[,"Group"], levels = c(gT, gR))
-  scde.test.gene.expression.difference(
-    gene, o.ifm.6h, cd.ifm.6h, o.prior.6h, sg.test,
-    n.cores = 4, verbose = 1
-  )
-}
-```
-
 * various significance levels:
 
 ```{r volcano.sig}
