@@ -1,5 +1,5 @@
 ---
-title: "Differential expression between experimental groups using *scde*"
+title: "Differential expression between experimental groups using *scde* (c)"
 bibliography:
   bibtex.bib
 editor_options: 

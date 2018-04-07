@@ -1,5 +1,5 @@
 ---
-title: "Differential expression between clusters using *scde*"
+title: "Differential expression between clusters using *scde* (b)"
 bibliography:
   bibtex.bib
 editor_options: 
@@ -227,6 +227,7 @@ gg <- ggplot(ggdata, aes(cluster, logcounts, color = Status)) +
   geom_jitter(width = 0.2, height = 0, size = 3, alpha = 0.75) +
   scale_color_manual(values = col.status) +
   labs(title = sprintf("%s | %s", geneName, x_time)) +
-  theme_minimal()
-ggsave(file.path(outdir, sprintf("%s_%s_norm.pdf", geneName, x_time)), gg, width = 6, height = 6)
+  theme_minimal() +
+  theme(panel.grid.minor = element_blank())
+ggsave(file.path(outdir, sprintf("%s_%s_norm.pdf", geneName, x_time)), gg, width = 6, height = 4)
 ```
