@@ -33,7 +33,7 @@ col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
 names(col.time) <- levels(sce.norm$Time)[1:3]
 names(col.infection) <- levels(sce.norm$Infection)
 names(col.status) <- levels(sce.norm$Status)
-outdir <- "test07_SCDE_out"; dir.create(outdir, showWarnings = FALSE)
+outdir <- "07_SCDE_out"; dir.create(outdir, showWarnings = FALSE)
 o.ifm.2h <- readRDS("rds/o.ifm.2h.rds")
 o.ifm.4h <- readRDS("rds/o.ifm.4h.rds")
 o.ifm.6h <- readRDS("rds/o.ifm.6h.rds")
