@@ -19,7 +19,7 @@ sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 hvg.out <- read.csv("05_HVG_out/hvg.out.csv", row.names = 1)
 # Prepare colours
 col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
-col.infection <- brewer.pal(12, "Paired")[c(9,2,4)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
 col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
 names(col.time) <- levels(sce.norm$Time)
 names(col.infection) <- levels(sce.norm$Infection)
