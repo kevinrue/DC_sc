@@ -356,6 +356,24 @@ ggsave(
   height = pdfHeight, width = pdfWidth)
 ```
 
+## CXCL8
+
+```{r CXCL8, echo=FALSE, fig.height=7}
+geneName <- "CXCL8"
+plotByNameFacetTime(geneName)
+```
+
+```{r CXCL8_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "2h")),
+  plotByNameSubset(geneName, "2h"),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameSubset(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+```
+
 ## CYBB
 
 ```{r CYBB, echo=FALSE, fig.height=7}
