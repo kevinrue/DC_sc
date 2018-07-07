@@ -889,7 +889,7 @@ for (clusterId in levels(sce.ifm.2h$quickCluster.2h)){
     show_column_names = FALSE, show_column_dend = FALSE,
     row_names_side = "right",
     top_annotation = ha_tmp,
-    split = markers_4h_p.cluster, gap = unit(5, "mm")
+    split = markers_2h_p.cluster, gap = unit(5, "mm")
     )
 }
 ht_final <- ht_list[["0"]] + ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]]
