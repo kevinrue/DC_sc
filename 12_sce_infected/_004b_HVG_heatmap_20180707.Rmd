@@ -14,7 +14,8 @@ stopifnot(
     require(RColorBrewer),
     require(circlize),
     require(org.Hs.eg.db),
-    require(Cairo)
+    require(Cairo),
+    require(cba)
 )
 sce.norm <- readRDS("rds/sce.norm.tSNE.rds")
 # Table of HVGs
@@ -65,7 +66,6 @@ sce.top
 write.csv(rowData(sce.top), file.path(dirOut, "HVGs_top200.csv"))
 ```
 
-
 # Make heat map
 
 ## Cluster HVGs across all cells
@@ -73,7 +73,10 @@ write.csv(rowData(sce.top), file.path(dirOut, "HVGs_top200.csv"))
 ```{r}
 hvg.endo.d <- dist(assay(sce.top, "logcounts"))
 hvg.endo.clust <- hclust(hvg.endo.d)
-rm(hvg.endo.d)
+co <- order.optimal(hvg.endo.d, hvg.endo.clust$merge)
+hvg.endo.clust$merge <- co$merge
+hvg.endo.clust$order <- co$order
+rm(hvg.endo.d, co)
 ```
 
 ## Cluster samples within each experimental group
@@ -172,6 +175,10 @@ draw(ht_2h + ht_4h + ht_6h)
 dev.off()
 ```
 
+```{r}
+draw(ht_2h + ht_4h + ht_6h, split = 3, gap = unit(5, "mm"))
+```
+
 # Select GO categories
 
 ```{r}
@@ -254,7 +261,29 @@ for (goName in names(go2geneId)) {
     ht_draw <- ht_draw + GO_h_list[[goName]]
 }
 pdf(file.path(dirOut, "heatmap_panel_time_GO_annoLink.pdf"), height = 10, width = 16)
-# Cairo(type = 'pdf', file = 'heatmap_panel_time_GO_annoLink.pdf', height = 10, width = 16, units = "in")
+draw(
+  object = ht_draw + ra,
+  gap = unit(1, "mm")
+)
+dev.off()
+```
+
+```{r}
+anno.xlsx <- file.path("_004b_in/GENES_cat.xlsx")
+anno.data <- xlsx::read.xlsx(anno.xlsx, sheetName = 1, header = TRUE, colClasses = "character" , stringsAsFactors=FALSE)
+gene.idx <- match(anno.data$gene_id, rownames(sce.reorder))
+data.frame(
+    anno.data$gene_id,
+    gene.idx
+)
+ra <- rowAnnotation(
+  link = row_anno_link(
+    at = gene.idx, labels = anno.data$gene_name,
+    labels_gp = gpar(cex=1), link_width = unit(0.5, "inches")
+    ), width = max_text_width(labels)
+)
+ht_draw <- ht_2h + ht_4h + ht_6h
+pdf(file.path(dirOut, "heatmap_panel_time_annoLink.pdf"), height = 10, width = 16)
 draw(
   object = ht_draw + ra,
   gap = unit(1, "mm")
