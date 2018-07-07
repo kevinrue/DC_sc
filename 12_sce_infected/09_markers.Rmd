@@ -423,8 +423,6 @@ markersMatrix <- assay(sce.ifm.2h, "logcounts")[markers_2h_FC,]
 markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
-# maxMatrix <- max(abs(range(markersMatrix))) * ht.scale.percentile
-ht_scale <- circlize::colorRamp2(c(-4, 0, 4), ht.col) # use maxMatrix?
 for (clusterId in levels(sce.ifm.2h$quickCluster.2h)){
   clusterMatrix <- markersMatrix[,sce.ifm.2h$quickCluster.2h == clusterId]
   ha_tmp <- HeatmapAnnotation(
@@ -478,8 +476,6 @@ markersMatrix <- assay(sce.ifm.2h, "logcounts")[markers_2h_FC_no0,]
 markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
-# maxMatrix <- max(abs(range(markersMatrix))) * ht.scale.percentile
-# ht_scale <- circlize::colorRamp2(c(-4, 0, 4), ht.col) # use maxMatrix?
 ht_scale <- colorRamp2(
     breaks = seq(-4, 4, length.out = 9),
     colors = rev(brewer.pal(9, "RdBu"))
@@ -532,8 +528,6 @@ markersMatrix <- assay(sce.ifm.2h, "logcounts")[markers_2h_FC_no0,]
 markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
-# maxMatrix <- max(abs(range(markersMatrix))) * ht.scale.percentile
-ht_scale <- circlize::colorRamp2(c(-4, 0, 4), ht.col) # use maxMatrix?
 for (clusterId in unique(markers_2h_FC.cluster_no0)){
   clusterMatrix <- markersMatrix[,sce.ifm.2h$quickCluster.2h == clusterId]
   ht_list[[clusterId]] <- Heatmap(
@@ -580,8 +574,6 @@ markersMatrix <- assay(sce.ifm.4h, "logcounts")[markers_4h_FC,]
 markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.4h), gene_name[match(rownames(markersMatrix), gene_id)])
-# maxMatrix <- max(abs(range(markersMatrix))) * ht.scale.percentile
-ht_scale <- circlize::colorRamp2(c(-4, 0, 4), ht.col) # use maxMatrix?
 for (clusterId in levels(sce.ifm.4h$quickCluster.4h)){
   clusterMatrix <- markersMatrix[,sce.ifm.4h$quickCluster.4h == clusterId]
   ha_tmp <- HeatmapAnnotation(
@@ -633,8 +625,6 @@ markersMatrix <- assay(sce.ifm.6h, "logcounts")[markers_6h_FC,]
 markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.6h), gene_name[match(rownames(markersMatrix), gene_id)])
-# maxMatrix <- max(abs(range(markersMatrix))) * ht.scale.percentile
-ht_scale <- circlize::colorRamp2(c(-4, 0, 4), ht.col) # use maxMatrix?
 for (clusterId in levels(sce.ifm.6h$quickCluster.6h)){
   clusterMatrix <- markersMatrix[,sce.ifm.6h$quickCluster.6h == clusterId]
   ha_tmp <- HeatmapAnnotation(
@@ -1068,8 +1058,6 @@ markersMatrix <- assay(sce.ifm.4h, "logcounts")[markers_4h_p,]
 markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.4h), gene_name[match(rownames(markersMatrix), gene_id)])
-# maxMatrix <- max(abs(range(markersMatrix))) * ht.scale.percentile
-ht_scale <- circlize::colorRamp2(c(-4, 0, 4), ht.col) # use maxMatrix?
 for (clusterId in unique(markers_4h_p.cluster)){
   clusterMatrix <- markersMatrix[,sce.ifm.4h$quickCluster.4h == clusterId]
   ha_tmp <- HeatmapAnnotation(
@@ -1174,8 +1162,6 @@ markersMatrix <- assay(sce.ifm.6h, "logcounts")[markers_6h_p,]
 markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.6h), gene_name[match(rownames(markersMatrix), gene_id)])
-# maxMatrix <- max(abs(range(markersMatrix))) * ht.scale.percentile
-ht_scale <- circlize::colorRamp2(c(-4, 0, 4), ht.col) # use maxMatrix?
 for (clusterId in unique(markers_6h_p.cluster)){
   clusterMatrix <- markersMatrix[,sce.ifm.6h$quickCluster.6h == clusterId]
   ha_tmp <- HeatmapAnnotation(
