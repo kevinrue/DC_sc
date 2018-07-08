@@ -113,7 +113,7 @@ ht.lt2 <- Heatmap(
     cluster_columns = TRUE,
     col = bluered,
     show_row_names = FALSE,
-    show_column_names = FALSE
+    show_column_names = FALSE, width = unit(3, "in")
 )
 ht.d23 <- Heatmap(
     matrix = heatmapData.d23, top_annotation = ha.d23,
@@ -122,13 +122,37 @@ ht.d23 <- Heatmap(
     col = bluered,
     show_row_names = FALSE,
     show_column_names = FALSE,
-    row_names_side = "right"
+    row_names_side = "right", width = unit(3, "in")
 )
 #
-pdf(file.path(outdir, sprintf("DE_violet_%s_vogel.pdf", timepoint)), width = 7, height = 7)
+pdf(file.path(outdir, sprintf("DE_violet_%s.pdf", timepoint)), width = 9, height = 7)
 draw(ht.lt2 + ht.d23)
 dev.off()
 ```
+
+With gene labels
+
+```{r}
+GOIs <- c("CHST13", "MUT", "ASB6", "DCUN1D2", "MALAT1", "KIFC2", "DUSP2", "TRIM13", "SNCA")
+stopifnot(all(GOIs %in% rowData(sce.endo)[["gene_name"]]))
+GOIs <- data.frame(
+    gene_name = GOIs,
+    gene_id = with(rowData(sce.endo), gene_id[match(GOIs, gene_name)]),
+    stringsAsFactors = FALSE
+)
+ra <- rowAnnotation(
+  link = row_anno_link(
+    at = match(GOIs$gene_id, rownames(heatmapData)),
+    labels = GOIs$gene_name,
+    labels_gp = gpar(cex=2/3),
+    link_width = unit(0.5, "inches")
+  ), width = unit(1.5, "in")
+)
+pdf(file.path(outdir, sprintf("DE_violet_%s_label.pdf", timepoint)), width = 10, height = 7)
+draw(ht.lt2 + ht.d23 + ra)
+dev.off()
+```
+
 
 ## 4h
 
@@ -177,7 +201,7 @@ ht.lt2 <- Heatmap(
     cluster_columns = TRUE,
     col = bluered,
     show_row_names = FALSE,
-    show_column_names = FALSE
+    show_column_names = FALSE, width = unit(3, "in")
 )
 ht.d23 <- Heatmap(
     matrix = heatmapData.d23, top_annotation = ha.d23,
@@ -186,11 +210,34 @@ ht.d23 <- Heatmap(
     col = bluered,
     show_row_names = FALSE,
     show_column_names = FALSE,
-    row_names_side = "right"
+    row_names_side = "right", width = unit(3, "in")
 )
 #
-pdf(file.path(outdir, sprintf("DE_violet_%s_vogel.pdf", timepoint)), width = 7, height = 7)
+pdf(file.path(outdir, sprintf("DE_violet_%s.pdf", timepoint)), width = 9, height = 7)
 draw(ht.lt2 + ht.d23)
+dev.off()
+```
+
+With gene labels
+
+```{r}
+GOIs <- c("MYLIP", "GORASP1", "RIPK3", "KLHL2", "HEBP2", "APOBEC3A", "BCL3", "CCL22", "IFT57", "COPS7B", "CASP3", "STXBP1", "VPS25")
+stopifnot(all(GOIs %in% rowData(sce.endo)[["gene_name"]]))
+GOIs <- data.frame(
+    gene_name = GOIs,
+    gene_id = with(rowData(sce.endo), gene_id[match(GOIs, gene_name)]),
+    stringsAsFactors = FALSE
+)
+ra <- rowAnnotation(
+  link = row_anno_link(
+    at = match(GOIs$gene_id, rownames(heatmapData)),
+    labels = GOIs$gene_name,
+    labels_gp = gpar(cex=2/3),
+    link_width = unit(0.5, "inches")
+  ), width = unit(1.5, "in")
+)
+pdf(file.path(outdir, sprintf("DE_violet_%s_label.pdf", timepoint)), width = 10, height = 7)
+draw(ht.lt2 + ht.d23 + ra)
 dev.off()
 ```
 
@@ -241,7 +288,7 @@ ht.lt2 <- Heatmap(
     cluster_columns = TRUE,
     col = bluered,
     show_row_names = FALSE,
-    show_column_names = FALSE
+    show_column_names = FALSE, width = unit(3, "in")
 )
 ht.d23 <- Heatmap(
     matrix = heatmapData.d23, top_annotation = ha.d23,
@@ -250,11 +297,33 @@ ht.d23 <- Heatmap(
     col = bluered,
     show_row_names = FALSE,
     show_column_names = FALSE,
-    row_names_side = "right"
+    row_names_side = "right", width = unit(3, "in")
 )
 #
-pdf(file.path(outdir, sprintf("DE_violet_%s_vogel.pdf", timepoint)), width = 7, height = 7)
+pdf(file.path(outdir, sprintf("DE_violet_%s.pdf", timepoint)), width = 9, height = 7)
 draw(ht.lt2 + ht.d23)
 dev.off()
 ```
 
+With gene labels
+
+```{r}
+GOIs <- c("MARCH1", "CLECL1", "NIT1", "NIT2", "LRR1", "VPS8", "TXNRD1", "TFRC", "USP1", "TRIAP1", "CLASP1", "RNF139", "MVB12A", "CLEC16A", "BLOC1S3", "USPL1", "DNAJC13")
+stopifnot(all(GOIs %in% rowData(sce.endo)[["gene_name"]]))
+GOIs <- data.frame(
+    gene_name = GOIs,
+    gene_id = with(rowData(sce.endo), gene_id[match(GOIs, gene_name)]),
+    stringsAsFactors = FALSE
+)
+ra <- rowAnnotation(
+  link = row_anno_link(
+    at = match(GOIs$gene_id, rownames(heatmapData)),
+    labels = GOIs$gene_name,
+    labels_gp = gpar(cex=2/3),
+    link_width = unit(0.5, "inches")
+  ), width = unit(1.5, "in")
+)
+pdf(file.path(outdir, sprintf("DE_violet_%s_label.pdf", timepoint)), width = 10, height = 7)
+draw(ht.lt2 + ht.d23 + ra)
+dev.off()
+```
