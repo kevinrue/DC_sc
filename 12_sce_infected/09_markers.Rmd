@@ -17,17 +17,17 @@ reimported from disk, and smaller ones quickly recomputed. -->
 ```{r setup, include=FALSE}
 knitr::opts_chunk$set(cache = TRUE)
 stopifnot(
-  require(scater),
-  require(scran),
-  require(ggplot2),
-  require(ComplexHeatmap),
-  require(dplyr),
-  require(ggrepel),
-  require(RColorBrewer),
-  require(goseq),
-  require(scde),
-  require(circlize),
-  requireNamespace("circlize")
+    require(scater),
+    require(scran),
+    require(ggplot2),
+    require(ComplexHeatmap),
+    require(dplyr),
+    require(ggrepel),
+    require(RColorBrewer),
+    require(goseq),
+    require(scde),
+    require(circlize),
+    requireNamespace("circlize")
 )
 sce.endo <- readRDS("rds/sce.endo_clusters.rds")
 o.ifm.2h <- readRDS("rds/o.ifm.2h.rds")
@@ -48,9 +48,9 @@ sce.4h <- sce.endo[,sce.endo$Time == '4h']
 sce.6h <- sce.endo[,sce.endo$Time == '6h']
 # Filter detected genes
 filterCounts <- function(m, counts = 10, cells = 10){
-  apply(m, 1, function(e){
-    return(sum(e >= counts) >= cells)
-  })
+    apply(m, 1, function(e){
+        return(sum(e >= counts) >= cells)
+    })
 }
 # Reorder SCESet to match count matrix
 sce.ifm.2h <- sce.2h[,rownames(o.ifm.2h)]
@@ -67,56 +67,56 @@ keep.6h <- filterCounts(counts(sce.ifm.6h))
 cd.ifm.6h <- counts(sce.ifm.6h)[keep.6h,]; storage.mode(cd.ifm.6h) <- 'integer'
 # Prior of expression
 o.prior.2h <- scde.expression.prior(
-  models = o.ifm.2h, counts = cd.ifm.2h, show.plot = FALSE
+    models = o.ifm.2h, counts = cd.ifm.2h, show.plot = FALSE
 )
 o.prior.4h <- scde.expression.prior(
-  models = o.ifm.4h, counts = cd.ifm.4h, show.plot = FALSE
+    models = o.ifm.4h, counts = cd.ifm.4h, show.plot = FALSE
 )
 o.prior.6h <- scde.expression.prior(
-  models = o.ifm.6h, counts = cd.ifm.6h, show.plot = FALSE
+    models = o.ifm.6h, counts = cd.ifm.6h, show.plot = FALSE
 )
 # Functions
 convert.z.score <- function(x, one.sided = NULL) {
-  z <- x$Z
-  if(is.null(one.sided)) {
-    pval = pnorm(-abs(z));
-    pval = 2 * pval
-  } else if(one.sided=="-") {
-    pval = pnorm(z);
-  } else {
-    pval = pnorm(-z);
-  }
+    z <- x$Z
+    if(is.null(one.sided)) {
+        pval = pnorm(-abs(z));
+        pval = 2 * pval
+    } else if(one.sided=="-") {
+        pval = pnorm(z);
+    } else {
+        pval = pnorm(-z);
+    }
     x <- cbind(
-      x,
-      p.value = pval
-  )
-  return(x);
+        x,
+        p.value = pval
+    )
+    return(x);
 }   
 addGeneName <- function(x){
-  x <- cbind(
-    gene_name = with(rowData(sce.endo), gene_name[match(rownames(x), gene_id)]),
-    x
-  )
-  return(x)
+    x <- cbind(
+        gene_name = with(rowData(sce.endo), gene_name[match(rownames(x), gene_id)]),
+        x
+    )
+    return(x)
 }
 orderResults <- function(x){
-  x <- x[with(x, order(abs(Z), decreasing = TRUE)),]
-  return(x)
+    x <- x[with(x, order(abs(Z), decreasing = TRUE)),]
+    return(x)
 }
 sig.levels <- c(0.05, 0.01)
 volcano.sig <- data.frame(
-  P = sig.levels,
-  level = as.character(sig.levels)
+    P = sig.levels,
+    level = as.character(sig.levels)
 )
 volcano.mle <- function(x, sub = NULL){
-  varName <- deparse(substitute(x))
-  x <- convert.z.score(x)
-  gg <- ggplot(x, aes(mle, -log10(p.value))) +
-    geom_point(aes(colour = (cZ != 0))) +
-    geom_hline(aes(yintercept=-log10(p.value),linetype=level),volcano.sig) +
-    ggtitle(varName, sub)
-  print(gg)
-  return(x)
+    varName <- deparse(substitute(x))
+    x <- convert.z.score(x)
+    gg <- ggplot(x, aes(mle, -log10(p.value))) +
+        geom_point(aes(colour = (cZ != 0))) +
+        geom_hline(aes(yintercept=-log10(p.value),linetype=level),volcano.sig) +
+        ggtitle(varName, sub)
+    print(gg)
+    return(x)
 }
 ```
 
@@ -139,7 +139,7 @@ for this analysis, the data is prepared identically to the
 * ERCC spike-in features are removed,
 * Cells in the data set is subsetted by time point,
 * Genes in the data set are subsetted for those detected at sufficient levels
-  within each time point,
+within each time point,
 * Error models are computed on the subsetted data sets
 
 # Color maps
@@ -147,7 +147,7 @@ for this analysis, the data is prepared identically to the
 Let us first define:
 
 * a set of colours used to indicate *cluster membership* consistently
-  across the upcoming sections:
+across the upcoming sections:
 
 ```{r col.sets}
 col.cluster <- brewer.pal(8, "Dark2")[c(1,2,3,4,8)]
@@ -155,7 +155,7 @@ names(col.cluster) <- c(1,2,3,0,"NA")
 ht_scale <- colorRamp2(
     breaks = seq(-3, 3, length.out = 9),
     colors = rev(brewer.pal(9, "RdBu"))
-    )
+)
 ```
 
 # Differential expression {#DE .tabset}
@@ -180,14 +180,14 @@ In addition, note that several functions defined in the first
 ```{r scde.res_2h, eval=FALSE}
 stopifnot(all(rownames(o.ifm.2h) == colnames(cd.ifm.2h)))
 for (clusterId in levels(sce.ifm.2h$quickCluster.2h)){
-  sg.test <- factor(
-    sce.ifm.2h$quickCluster.2h == clusterId,
-    levels = c(TRUE, FALSE),
-    labels = c(clusterId, "Others"))
-  names(sg.test) <- colnames(sce.ifm.2h); summary(sg.test)
-  contrastName <- sprintf("2h_cluster%s-Others", clusterId);message(contrastName)
-  scde.res[[contrastName]] <- scde.expression.difference(
-      o.ifm.2h, cd.ifm.2h, o.prior.2h, sg.test, n.cores = 4, verbose = 1
+    sg.test <- factor(
+        sce.ifm.2h$quickCluster.2h == clusterId,
+        levels = c(TRUE, FALSE),
+        labels = c(clusterId, "Others"))
+    names(sg.test) <- colnames(sce.ifm.2h); summary(sg.test)
+    contrastName <- sprintf("2h_cluster%s-Others", clusterId);message(contrastName)
+    scde.res[[contrastName]] <- scde.expression.difference(
+        o.ifm.2h, cd.ifm.2h, o.prior.2h, sg.test, n.cores = 4, verbose = 1
     )
 }
 ```
@@ -197,14 +197,14 @@ for (clusterId in levels(sce.ifm.2h$quickCluster.2h)){
 ```{r scde.res_4h, eval=FALSE}
 stopifnot(all(rownames(o.ifm.4h) == colnames(cd.ifm.4h)))
 for (clusterId in levels(sce.ifm.4h$quickCluster.4h)){
-  sg.test <- factor(
-    sce.ifm.4h$quickCluster.4h == clusterId,
-    levels = c(TRUE, FALSE),
-    labels = c(clusterId, "Others"))
-  names(sg.test) <- colnames(sce.ifm.4h); summary(sg.test)
-  contrastName <- sprintf("4h_cluster%s-Others", clusterId);message(contrastName)
-  scde.res[[contrastName]] <- scde.expression.difference(
-      o.ifm.4h, cd.ifm.4h, o.prior.4h, sg.test, n.cores = 4, verbose = 1
+    sg.test <- factor(
+        sce.ifm.4h$quickCluster.4h == clusterId,
+        levels = c(TRUE, FALSE),
+        labels = c(clusterId, "Others"))
+    names(sg.test) <- colnames(sce.ifm.4h); summary(sg.test)
+    contrastName <- sprintf("4h_cluster%s-Others", clusterId);message(contrastName)
+    scde.res[[contrastName]] <- scde.expression.difference(
+        o.ifm.4h, cd.ifm.4h, o.prior.4h, sg.test, n.cores = 4, verbose = 1
     )
 }
 ```
@@ -214,14 +214,14 @@ for (clusterId in levels(sce.ifm.4h$quickCluster.4h)){
 ```{r scde.res_6h, eval=FALSE}
 stopifnot(all(rownames(o.ifm.6h) == colnames(cd.ifm.6h)))
 for (clusterId in levels(sce.ifm.6h$quickCluster.6h)){
-  sg.test <- factor(
-    sce.ifm.6h$quickCluster.6h == clusterId,
-    levels = c(TRUE, FALSE),
-    labels = c(clusterId, "Others"))
-  names(sg.test) <- colnames(sce.ifm.6h); summary(sg.test)
-  contrastName <- sprintf("6h_cluster%s-Others", clusterId);message(contrastName)
-  scde.res[[contrastName]] <- scde.expression.difference(
-      o.ifm.6h, cd.ifm.6h, o.prior.6h, sg.test, n.cores = 4, verbose = 1
+    sg.test <- factor(
+        sce.ifm.6h$quickCluster.6h == clusterId,
+        levels = c(TRUE, FALSE),
+        labels = c(clusterId, "Others"))
+    names(sg.test) <- colnames(sce.ifm.6h); summary(sg.test)
+    contrastName <- sprintf("6h_cluster%s-Others", clusterId);message(contrastName)
+    scde.res[[contrastName]] <- scde.expression.difference(
+        o.ifm.6h, cd.ifm.6h, o.prior.6h, sg.test, n.cores = 4, verbose = 1
     )
 }
 ```
@@ -229,10 +229,10 @@ for (clusterId in levels(sce.ifm.6h$quickCluster.6h)){
 ```{r scde.table_csv, echo=FALSE, eval=FALSE}
 saveRDS(scde.res, "rds/scde_markers.rds")
 for (contrastName in names(scde.res)){
-  scde.table <- scde.res[[contrastName]]
-  scde.table <- convert.z.score(addGeneName(orderResults(scde.table)))
-  csv.file <- sprintf("SCDE_markers_%s.csv", contrastName)
-  write.csv(scde.table, file.path(outdir, csv.file))
+    scde.table <- scde.res[[contrastName]]
+    scde.table <- convert.z.score(addGeneName(orderResults(scde.table)))
+    csv.file <- sprintf("SCDE_markers_%s.csv", contrastName)
+    write.csv(scde.table, file.path(outdir, csv.file))
 }
 ```
 
@@ -257,14 +257,14 @@ markers_2h_FC <- character()
 markers_2h_FC.cluster <- factor(NULL, levels(sce.ifm.2h$quickCluster.2h))
 c2h <- grep("^2h", names(scde.res), value = TRUE)
 for (contrastName in c2h){
-  clusterId <- gsub("2h_cluster(.)-Others", "\\1", contrastName)
-  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
-  scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
-  scde.table <- scde.table[order(scde.table$mle, decreasing = TRUE),]
-  scde.markers <- head(rownames(scde.table), 30)
-  markers_2h_FC <- c(markers_2h_FC, scde.markers)
-  markers_2h_FC.cluster <-
-    c(markers_2h_FC.cluster, rep(clusterId, length(scde.markers)))
+    clusterId <- gsub("2h_cluster(.)-Others", "\\1", contrastName)
+    scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
+    scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
+    scde.table <- scde.table[order(scde.table$mle, decreasing = TRUE),]
+    scde.markers <- head(rownames(scde.table), 30)
+    markers_2h_FC <- c(markers_2h_FC, scde.markers)
+    markers_2h_FC.cluster <-
+        c(markers_2h_FC.cluster, rep(clusterId, length(scde.markers)))
 }
 ```
 
@@ -275,14 +275,14 @@ markers_4h_FC <- character()
 markers_4h_FC.cluster <- factor(NULL, levels(sce.ifm.4h$quickCluster.4h))
 c4h <- grep("^4h", names(scde.res), value = TRUE)
 for (contrastName in c4h){
-  clusterId <- gsub("4h_cluster(.)-Others", "\\1", contrastName)
-  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
-  scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
-  scde.table <- scde.table[order(scde.table$mle, decreasing = TRUE),]
-  scde.markers <- head(rownames(scde.table), 30)
-  markers_4h_FC <- c(markers_4h_FC, scde.markers)
-  markers_4h_FC.cluster <-
-    c(markers_4h_FC.cluster, rep(clusterId, length(scde.markers)))
+    clusterId <- gsub("4h_cluster(.)-Others", "\\1", contrastName)
+    scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
+    scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
+    scde.table <- scde.table[order(scde.table$mle, decreasing = TRUE),]
+    scde.markers <- head(rownames(scde.table), 30)
+    markers_4h_FC <- c(markers_4h_FC, scde.markers)
+    markers_4h_FC.cluster <-
+        c(markers_4h_FC.cluster, rep(clusterId, length(scde.markers)))
 }
 ```
 
@@ -293,14 +293,14 @@ markers_6h_FC <- character()
 markers_6h_FC.cluster <- factor(NULL, levels(sce.ifm.6h$quickCluster.6h))
 c6h <- grep("^6h", names(scde.res), value = TRUE)
 for (contrastName in c6h){
-  clusterId <- gsub("6h_cluster(.)-Others", "\\1", contrastName)
-  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
-  scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
-  scde.table <- scde.table[order(scde.table$mle, decreasing = TRUE),]
-  scde.markers <- head(rownames(scde.table), 30)
-  markers_6h_FC <- c(markers_6h_FC, scde.markers)
-  markers_6h_FC.cluster <-
-    c(markers_6h_FC.cluster, rep(clusterId, length(scde.markers)))
+    clusterId <- gsub("6h_cluster(.)-Others", "\\1", contrastName)
+    scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
+    scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
+    scde.table <- scde.table[order(scde.table$mle, decreasing = TRUE),]
+    scde.markers <- head(rownames(scde.table), 30)
+    markers_6h_FC <- c(markers_6h_FC, scde.markers)
+    markers_6h_FC.cluster <-
+        c(markers_6h_FC.cluster, rep(clusterId, length(scde.markers)))
 }
 ```
 
@@ -310,24 +310,24 @@ for (contrastName in c6h){
 
 ```{r markers_FC_2h, echo=FALSE, fig.height=10, message=FALSE}
 markersMatrix <- matrix(
-  nrow = length(markers_2h_FC),
-  ncol = length(c2h),
-  dimnames = list(
-    gene_id = markers_2h_FC,
-    cluster = gsub("2h_cluster(.)-Others", "\\1", c2h)
-  ))
+    nrow = length(markers_2h_FC),
+    ncol = length(c2h),
+    dimnames = list(
+        gene_id = markers_2h_FC,
+        cluster = gsub("2h_cluster(.)-Others", "\\1", c2h)
+    ))
 for (contrastName in c2h){
-  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
-  clusterName <- gsub("2h_cluster(.)-Others", "\\1", contrastName)
-  markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
+    scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
+    clusterName <- gsub("2h_cluster(.)-Others", "\\1", contrastName)
+    markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
 }
 rownames(markersMatrix) <-
-  with(rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
+    with(rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
 ht <- Heatmap(
-  matrix = markersMatrix,
-  cluster_rows = FALSE, cluster_columns = FALSE,
-  row_names_gp = gpar(cex=0.4)
-  )
+    matrix = markersMatrix,
+    cluster_rows = FALSE, cluster_columns = FALSE,
+    row_names_gp = gpar(cex=0.4)
+)
 draw(ht)
 ```
 
@@ -341,24 +341,24 @@ dev.off()
 
 ```{r markers_FC_4h, echo=FALSE, fig.height=10}
 markersMatrix <- matrix(
-  nrow = length(markers_4h_FC),
-  ncol = length(c4h),
-  dimnames = list(
-    gene_id = markers_4h_FC,
-    cluster = gsub("4h_cluster(.)-Others", "\\1", c4h)
-  ))
+    nrow = length(markers_4h_FC),
+    ncol = length(c4h),
+    dimnames = list(
+        gene_id = markers_4h_FC,
+        cluster = gsub("4h_cluster(.)-Others", "\\1", c4h)
+    ))
 for (contrastName in c4h){
-  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
-  clusterName <- gsub("4h_cluster(.)-Others", "\\1", contrastName)
-  markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
+    scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
+    clusterName <- gsub("4h_cluster(.)-Others", "\\1", contrastName)
+    markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
 }
 rownames(markersMatrix) <-
-  with(rowData(sce.4h), gene_name[match(rownames(markersMatrix), gene_id)])
+    with(rowData(sce.4h), gene_name[match(rownames(markersMatrix), gene_id)])
 ht <- Heatmap(
-  matrix = markersMatrix,
-  cluster_rows = FALSE, cluster_columns = FALSE,
-  row_names_gp = gpar(cex=0.4)
-  )
+    matrix = markersMatrix,
+    cluster_rows = FALSE, cluster_columns = FALSE,
+    row_names_gp = gpar(cex=0.4)
+)
 draw(ht)
 ```
 
@@ -372,24 +372,24 @@ dev.off()
 
 ```{r markers_FC_6h, echo=FALSE, fig.height=10}
 markersMatrix <- matrix(
-  nrow = length(markers_6h_FC),
-  ncol = length(c6h),
-  dimnames = list(
-    gene_id = markers_6h_FC,
-    cluster = gsub("6h_cluster(.)-Others", "\\1", c6h)
-  ))
+    nrow = length(markers_6h_FC),
+    ncol = length(c6h),
+    dimnames = list(
+        gene_id = markers_6h_FC,
+        cluster = gsub("6h_cluster(.)-Others", "\\1", c6h)
+    ))
 for (contrastName in c6h){
-  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
-  clusterName <- gsub("6h_cluster(.)-Others", "\\1", contrastName)
-  markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
+    scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
+    clusterName <- gsub("6h_cluster(.)-Others", "\\1", contrastName)
+    markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
 }
 rownames(markersMatrix) <-
-  with(rowData(sce.6h), gene_name[match(rownames(markersMatrix), gene_id)])
+    with(rowData(sce.6h), gene_name[match(rownames(markersMatrix), gene_id)])
 ht <- Heatmap(
-  matrix = markersMatrix,
-  cluster_rows = FALSE, cluster_columns = FALSE,
-  row_names_gp = gpar(cex=0.4)
-  )
+    matrix = markersMatrix,
+    cluster_rows = FALSE, cluster_columns = FALSE,
+    row_names_gp = gpar(cex=0.4)
+)
 draw(ht)
 ```
 
@@ -424,34 +424,34 @@ markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
 for (clusterId in levels(sce.ifm.2h$quickCluster.2h)){
-  clusterMatrix <- markersMatrix[,sce.ifm.2h$quickCluster.2h == clusterId]
-  ha_tmp <- HeatmapAnnotation(
-    df = data.frame(subset(
-      colData(sce.ifm.2h), quickCluster.2h == clusterId,
-      c("Infection", "Status")
-    )),
-    col = list(
-      Infection = col.infection,
-      Status = col.status
+    clusterMatrix <- markersMatrix[,sce.ifm.2h$quickCluster.2h == clusterId]
+    ha_tmp <- HeatmapAnnotation(
+        df = data.frame(subset(
+            colData(sce.ifm.2h), quickCluster.2h == clusterId,
+            c("Infection", "Status")
+        )),
+        col = list(
+            Infection = col.infection,
+            Status = col.status
+        )
     )
-  )
-  ht_list[[clusterId]] <- Heatmap(
-    matrix = clusterMatrix,
-    name = ifelse(
-      clusterId == levels(sce.ifm.2h$quickCluster.2h)[1],
-      "z-score",
-      clusterId),
-    col = ht_scale,
-    row_names_gp = gpar(cex=0.4),
-    show_heatmap_legend =
-      clusterId == levels(sce.ifm.2h$quickCluster.2h)[1],
-    show_row_names = clusterId == levels(sce.ifm.2h$quickCluster.2h)[1],
-    cluster_rows = FALSE,
-    show_column_names = FALSE, show_column_dend = FALSE,
-    row_names_side = "left",
-    top_annotation = ha_tmp,
-    split = markers_2h_FC.cluster
-  )
+    ht_list[[clusterId]] <- Heatmap(
+        matrix = clusterMatrix,
+        name = ifelse(
+            clusterId == levels(sce.ifm.2h$quickCluster.2h)[1],
+            "z-score",
+            clusterId),
+        col = ht_scale,
+        row_names_gp = gpar(cex=0.4),
+        show_heatmap_legend =
+            clusterId == levels(sce.ifm.2h$quickCluster.2h)[1],
+        show_row_names = clusterId == levels(sce.ifm.2h$quickCluster.2h)[1],
+        cluster_rows = FALSE,
+        show_column_names = FALSE, show_column_dend = FALSE,
+        row_names_side = "left",
+        top_annotation = ha_tmp,
+        split = markers_2h_FC.cluster
+    )
 }
 ht_final <- ht_list[["0"]] + ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]]
 draw(ht_final)
@@ -459,8 +459,8 @@ draw(ht_final)
 
 ```{r markers_FC_logcounts_2h_pdf, include=FALSE}
 pdf(
-  file.path(outdir, "2h_markers_FC_heatmap_logcounts.pdf"),
-  width = 10, height = 15)
+    file.path(outdir, "2h_markers_FC_heatmap_logcounts.pdf"),
+    width = 10, height = 15)
 draw(ht_final)
 dev.off()
 ```
@@ -479,32 +479,32 @@ rownames(markersMatrix) <- with(
 ht_scale <- colorRamp2(
     breaks = seq(-4, 4, length.out = 9),
     colors = rev(brewer.pal(9, "RdBu"))
-    )
+)
 for (clusterId in unique(markers_2h_FC.cluster_no0)){
-  clusterMatrix <- markersMatrix[,sce.ifm.2h$quickCluster.2h == clusterId]
-  ha_tmp <- HeatmapAnnotation(
-    df = data.frame(subset(
-      colData(sce.ifm.2h), quickCluster.2h == clusterId,
-      c("quickCluster.2h", "Infection", "Status")
-    )),
-    col = list(
-      quickCluster.2h = col.cluster,
-      Infection = col.infection,
-      Status = col.status
+    clusterMatrix <- markersMatrix[,sce.ifm.2h$quickCluster.2h == clusterId]
+    ha_tmp <- HeatmapAnnotation(
+        df = data.frame(subset(
+            colData(sce.ifm.2h), quickCluster.2h == clusterId,
+            c("quickCluster.2h", "Infection", "Status")
+        )),
+        col = list(
+            quickCluster.2h = col.cluster,
+            Infection = col.infection,
+            Status = col.status
+        )
     )
-  )
-  ht_list[[clusterId]] <- Heatmap(
-    matrix = clusterMatrix,
-    name = ifelse(clusterId == "1", "z-score", clusterId),
-    col = ht_scale,
-    row_names_gp = gpar(cex=0.4),
-    show_heatmap_legend = clusterId == "1",
-    show_row_names = clusterId == "3",
-    cluster_rows = FALSE,
-    show_column_names = FALSE, show_column_dend = FALSE,
-    row_names_side = "right",
-    top_annotation = ha_tmp,
-    split = markers_2h_FC.cluster_no0
+    ht_list[[clusterId]] <- Heatmap(
+        matrix = clusterMatrix,
+        name = ifelse(clusterId == "1", "z-score", clusterId),
+        col = ht_scale,
+        row_names_gp = gpar(cex=0.4),
+        show_heatmap_legend = clusterId == "1",
+        show_row_names = clusterId == "3",
+        cluster_rows = FALSE,
+        show_column_names = FALSE, show_column_dend = FALSE,
+        row_names_side = "right",
+        top_annotation = ha_tmp,
+        split = markers_2h_FC.cluster_no0
     )
 }
 ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]]
@@ -513,8 +513,8 @@ draw(ht_final)
 
 ```{r markers_FC_logcounts_2h_no0_pdf, include=FALSE}
 pdf(
-  file.path(outdir, "2h_markers_FC_heatmap_logcounts_no0.pdf"),
-  width = 10, height = 15)
+    file.path(outdir, "2h_markers_FC_heatmap_logcounts_no0.pdf"),
+    width = 10, height = 15)
 draw(ht_final)
 dev.off()
 ```
@@ -529,39 +529,39 @@ markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
 for (clusterId in unique(markers_2h_FC.cluster_no0)){
-  clusterMatrix <- markersMatrix[,sce.ifm.2h$quickCluster.2h == clusterId]
-  ht_list[[clusterId]] <- Heatmap(
-    matrix = clusterMatrix,
-    name = ifelse(clusterId == "1", "z-score", clusterId),
-    col = ht_scale,
-    row_names_gp = gpar(cex=0.4),
-    show_heatmap_legend = clusterId == "1",
-    show_row_names = clusterId == "1",
-    cluster_rows = FALSE,
-    show_column_names = FALSE, show_column_dend = FALSE,
-    row_names_side = "left",
-    split = markers_2h_FC.cluster_no0
+    clusterMatrix <- markersMatrix[,sce.ifm.2h$quickCluster.2h == clusterId]
+    ht_list[[clusterId]] <- Heatmap(
+        matrix = clusterMatrix,
+        name = ifelse(clusterId == "1", "z-score", clusterId),
+        col = ht_scale,
+        row_names_gp = gpar(cex=0.4),
+        show_heatmap_legend = clusterId == "1",
+        show_row_names = clusterId == "1",
+        cluster_rows = FALSE,
+        show_column_names = FALSE, show_column_dend = FALSE,
+        row_names_side = "left",
+        split = markers_2h_FC.cluster_no0
     )
 }
 geneNames <- c(
-  "MMP19","CMKLR1","CCL24","CYBB","GSDMA","CTSL","RNASE1","LAMP1","CXCL2",
-  "KLHL21","MMP9","SERPINE1","MAFB","SERPINB2","CD163","CCL7","SPSB1","IL10",
-  "CCL26","CHST13","ME1","FAM83G","IRAK3","MAPK13","CHST15","TMEM158","LGMN",
-  "TNF","CD40","CLEC10A","CLEC4A","GOLGA8B","ADAM19","GOLGA8A","TUBA1A","CD1C","CD1A",
-  "SLC25A5","GALM"
+    "MMP19","CMKLR1","CCL24","CYBB","GSDMA","CTSL","RNASE1","LAMP1","CXCL2",
+    "KLHL21","MMP9","SERPINE1","MAFB","SERPINB2","CD163","CCL7","SPSB1","IL10",
+    "CCL26","CHST13","ME1","FAM83G","IRAK3","MAPK13","CHST15","TMEM158","LGMN",
+    "TNF","CD40","CLEC10A","CLEC4A","GOLGA8B","ADAM19","GOLGA8A","TUBA1A","CD1C","CD1A",
+    "SLC25A5","GALM"
 )
 ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]] + rowAnnotation(
-  link = row_anno_link(
-    at = which(rownames(markersMatrix) %in% geneNames),
-    labels = rownames(markersMatrix)[which(rownames(markersMatrix) %in% geneNames)],
-    labels_gp = gpar(cex=2/3),
-    link_width = unit(0.5, "inches")
-  ),
-  width = unit(1, "cm") + max_text_width(labels)
+    link = row_anno_link(
+        at = which(rownames(markersMatrix) %in% geneNames),
+        labels = rownames(markersMatrix)[which(rownames(markersMatrix) %in% geneNames)],
+        labels_gp = gpar(cex=2/3),
+        link_width = unit(0.5, "inches")
+    ),
+    width = unit(1, "cm") + max_text_width(labels)
 )
 pdf(
-  file.path(outdir, "2h_markers_FC_heatmap_logcounts_no0_rowLink.pdf"),
-  width = 10, height = 10)
+    file.path(outdir, "2h_markers_FC_heatmap_logcounts_no0_rowLink.pdf"),
+    width = 10, height = 10)
 draw(ht_final)
 dev.off()
 ```
@@ -575,34 +575,34 @@ markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.4h), gene_name[match(rownames(markersMatrix), gene_id)])
 for (clusterId in levels(sce.ifm.4h$quickCluster.4h)){
-  clusterMatrix <- markersMatrix[,sce.ifm.4h$quickCluster.4h == clusterId]
-  ha_tmp <- HeatmapAnnotation(
-    df = data.frame(subset(
-      colData(sce.ifm.4h), quickCluster.4h == clusterId,
-      c("Infection", "Status")
-    )),
-    col = list(
-      Infection = col.infection,
-      Status = col.status
+    clusterMatrix <- markersMatrix[,sce.ifm.4h$quickCluster.4h == clusterId]
+    ha_tmp <- HeatmapAnnotation(
+        df = data.frame(subset(
+            colData(sce.ifm.4h), quickCluster.4h == clusterId,
+            c("Infection", "Status")
+        )),
+        col = list(
+            Infection = col.infection,
+            Status = col.status
+        )
     )
-  )
-  ht_list[[clusterId]] <- Heatmap(
-    matrix = clusterMatrix,
-    name = ifelse(
-      clusterId == levels(sce.ifm.4h$quickCluster.4h)[1],
-      "z-score",
-      clusterId),
-    col = ht_scale,
-    row_names_gp = gpar(cex=0.4),
-    show_heatmap_legend =
-      clusterId == levels(sce.ifm.4h$quickCluster.4h)[1],
-    show_row_names = clusterId == levels(sce.ifm.4h$quickCluster.4h)[1],
-    cluster_rows = FALSE,
-    show_column_names = FALSE,
-    show_column_dend = FALSE,
-    top_annotation = ha_tmp,
-    row_names_side = "left",
-    split = markers_4h_FC.cluster
+    ht_list[[clusterId]] <- Heatmap(
+        matrix = clusterMatrix,
+        name = ifelse(
+            clusterId == levels(sce.ifm.4h$quickCluster.4h)[1],
+            "z-score",
+            clusterId),
+        col = ht_scale,
+        row_names_gp = gpar(cex=0.4),
+        show_heatmap_legend =
+            clusterId == levels(sce.ifm.4h$quickCluster.4h)[1],
+        show_row_names = clusterId == levels(sce.ifm.4h$quickCluster.4h)[1],
+        cluster_rows = FALSE,
+        show_column_names = FALSE,
+        show_column_dend = FALSE,
+        top_annotation = ha_tmp,
+        row_names_side = "left",
+        split = markers_4h_FC.cluster
     )
 }
 ht_final <- ht_list[["0"]] + ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]]
@@ -611,8 +611,8 @@ draw(ht_final)
 
 ```{r markers_FC_logcounts_4h_pdf, include=FALSE}
 pdf(
-  file.path(outdir, "4h_markers_FC_heatmap_logcounts.pdf"),
-  width = 10, height = 15)
+    file.path(outdir, "4h_markers_FC_heatmap_logcounts.pdf"),
+    width = 10, height = 15)
 draw(ht_final)
 dev.off()
 ```
@@ -626,34 +626,34 @@ markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.6h), gene_name[match(rownames(markersMatrix), gene_id)])
 for (clusterId in levels(sce.ifm.6h$quickCluster.6h)){
-  clusterMatrix <- markersMatrix[,sce.ifm.6h$quickCluster.6h == clusterId]
-  ha_tmp <- HeatmapAnnotation(
-    df = data.frame(subset(
-      colData(sce.ifm.6h), quickCluster.6h == clusterId,
-      c("Infection", "Status")
-    )),
-    col = list(
-      Infection = col.infection,
-      Status = col.status
+    clusterMatrix <- markersMatrix[,sce.ifm.6h$quickCluster.6h == clusterId]
+    ha_tmp <- HeatmapAnnotation(
+        df = data.frame(subset(
+            colData(sce.ifm.6h), quickCluster.6h == clusterId,
+            c("Infection", "Status")
+        )),
+        col = list(
+            Infection = col.infection,
+            Status = col.status
+        )
     )
-  )
-  ht_list[[clusterId]] <- Heatmap(
-    matrix = clusterMatrix,
-    name = ifelse(
-      clusterId == levels(sce.ifm.6h$quickCluster.6h)[1],
-      "z-score",
-      clusterId),
-    col = ht_scale,
-    row_names_gp = gpar(cex=0.4),
-    show_heatmap_legend =
-      clusterId == levels(sce.ifm.6h$quickCluster.6h)[1],
-    show_row_names = clusterId == levels(sce.ifm.6h$quickCluster.6h)[1],
-    cluster_rows = FALSE,
-    show_column_names = FALSE,
-    show_column_dend = FALSE,
-    row_names_side = "left",
-    top_annotation = ha_tmp,
-    split = markers_6h_FC.cluster, gap = unit(5, "mm")
+    ht_list[[clusterId]] <- Heatmap(
+        matrix = clusterMatrix,
+        name = ifelse(
+            clusterId == levels(sce.ifm.6h$quickCluster.6h)[1],
+            "z-score",
+            clusterId),
+        col = ht_scale,
+        row_names_gp = gpar(cex=0.4),
+        show_heatmap_legend =
+            clusterId == levels(sce.ifm.6h$quickCluster.6h)[1],
+        show_row_names = clusterId == levels(sce.ifm.6h$quickCluster.6h)[1],
+        cluster_rows = FALSE,
+        show_column_names = FALSE,
+        show_column_dend = FALSE,
+        row_names_side = "left",
+        top_annotation = ha_tmp,
+        split = markers_6h_FC.cluster, gap = unit(5, "mm")
     )
 }
 ht_final <- ht_list[["0"]] + ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]]
@@ -662,8 +662,8 @@ draw(ht_final)
 
 ```{r markers_FC_logcounts_6h_pdf, include=FALSE}
 pdf(
-  file.path(outdir, "6h_markers_FC_heatmap_logcounts.pdf"),
-  width = 10, height = 15)
+    file.path(outdir, "6h_markers_FC_heatmap_logcounts.pdf"),
+    width = 10, height = 15)
 draw(ht_final)
 dev.off()
 ```
@@ -685,14 +685,14 @@ markers_2h_p <- character()
 markers_2h_p.cluster <- factor(NULL, levels(sce.ifm.2h$quickCluster.2h))
 c2h <- grep("^2h", names(scde.res), value = TRUE)
 for (contrastName in c2h){
-  clusterId <- gsub("2h_cluster(.)-Others", "\\1", contrastName)
-  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
-  scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
-  scde.table <- scde.table[order(scde.table$p.value),]
-  scde.markers <- head(rownames(scde.table), 30)
-  markers_2h_p <- c(markers_2h_p, scde.markers)
-  markers_2h_p.cluster <-
-    c(markers_2h_p.cluster, rep(clusterId, length(scde.markers)))
+    clusterId <- gsub("2h_cluster(.)-Others", "\\1", contrastName)
+    scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
+    scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
+    scde.table <- scde.table[order(scde.table$p.value),]
+    scde.markers <- head(rownames(scde.table), 30)
+    markers_2h_p <- c(markers_2h_p, scde.markers)
+    markers_2h_p.cluster <-
+        c(markers_2h_p.cluster, rep(clusterId, length(scde.markers)))
 }
 ```
 
@@ -703,14 +703,14 @@ markers_4h_p <- character()
 markers_4h_p.cluster <- factor(NULL, levels(sce.ifm.4h$quickCluster.4h))
 c4h <- grep("^4h", names(scde.res), value = TRUE)
 for (contrastName in c4h){
-  clusterId <- gsub("4h_cluster(.)-Others", "\\1", contrastName)
-  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
-  scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
-  scde.table <- scde.table[order(scde.table$p.value),]
-  scde.markers <- head(rownames(scde.table), 30)
-  markers_4h_p <- c(markers_4h_p, scde.markers)
-  markers_4h_p.cluster <-
-    c(markers_4h_p.cluster, rep(clusterId, length(scde.markers)))
+    clusterId <- gsub("4h_cluster(.)-Others", "\\1", contrastName)
+    scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
+    scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
+    scde.table <- scde.table[order(scde.table$p.value),]
+    scde.markers <- head(rownames(scde.table), 30)
+    markers_4h_p <- c(markers_4h_p, scde.markers)
+    markers_4h_p.cluster <-
+        c(markers_4h_p.cluster, rep(clusterId, length(scde.markers)))
 }
 ```
 
@@ -721,14 +721,14 @@ markers_6h_p <- character()
 markers_6h_p.cluster <- factor(NULL, levels(sce.ifm.6h$quickCluster.6h))
 c6h <- grep("^6h", names(scde.res), value = TRUE)
 for (contrastName in c6h){
-  clusterId <- gsub("6h_cluster(.)-Others", "\\1", contrastName)
-  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
-  scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
-  scde.table <- scde.table[order(scde.table$p.value),]
-  scde.markers <- head(rownames(scde.table), 30)
-  markers_6h_p <- c(markers_6h_p, scde.markers)
-  markers_6h_p.cluster <-
-    c(markers_6h_p.cluster, rep(clusterId, length(scde.markers)))
+    clusterId <- gsub("6h_cluster(.)-Others", "\\1", contrastName)
+    scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
+    scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
+    scde.table <- scde.table[order(scde.table$p.value),]
+    scde.markers <- head(rownames(scde.table), 30)
+    markers_6h_p <- c(markers_6h_p, scde.markers)
+    markers_6h_p.cluster <-
+        c(markers_6h_p.cluster, rep(clusterId, length(scde.markers)))
 }
 ```
 
@@ -743,25 +743,25 @@ For each time point, let us display up to 50 marker genes for each cluster, sele
 
 ```{r markers_P_2h, echo=FALSE, fig.height=10, message=FALSE}
 markersMatrix <- matrix(
-  nrow = length(markers_2h_p),
-  ncol = length(c2h),
-  dimnames = list(
-    gene_id = markers_2h_p,
-    cluster = gsub("2h_cluster(.)-Others", "\\1", c2h)
-  ))
+    nrow = length(markers_2h_p),
+    ncol = length(c2h),
+    dimnames = list(
+        gene_id = markers_2h_p,
+        cluster = gsub("2h_cluster(.)-Others", "\\1", c2h)
+    ))
 for (contrastName in c2h){
-  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
-  clusterName <- gsub("2h_cluster(.)-Others", "\\1", contrastName)
-  markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
+    scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
+    clusterName <- gsub("2h_cluster(.)-Others", "\\1", contrastName)
+    markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
 }
 rownames(markersMatrix) <-
-  with(rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
+    with(rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
 ht <- Heatmap(
-  matrix = markersMatrix, name = "log2FC",
-  cluster_rows = FALSE, cluster_columns = FALSE,
-  row_names_gp = gpar(cex=0.4),
-  split = markers_2h_p.cluster
-  )
+    matrix = markersMatrix, name = "log2FC",
+    cluster_rows = FALSE, cluster_columns = FALSE,
+    row_names_gp = gpar(cex=0.4),
+    split = markers_2h_p.cluster
+)
 draw(ht)
 ```
 
@@ -775,25 +775,25 @@ dev.off()
 
 ```{r markers_P_4h, echo=FALSE, fig.height=10}
 markersMatrix <- matrix(
-  nrow = length(markers_4h_p),
-  ncol = length(c4h),
-  dimnames = list(
-    gene_id = markers_4h_p,
-    cluster = gsub("4h_cluster(.)-Others", "\\1", c4h)
-  ))
+    nrow = length(markers_4h_p),
+    ncol = length(c4h),
+    dimnames = list(
+        gene_id = markers_4h_p,
+        cluster = gsub("4h_cluster(.)-Others", "\\1", c4h)
+    ))
 for (contrastName in c4h){
-  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
-  clusterName <- gsub("4h_cluster(.)-Others", "\\1", contrastName)
-  markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
+    scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
+    clusterName <- gsub("4h_cluster(.)-Others", "\\1", contrastName)
+    markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
 }
 rownames(markersMatrix) <-
-  with(rowData(sce.4h), gene_name[match(rownames(markersMatrix), gene_id)])
+    with(rowData(sce.4h), gene_name[match(rownames(markersMatrix), gene_id)])
 ht <- Heatmap(
-  matrix = markersMatrix, name = "log2FC",
-  cluster_rows = FALSE, cluster_columns = FALSE,
-  row_names_gp = gpar(cex=0.4),
-  split = markers_4h_p.cluster
-  )
+    matrix = markersMatrix, name = "log2FC",
+    cluster_rows = FALSE, cluster_columns = FALSE,
+    row_names_gp = gpar(cex=0.4),
+    split = markers_4h_p.cluster
+)
 draw(ht)
 ```
 
@@ -807,25 +807,25 @@ dev.off()
 
 ```{r markers_P_6h, echo=FALSE, fig.height=10}
 markersMatrix <- matrix(
-  nrow = length(markers_6h_p),
-  ncol = length(c6h),
-  dimnames = list(
-    gene_id = markers_6h_p,
-    cluster = gsub("6h_cluster(.)-Others", "\\1", c6h)
-  ))
+    nrow = length(markers_6h_p),
+    ncol = length(c6h),
+    dimnames = list(
+        gene_id = markers_6h_p,
+        cluster = gsub("6h_cluster(.)-Others", "\\1", c6h)
+    ))
 for (contrastName in c6h){
-  scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
-  clusterName <- gsub("6h_cluster(.)-Others", "\\1", contrastName)
-  markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
+    scde.table <- addGeneName(convert.z.score(scde.res[[contrastName]]))
+    clusterName <- gsub("6h_cluster(.)-Others", "\\1", contrastName)
+    markersMatrix[,clusterName] <- scde.table[rownames(markersMatrix),"mle"]
 }
 rownames(markersMatrix) <-
-  with(rowData(sce.6h), gene_name[match(rownames(markersMatrix), gene_id)])
+    with(rowData(sce.6h), gene_name[match(rownames(markersMatrix), gene_id)])
 ht <- Heatmap(
-  matrix = markersMatrix, name = "log2FC",
-  cluster_rows = FALSE, cluster_columns = FALSE,
-  row_names_gp = gpar(cex=0.4),
-  split = markers_6h_p.cluster
-  )
+    matrix = markersMatrix, name = "log2FC",
+    cluster_rows = FALSE, cluster_columns = FALSE,
+    row_names_gp = gpar(cex=0.4),
+    split = markers_6h_p.cluster
+)
 draw(ht)
 ```
 
@@ -852,34 +852,34 @@ markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
 for (clusterId in levels(sce.ifm.2h$quickCluster.2h)){
-  clusterMatrix <- markersMatrix[,sce.ifm.2h$quickCluster.2h == clusterId]
-  ha_tmp <- HeatmapAnnotation(
-    df = data.frame(subset(
-      colData(sce.ifm.2h), quickCluster.2h == clusterId,
-      c("quickCluster.2h", "Infection", "Status")
-    )),
-    col = list(
-      Infection = col.infection,
-      Status = col.status,
-      quickCluster.2h = col.cluster
+    clusterMatrix <- markersMatrix[,sce.ifm.2h$quickCluster.2h == clusterId]
+    ha_tmp <- HeatmapAnnotation(
+        df = data.frame(subset(
+            colData(sce.ifm.2h), quickCluster.2h == clusterId,
+            c("quickCluster.2h", "Infection", "Status")
+        )),
+        col = list(
+            Infection = col.infection,
+            Status = col.status,
+            quickCluster.2h = col.cluster
+        )
     )
-  )
-  ht_list[[clusterId]] <- Heatmap(
-    matrix = clusterMatrix,
-    name = ifelse(
-      clusterId == levels(sce.ifm.2h$quickCluster.2h)[1],
-      "z-score",
-      clusterId),
-    col = ht_scale,
-    row_names_gp = gpar(cex=1),
-    show_heatmap_legend =
-      clusterId == levels(sce.ifm.2h$quickCluster.2h)[1],
-    show_row_names = clusterId == tail(levels(sce.ifm.2h$quickCluster.2h), 1),
-    cluster_rows = TRUE,
-    show_column_names = FALSE, show_column_dend = FALSE,
-    row_names_side = "right",
-    top_annotation = ha_tmp,
-    split = markers_2h_p.cluster, gap = unit(5, "mm")
+    ht_list[[clusterId]] <- Heatmap(
+        matrix = clusterMatrix,
+        name = ifelse(
+            clusterId == levels(sce.ifm.2h$quickCluster.2h)[1],
+            "z-score",
+            clusterId),
+        col = ht_scale,
+        row_names_gp = gpar(cex=1),
+        show_heatmap_legend =
+            clusterId == levels(sce.ifm.2h$quickCluster.2h)[1],
+        show_row_names = clusterId == tail(levels(sce.ifm.2h$quickCluster.2h), 1),
+        cluster_rows = TRUE,
+        show_column_names = FALSE, show_column_dend = FALSE,
+        row_names_side = "right",
+        top_annotation = ha_tmp,
+        split = markers_2h_p.cluster, gap = unit(5, "mm")
     )
 }
 ht_final <- ht_list[["0"]] + ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]]
@@ -888,8 +888,8 @@ draw(ht_final)
 
 ```{r markers_p_logcounts_2h_pdf, include=FALSE}
 pdf(
-  file.path(outdir, "2h_markers_P_heatmap_logcounts_10x18.pdf"),
-  width = 10, height = 18)
+    file.path(outdir, "2h_markers_P_heatmap_logcounts_10x18.pdf"),
+    width = 10, height = 18)
 draw(ht_final)
 dev.off()
 ```
@@ -906,29 +906,29 @@ markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
 for (clusterId in unique(markers_2h_p.cluster_no0)){
-  clusterMatrix <- markersMatrix[,sce.ifm.2h$quickCluster.2h == clusterId]
-  ha_tmp <- HeatmapAnnotation(
-    df = data.frame(subset(
-      colData(sce.ifm.2h), quickCluster.2h == clusterId,
-      c("quickCluster.2h", "Infection", "Status")
-    )),
-    col = list(
-      Infection = col.infection,
-      Status = col.status
+    clusterMatrix <- markersMatrix[,sce.ifm.2h$quickCluster.2h == clusterId]
+    ha_tmp <- HeatmapAnnotation(
+        df = data.frame(subset(
+            colData(sce.ifm.2h), quickCluster.2h == clusterId,
+            c("quickCluster.2h", "Infection", "Status")
+        )),
+        col = list(
+            Infection = col.infection,
+            Status = col.status
+        )
     )
-  )
-  ht_list[[clusterId]] <- Heatmap(
-    matrix = clusterMatrix,
-    name = ifelse(clusterId == "1", "z-score", clusterId),
-    col = ht_scale,
-    row_names_gp = gpar(cex=0.7),
-    show_heatmap_legend = clusterId == "3",
-    show_row_names = clusterId == "3",
-    cluster_rows = FALSE,
-    show_column_names = FALSE, show_column_dend = FALSE,
-    row_names_side = "right",
-    top_annotation = ha_tmp,
-    split = markers_2h_p.cluster_no0
+    ht_list[[clusterId]] <- Heatmap(
+        matrix = clusterMatrix,
+        name = ifelse(clusterId == "1", "z-score", clusterId),
+        col = ht_scale,
+        row_names_gp = gpar(cex=0.7),
+        show_heatmap_legend = clusterId == "3",
+        show_row_names = clusterId == "3",
+        cluster_rows = FALSE,
+        show_column_names = FALSE, show_column_dend = FALSE,
+        row_names_side = "right",
+        top_annotation = ha_tmp,
+        split = markers_2h_p.cluster_no0
     )
 }
 ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]]
@@ -937,8 +937,8 @@ draw(ht_final)
 
 ```{r markers_p_logcounts_2h_no0_pdf, include=FALSE}
 pdf(
-  file.path(outdir, "2h_markers_P_heatmap_logcounts_no0.pdf"),
-  width = 10, height = 15)
+    file.path(outdir, "2h_markers_P_heatmap_logcounts_no0.pdf"),
+    width = 10, height = 15)
 draw(ht_final)
 dev.off()
 ```
@@ -953,50 +953,50 @@ markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.2h), gene_name[match(rownames(markersMatrix), gene_id)])
 for (clusterId in unique(markers_2h_p.cluster_no0)){
-  clusterMatrix <- markersMatrix[,sce.ifm.2h$quickCluster.2h == clusterId]
-  ha_tmp <- HeatmapAnnotation(
-    df = data.frame(subset(
-      colData(sce.ifm.2h), quickCluster.2h == clusterId,
-      c("Infection", "Status")
-    )),
-    col = list(
-      Infection = col.infection,
-      Status = col.status
+    clusterMatrix <- markersMatrix[,sce.ifm.2h$quickCluster.2h == clusterId]
+    ha_tmp <- HeatmapAnnotation(
+        df = data.frame(subset(
+            colData(sce.ifm.2h), quickCluster.2h == clusterId,
+            c("Infection", "Status")
+        )),
+        col = list(
+            Infection = col.infection,
+            Status = col.status
+        )
     )
-  )
-  ht_list[[clusterId]] <- Heatmap(
-    matrix = clusterMatrix,
-    name = ifelse(clusterId == "1", "z-score", clusterId),
-    col = ht_scale,
-    row_names_gp = gpar(cex=0.7),
-    show_heatmap_legend = clusterId == "1",
-    show_row_names = clusterId == "1",
-    cluster_rows = FALSE,
-    show_column_names = FALSE, show_column_dend = FALSE,
-    row_names_side = "left",
-    top_annotation = ha_tmp,
-    split = markers_2h_p.cluster_no0
+    ht_list[[clusterId]] <- Heatmap(
+        matrix = clusterMatrix,
+        name = ifelse(clusterId == "1", "z-score", clusterId),
+        col = ht_scale,
+        row_names_gp = gpar(cex=0.7),
+        show_heatmap_legend = clusterId == "1",
+        show_row_names = clusterId == "1",
+        cluster_rows = FALSE,
+        show_column_names = FALSE, show_column_dend = FALSE,
+        row_names_side = "left",
+        top_annotation = ha_tmp,
+        split = markers_2h_p.cluster_no0
     )
 }
 geneNames <- c(
-  "MMP19","CMKLR1","CCL24","CYBB","GSDMA","CTSL","RNASE1","LAMP1","CXCL2",
-  "KLHL21","MMP9","SERPINE1","MAFB","SERPINB2","CD163","CCL7","SPSB1","IL10",
-  "CCL26","CHST13","ME1","FAM83G","IRAK3","MAPK13","CHST15","TMEM158","LGMN",
-  "TNF","CD40","CLEC10A","CLEC4A","GOLGA8B","ADAM19","GOLGA8A","TUBA1A","CD1C","CD1A",
-  "SLC25A5","GALM"
+    "MMP19","CMKLR1","CCL24","CYBB","GSDMA","CTSL","RNASE1","LAMP1","CXCL2",
+    "KLHL21","MMP9","SERPINE1","MAFB","SERPINB2","CD163","CCL7","SPSB1","IL10",
+    "CCL26","CHST13","ME1","FAM83G","IRAK3","MAPK13","CHST15","TMEM158","LGMN",
+    "TNF","CD40","CLEC10A","CLEC4A","GOLGA8B","ADAM19","GOLGA8A","TUBA1A","CD1C","CD1A",
+    "SLC25A5","GALM"
 )
 ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]] + rowAnnotation(
-  link = row_anno_link(
-    at = which(rownames(markersMatrix) %in% geneNames),
-    labels = rownames(markersMatrix)[which(rownames(markersMatrix) %in% geneNames)],
-    labels_gp = gpar(cex=2/3),
-    link_width = unit(0.5, "inches")
-  ),
-  width = unit(1, "cm") + max_text_width(labels)
+    link = row_anno_link(
+        at = which(rownames(markersMatrix) %in% geneNames),
+        labels = rownames(markersMatrix)[which(rownames(markersMatrix) %in% geneNames)],
+        labels_gp = gpar(cex=2/3),
+        link_width = unit(0.5, "inches")
+    ),
+    width = unit(1, "cm") + max_text_width(labels)
 )
 pdf(
-  file.path(outdir, "2h_markers_P_heatmap_logcounts_no0_rowLink.pdf"),
-  width = 10, height = 10)
+    file.path(outdir, "2h_markers_P_heatmap_logcounts_no0_rowLink.pdf"),
+    width = 10, height = 10)
 draw(ht_final)
 dev.off()
 ```
@@ -1010,34 +1010,34 @@ markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.4h), gene_name[match(rownames(markersMatrix), gene_id)])
 for (clusterId in levels(sce.ifm.4h$quickCluster.4h)){
-  clusterMatrix <- markersMatrix[,sce.ifm.4h$quickCluster.4h == clusterId]
-  ha_tmp <- HeatmapAnnotation(
-    df = data.frame(subset(
-      colData(sce.ifm.4h), quickCluster.4h == clusterId,
-      c("quickCluster.4h", "Infection", "Status")
-    )),
-    col = list(
-      Infection = col.infection,
-      Status = col.status,
-      quickCluster.4h = col.cluster
+    clusterMatrix <- markersMatrix[,sce.ifm.4h$quickCluster.4h == clusterId]
+    ha_tmp <- HeatmapAnnotation(
+        df = data.frame(subset(
+            colData(sce.ifm.4h), quickCluster.4h == clusterId,
+            c("quickCluster.4h", "Infection", "Status")
+        )),
+        col = list(
+            Infection = col.infection,
+            Status = col.status,
+            quickCluster.4h = col.cluster
+        )
     )
-  )
-  ht_list[[clusterId]] <- Heatmap(
-    matrix = clusterMatrix,
-    name = ifelse(
-      clusterId == levels(sce.ifm.4h$quickCluster.4h)[1],
-      "z-score",
-      clusterId),
-    col = ht_scale,
-    row_names_gp = gpar(cex=1),
-    show_heatmap_legend =
-      clusterId == levels(sce.ifm.4h$quickCluster.4h)[1],
-    show_row_names = clusterId == tail(levels(sce.ifm.4h$quickCluster.4h), 1),
-    cluster_rows = TRUE,
-    show_column_names = FALSE, show_column_dend = FALSE,
-    row_names_side = "right",
-    top_annotation = ha_tmp,
-    split = markers_4h_p.cluster, gap = unit(5, "mm")
+    ht_list[[clusterId]] <- Heatmap(
+        matrix = clusterMatrix,
+        name = ifelse(
+            clusterId == levels(sce.ifm.4h$quickCluster.4h)[1],
+            "z-score",
+            clusterId),
+        col = ht_scale,
+        row_names_gp = gpar(cex=1),
+        show_heatmap_legend =
+            clusterId == levels(sce.ifm.4h$quickCluster.4h)[1],
+        show_row_names = clusterId == tail(levels(sce.ifm.4h$quickCluster.4h), 1),
+        cluster_rows = TRUE,
+        show_column_names = FALSE, show_column_dend = FALSE,
+        row_names_side = "right",
+        top_annotation = ha_tmp,
+        split = markers_4h_p.cluster, gap = unit(5, "mm")
     )
 }
 ht_final <- ht_list[["0"]] + ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]]
@@ -1046,8 +1046,8 @@ draw(ht_final)
 
 ```{r markers_p_logcounts_4h_pdf, include=FALSE}
 pdf(
-  file.path(outdir, "4h_markers_P_heatmap_logcounts_10x18.pdf"),
-  width = 10, height = 18)
+    file.path(outdir, "4h_markers_P_heatmap_logcounts_10x18.pdf"),
+    width = 10, height = 18)
 draw(ht_final)
 dev.off()
 ```
@@ -1059,48 +1059,48 @@ markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.4h), gene_name[match(rownames(markersMatrix), gene_id)])
 for (clusterId in unique(markers_4h_p.cluster)){
-  clusterMatrix <- markersMatrix[,sce.ifm.4h$quickCluster.4h == clusterId]
-  ha_tmp <- HeatmapAnnotation(
-    df = data.frame(subset(
-      colData(sce.ifm.4h), quickCluster.4h == clusterId,
-      c("Infection", "Status")
-    )),
-    col = list(
-      Infection = col.infection,
-      Status = col.status
+    clusterMatrix <- markersMatrix[,sce.ifm.4h$quickCluster.4h == clusterId]
+    ha_tmp <- HeatmapAnnotation(
+        df = data.frame(subset(
+            colData(sce.ifm.4h), quickCluster.4h == clusterId,
+            c("Infection", "Status")
+        )),
+        col = list(
+            Infection = col.infection,
+            Status = col.status
+        )
     )
-  )
-  ht_list[[clusterId]] <- Heatmap(
-    matrix = clusterMatrix,
-    name = ifelse(clusterId == "1", "z-score", clusterId),
-    col = ht_scale,
-    row_names_gp = gpar(cex=0.7),
-    show_heatmap_legend = clusterId == "1",
-    show_row_names = clusterId == "1",
-    cluster_rows = FALSE,
-    show_column_names = FALSE, show_column_dend = FALSE,
-    row_names_side = "left",
-    top_annotation = ha_tmp,
-    split = markers_4h_p.cluster
+    ht_list[[clusterId]] <- Heatmap(
+        matrix = clusterMatrix,
+        name = ifelse(clusterId == "1", "z-score", clusterId),
+        col = ht_scale,
+        row_names_gp = gpar(cex=0.7),
+        show_heatmap_legend = clusterId == "1",
+        show_row_names = clusterId == "1",
+        cluster_rows = FALSE,
+        show_column_names = FALSE, show_column_dend = FALSE,
+        row_names_side = "left",
+        top_annotation = ha_tmp,
+        split = markers_4h_p.cluster
     )
 }
 geneNames <- c(
-  "CTSL","CTSD","S100A9","CCL7","CTSS","CCL24",
-  "CD40","IL1B","CCL1","STAT5A","CD83","TNF",
-  "IL1A","CEBPA"
+    "CTSL","CTSD","S100A9","CCL7","CTSS","CCL24",
+    "CD40","IL1B","CCL1","STAT5A","CD83","TNF",
+    "IL1A","CEBPA"
 )
 ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]] + rowAnnotation(
-  link = row_anno_link(
-    at = which(rownames(markersMatrix) %in% geneNames),
-    labels = rownames(markersMatrix)[which(rownames(markersMatrix) %in% geneNames)],
-    labels_gp = gpar(cex=2/3),
-    link_width = unit(0.5, "inches")
-  ),
-  width = unit(1, "cm") + max_text_width(labels)
+    link = row_anno_link(
+        at = which(rownames(markersMatrix) %in% geneNames),
+        labels = rownames(markersMatrix)[which(rownames(markersMatrix) %in% geneNames)],
+        labels_gp = gpar(cex=2/3),
+        link_width = unit(0.5, "inches")
+    ),
+    width = unit(1, "cm") + max_text_width(labels)
 )
 pdf(
-  file.path(outdir, "4h_markers_P_heatmap_logcounts_no0_rowLink.pdf"),
-  width = 10, height = 10)
+    file.path(outdir, "4h_markers_P_heatmap_logcounts_no0_rowLink.pdf"),
+    width = 10, height = 10)
 draw(ht_final)
 dev.off()
 ```
@@ -1114,34 +1114,34 @@ markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.6h), gene_name[match(rownames(markersMatrix), gene_id)])
 for (clusterId in levels(sce.ifm.6h$quickCluster.6h)){
-  clusterMatrix <- markersMatrix[,sce.ifm.6h$quickCluster.6h == clusterId]
-  ha_tmp <- HeatmapAnnotation(
-    df = data.frame(subset(
-      colData(sce.ifm.6h), quickCluster.6h == clusterId,
-      c("quickCluster.6h", "Infection", "Status")
-    )),
-    col = list(
-      Infection = col.infection,
-      Status = col.status,
-      quickCluster.6h = col.cluster
+    clusterMatrix <- markersMatrix[,sce.ifm.6h$quickCluster.6h == clusterId]
+    ha_tmp <- HeatmapAnnotation(
+        df = data.frame(subset(
+            colData(sce.ifm.6h), quickCluster.6h == clusterId,
+            c("quickCluster.6h", "Infection", "Status")
+        )),
+        col = list(
+            Infection = col.infection,
+            Status = col.status,
+            quickCluster.6h = col.cluster
+        )
     )
-  )
-  ht_list[[clusterId]] <- Heatmap(
-    matrix = clusterMatrix,
-    name = ifelse(
-      clusterId == levels(sce.ifm.6h$quickCluster.6h)[1],
-      "z-score",
-      clusterId),
-    col = ht_scale,
-    row_names_gp = gpar(cex=1),
-    show_heatmap_legend =
-      clusterId == levels(sce.ifm.6h$quickCluster.6h)[1],
-    show_row_names = clusterId == tail(levels(sce.ifm.6h$quickCluster.6h), 1),
-    cluster_rows = TRUE,
-    show_column_names = FALSE, show_column_dend = FALSE,
-    row_names_side = "right",
-    top_annotation = ha_tmp,
-    split = markers_6h_p.cluster, gap = unit(5, "mm")
+    ht_list[[clusterId]] <- Heatmap(
+        matrix = clusterMatrix,
+        name = ifelse(
+            clusterId == levels(sce.ifm.6h$quickCluster.6h)[1],
+            "z-score",
+            clusterId),
+        col = ht_scale,
+        row_names_gp = gpar(cex=1),
+        show_heatmap_legend =
+            clusterId == levels(sce.ifm.6h$quickCluster.6h)[1],
+        show_row_names = clusterId == tail(levels(sce.ifm.6h$quickCluster.6h), 1),
+        cluster_rows = TRUE,
+        show_column_names = FALSE, show_column_dend = FALSE,
+        row_names_side = "right",
+        top_annotation = ha_tmp,
+        split = markers_6h_p.cluster, gap = unit(5, "mm")
     )
 }
 ht_final <- ht_list[["0"]] + ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]]
@@ -1150,8 +1150,8 @@ draw(ht_final)
 
 ```{r markers_p_logcounts_6h_pdf, include=FALSE}
 pdf(
-  file.path(outdir, "6h_markers_P_heatmap_logcounts_10x18.pdf"),
-  width = 10, height = 18)
+    file.path(outdir, "6h_markers_P_heatmap_logcounts_10x18.pdf"),
+    width = 10, height = 18)
 draw(ht_final)
 dev.off()
 ```
@@ -1163,47 +1163,47 @@ markersMatrix <- t(scale(t(markersMatrix)))
 rownames(markersMatrix) <- with(
     rowData(sce.6h), gene_name[match(rownames(markersMatrix), gene_id)])
 for (clusterId in unique(markers_6h_p.cluster)){
-  clusterMatrix <- markersMatrix[,sce.ifm.6h$quickCluster.6h == clusterId]
-  ha_tmp <- HeatmapAnnotation(
-    df = data.frame(subset(
-      colData(sce.ifm.6h), quickCluster.6h == clusterId,
-      c("Infection", "Status")
-    )),
-    col = list(
-      Infection = col.infection,
-      Status = col.status
+    clusterMatrix <- markersMatrix[,sce.ifm.6h$quickCluster.6h == clusterId]
+    ha_tmp <- HeatmapAnnotation(
+        df = data.frame(subset(
+            colData(sce.ifm.6h), quickCluster.6h == clusterId,
+            c("Infection", "Status")
+        )),
+        col = list(
+            Infection = col.infection,
+            Status = col.status
+        )
     )
-  )
-  ht_list[[clusterId]] <- Heatmap(
-    matrix = clusterMatrix,
-    name = ifelse(clusterId == "1", "z-score", clusterId),
-    col = ht_scale,
-    row_names_gp = gpar(cex=0.7),
-    show_heatmap_legend = clusterId == "1",
-    show_row_names = clusterId == "1",
-    cluster_rows = FALSE,
-    show_column_names = FALSE, show_column_dend = FALSE,
-    row_names_side = "left",
-    top_annotation = ha_tmp,
-    split = markers_6h_p.cluster
+    ht_list[[clusterId]] <- Heatmap(
+        matrix = clusterMatrix,
+        name = ifelse(clusterId == "1", "z-score", clusterId),
+        col = ht_scale,
+        row_names_gp = gpar(cex=0.7),
+        show_heatmap_legend = clusterId == "1",
+        show_row_names = clusterId == "1",
+        cluster_rows = FALSE,
+        show_column_names = FALSE, show_column_dend = FALSE,
+        row_names_side = "left",
+        top_annotation = ha_tmp,
+        split = markers_6h_p.cluster
     )
 }
 geneNames <- c(
-  "IL1A","IL1B","IL12B","IL23A","IL6","CTSL","DEFB","MARCH1","BLOC1S3","RNF139",
-  "ATF3","CLECL1"
+    "IL1A","IL1B","IL12B","IL23A","IL6","CTSL","DEFB","MARCH1","BLOC1S3","RNF139",
+    "ATF3","CLECL1"
 )
 ht_final <- ht_list[["1"]] + ht_list[["2"]] + ht_list[["3"]] + rowAnnotation(
-  link = row_anno_link(
-    at = which(rownames(markersMatrix) %in% geneNames),
-    labels = rownames(markersMatrix)[which(rownames(markersMatrix) %in% geneNames)],
-    labels_gp = gpar(cex=2/3),
-    link_width = unit(0.5, "inches")
-  ),
-  width = unit(1, "cm") + max_text_width(labels)
+    link = row_anno_link(
+        at = which(rownames(markersMatrix) %in% geneNames),
+        labels = rownames(markersMatrix)[which(rownames(markersMatrix) %in% geneNames)],
+        labels_gp = gpar(cex=2/3),
+        link_width = unit(0.5, "inches")
+    ),
+    width = unit(1, "cm") + max_text_width(labels)
 )
 pdf(
-  file.path(outdir, "6h_markers_P_heatmap_logcounts_no0_rowLink.pdf"),
-  width = 10, height = 10)
+    file.path(outdir, "6h_markers_P_heatmap_logcounts_no0_rowLink.pdf"),
+    width = 10, height = 10)
 draw(ht_final)
 dev.off()
 ```
@@ -1237,16 +1237,16 @@ names(geneLengths) <- rownames(sce.endo)
 ```{r goseq_2h_p, eval=FALSE}
 bg.2h <- rownames(cd.ifm.2h)
 for (contrastName in c2h){
-  message(contrastName)
-  clusterId <- gsub("2h_cluster(.)-Others", "\\1", contrastName)
-  scde.table <- convert.z.score(scde.res[[contrastName]])
-  scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
-  marker.genes <- (bg.2h %in% rownames(scde.table))
-  names(marker.genes) <- bg.2h; table(marker.genes)
-  pwf <- nullp(marker.genes, bias.data = geneLengths[names(marker.genes)])
-  go.res <- goseq(pwf, "hg38", "ensGene")
-  goseq.res[[contrastName]] <- go.res
-  saveRDS(goseq.res, "rds/goseq_markers.rds") # checkpoint
+    message(contrastName)
+    clusterId <- gsub("2h_cluster(.)-Others", "\\1", contrastName)
+    scde.table <- convert.z.score(scde.res[[contrastName]])
+    scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
+    marker.genes <- (bg.2h %in% rownames(scde.table))
+    names(marker.genes) <- bg.2h; table(marker.genes)
+    pwf <- nullp(marker.genes, bias.data = geneLengths[names(marker.genes)])
+    go.res <- goseq(pwf, "hg38", "ensGene")
+    goseq.res[[contrastName]] <- go.res
+    saveRDS(goseq.res, "rds/goseq_markers.rds") # checkpoint
 }
 ```
 
@@ -1255,16 +1255,16 @@ for (contrastName in c2h){
 ```{r goseq_4h_p, eval=FALSE}
 bg.4h <- rownames(cd.ifm.4h)
 for (contrastName in c4h){
-  message(contrastName)
-  clusterId <- gsub("4h_cluster(.)-Others", "\\1", contrastName)
-  scde.table <- convert.z.score(scde.res[[contrastName]])
-  scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
-  marker.genes <- (bg.4h %in% rownames(scde.table))
-  names(marker.genes) <- bg.4h; table(marker.genes)
-  pwf <- nullp(marker.genes, bias.data = geneLengths[names(marker.genes)])
-  go.res <- goseq(pwf, "hg38", "ensGene")
-  goseq.res[[contrastName]] <- go.res
-  saveRDS(goseq.res, "rds/goseq_markers.rds") # checkpoint
+    message(contrastName)
+    clusterId <- gsub("4h_cluster(.)-Others", "\\1", contrastName)
+    scde.table <- convert.z.score(scde.res[[contrastName]])
+    scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
+    marker.genes <- (bg.4h %in% rownames(scde.table))
+    names(marker.genes) <- bg.4h; table(marker.genes)
+    pwf <- nullp(marker.genes, bias.data = geneLengths[names(marker.genes)])
+    go.res <- goseq(pwf, "hg38", "ensGene")
+    goseq.res[[contrastName]] <- go.res
+    saveRDS(goseq.res, "rds/goseq_markers.rds") # checkpoint
 }
 ```
 
@@ -1273,24 +1273,24 @@ for (contrastName in c4h){
 ```{r goseq_6h_p, eval=FALSE}
 bg.6h <- rownames(cd.ifm.6h)
 for (contrastName in c6h){
-  message(contrastName)
-  clusterId <- gsub("6h_cluster(.)-Others", "\\1", contrastName)
-  scde.table <- convert.z.score(scde.res[[contrastName]])
-  scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
-  marker.genes <- (bg.6h %in% rownames(scde.table))
-  names(marker.genes) <- bg.6h; table(marker.genes)
-  pwf <- nullp(marker.genes, bias.data = geneLengths[names(marker.genes)])
-  go.res <- goseq(pwf, "hg38", "ensGene")
-  goseq.res[[contrastName]] <- go.res
-  saveRDS(goseq.res, "rds/goseq_markers.rds") # checkpoint
+    message(contrastName)
+    clusterId <- gsub("6h_cluster(.)-Others", "\\1", contrastName)
+    scde.table <- convert.z.score(scde.res[[contrastName]])
+    scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
+    marker.genes <- (bg.6h %in% rownames(scde.table))
+    names(marker.genes) <- bg.6h; table(marker.genes)
+    pwf <- nullp(marker.genes, bias.data = geneLengths[names(marker.genes)])
+    go.res <- goseq(pwf, "hg38", "ensGene")
+    goseq.res[[contrastName]] <- go.res
+    saveRDS(goseq.res, "rds/goseq_markers.rds") # checkpoint
 }
 ```
 
 ```{r goseq.table_csv, echo=FALSE, eval=FALSE}
 for (contrastName in names(goseq.res)){
-  goseq.table <- goseq.res[[contrastName]]
-  write.csv(
-    goseq.table,
-    file.path(outdir, sprintf("SCDE_GO_%s.csv", contrastName)))
+    goseq.table <- goseq.res[[contrastName]]
+    write.csv(
+        goseq.table,
+        file.path(outdir, sprintf("SCDE_GO_%s.csv", contrastName)))
 }
 ```
