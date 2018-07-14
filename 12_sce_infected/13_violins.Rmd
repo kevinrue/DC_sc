@@ -178,6 +178,10 @@ ggsave(
     status = c("Uninfected","Exposed","Infected")
   ),
   height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-exposed")),
+  plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Exposed")),
+  height = pdfHeight, width = pdfWidth)
 ```
 
 ## BCL2L1
@@ -196,6 +200,10 @@ ggsave(
     status = c("Uninfected","Exposed","Infected")
   ),
   height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-exposed")),
+  plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Exposed")),
+  height = pdfHeight, width = pdfWidth)
 ```
 
 ## BIRC3
@@ -213,6 +221,10 @@ ggsave(
     infection = c("Mock","STM-LT2","STM-D23580"),
     status = c("Uninfected","Exposed","Infected")
   ),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-exposed")),
+  plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Exposed")),
   height = pdfHeight, width = pdfWidth)
 ```
 
@@ -453,6 +465,10 @@ ggsave(
   file.path(outdir, sprintf(pdfName, geneName, "6h")),
   plotByNameSubset(geneName, "6h"),
   height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-exposed")),
+  plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Exposed")),
+  height = pdfHeight, width = pdfWidth)
 ```
 
 ## CYBB
@@ -527,6 +543,10 @@ ggsave(
     infection = c("Mock","STM-LT2","STM-D23580"),
     status = c("Uninfected","Exposed","Infected")
   ),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-exposed")),
+  plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Exposed")),
   height = pdfHeight, width = pdfWidth)
 ```
 
@@ -605,6 +625,10 @@ ggsave(
   file.path(outdir, sprintf(pdfName, geneName, "6h")),
   plotByNameSubset(geneName, "6h"),
   height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-exposed")),
+  plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Exposed")),
+  height = pdfHeight, width = pdfWidth)
 ```
 
 ## IL1B
@@ -622,6 +646,10 @@ ggsave(
   file.path(outdir, sprintf(pdfName, geneName, "6h")),
   plotByNameSubset(geneName, "6h"),
   height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-exposed")),
+  plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Exposed")),
+  height = pdfHeight, width = pdfWidth)
 ```
 
 ## IL23A
@@ -638,6 +666,10 @@ ggsave(
 ggsave(
   file.path(outdir, sprintf(pdfName, geneName, "6h")),
   plotByNameSubset(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-exposed")),
+  plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Exposed")),
   height = pdfHeight, width = pdfWidth)
 ```
 
@@ -722,7 +754,7 @@ geneName <- "MVB12A"
 plotByNameFacetTime(geneName)
 ```
 
-```{r RNF139_pdf, include=FALSE}
+```{r MVB12A_pdf, include=FALSE}
 ggsave(
   file.path(outdir, sprintf(pdfName, geneName, "all")),
   height = 10, width = pdfWidth)
@@ -792,7 +824,7 @@ geneName <- "STXBP1"
 plotByNameFacetTime(geneName)
 ```
 
-```{r CLASP1_pdf, include=FALSE}
+```{r STXBP1_pdf, include=FALSE}
 ggsave(
   file.path(outdir, sprintf(pdfName, geneName, "6h")),
   plotByNameSubset(geneName, "6h"),
@@ -854,6 +886,10 @@ ggsave(
     status = c("Uninfected","Exposed","Infected")
   ),
   height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-exposed")),
+  plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Exposed")),
+  height = pdfHeight, width = pdfWidth)
 ```
 
 ## TNIP3
@@ -871,6 +907,10 @@ ggsave(
     infection = c("Mock","STM-LT2","STM-D23580"),
     status = c("Uninfected","Exposed","Infected")
   ),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-exposed")),
+  plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Exposed")),
   height = pdfHeight, width = pdfWidth)
 ```
 
