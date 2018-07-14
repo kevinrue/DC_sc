@@ -1,0 +1,338 @@
+---
+title: "Markers - Review"
+author: "Kevin Rue-Albrecht"
+date: "14/07/2018"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+require(iSEE)
+require(ggplot2)
+require(scater)
+require(cowplot)
+source("000_ExperimentColorMap.R")
+outdir <- "16_cluster_20180714_out"; dir.create(outdir, showWarnings = FALSE)
+```
+
+```{r}
+sce.endo <- readRDS("rds/20180707_sce.endo_clusters.rds")
+colnames(colData(sce.endo))
+```
+
+```{r}
+sce.2h <- sce.endo[,sce.endo$Time == '2h']
+sce.6h <- sce.endo[,sce.endo$Time == '6h']
+sce.4h <- sce.endo[,sce.endo$Time == '4h']
+```
+
+
+# Global tSNE {.tabset}
+
+## 2h
+
+```{r plotReducedDim.2h, echo=FALSE}
+tmpGG <- data.frame(
+  reducedDim(sce.endo, "TSNE"),
+  Cluster = sce.endo$quickCluster.2h,
+  Treatment = sce.endo$Treatment
+)
+ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
+  geom_point() +
+  theme_bw() +
+  labs(x="Dimension 1",y="Dimension 2",title="2h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"])
+```
+
+```{r reducedDimension_pdf.2h, include=FALSE}
+ggsave(file.path(outdir, "tSNE_clusters_2h_shape.pdf"), width = 6, height = 4, useDingbats=FALSE)
+gg <- ggplot(tmpGG, aes(X1, X2, colour = Cluster)) +
+  geom_point() +
+  labs(x="Dimension 1",y="Dimension 2",title="2h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"]) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+ggsave(file.path(outdir, "tSNE_clusters_2h.pdf"), gg, width = 5, height = 4, useDingbats=FALSE)
+```
+
+## 4h
+
+```{r plotReducedDim.4h, echo=FALSE}
+tmpGG <- data.frame(
+  reducedDim(sce.endo, "TSNE"),
+  Cluster = sce.endo$quickCluster.4h,
+  Treatment = sce.endo$Treatment,
+  label = ifelse(
+    sce.endo$Treatment == "LT2_infected" & sce.endo$quickCluster.4h == 2, 2, NA
+  )
+)
+ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
+  geom_point() +
+  theme_bw() +
+  # theme(legend.position = "bottom", legend.box = "vertical") +
+  labs(x="Dimension 1",y="Dimension 2",title="4h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"])
+```
+
+```{r reducedDimension_pdf.4h, include=FALSE}
+ggsave(file.path(outdir, "tSNE_clusters_4h_shape.pdf"), width = 6, height = 4, useDingbats=FALSE)
+gg <- ggplot(tmpGG, aes(X1, X2, colour = Cluster)) +
+  geom_point() +
+  labs(x="Dimension 1",y="Dimension 2",title="4h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"]) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+ggsave(file.path(outdir, "tSNE_clusters_4h.pdf"), gg, width = 5, height = 4, useDingbats=FALSE)
+```
+
+## 6h
+
+```{r plotReducedDim.6h, echo=FALSE}
+tmpGG <- data.frame(
+  reducedDim(sce.endo, "TSNE"),
+  Cluster = sce.endo$quickCluster.6h,
+  Treatment = sce.endo$Treatment
+)
+ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
+  geom_point() + theme_bw() + labs(x="Dimension 1",y="Dimension 2",title="6h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"])
+```
+
+```{r reducedDimension_pdf.6h, include=FALSE}
+ggsave(file.path(outdir, "tSNE_clusters_6h.pdf"), width = 6, height = 4, useDingbats=FALSE)
+gg <- ggplot(tmpGG, aes(X1, X2, colour = Cluster)) +
+  geom_point() +
+  labs(x="Dimension 1",y="Dimension 2",title="6h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"]) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+ggsave(file.path(outdir, "tSNE_clusters_6h.pdf"), gg, width = 5, height = 4, useDingbats=FALSE)
+```
+
+# Time point tSNE {.tabset}
+
+## 2h
+
+```{r plotReducedDim.2h, echo=FALSE}
+set.seed(1794)
+sce.2h <- runTSNE(sce.2h, perplexity = round(min(table(sce.2h$Treatment) / 2)))
+# same
+tmpGG <- data.frame(
+  reducedDim(sce.2h, "TSNE"),
+  Cluster = sce.2h$quickCluster.2h,
+  Treatment = sce.2h$Treatment
+)
+ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
+  geom_point() +
+  theme_bw() +
+  labs(x="Dimension 1",y="Dimension 2",title="2h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"])
+```
+
+```{r reducedDimension_pdf.2h, include=FALSE}
+ggsave(file.path(outdir, "tSNE_clusters_only2h_shape.pdf"), width = 6, height = 4, useDingbats=FALSE)
+gg <- ggplot(tmpGG, aes(X1, X2, colour = Cluster)) +
+  geom_point() +
+  stat_ellipse(type = "norm", linetype = 2, size=0.4) +
+  labs(x="Dimension 1",y="Dimension 2",title="2h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"]) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+ggsave(file.path(outdir, "tSNE_clusters_only2h.pdf"), gg, width = 5, height = 4, useDingbats=FALSE)
+```
+
+## 4h
+
+```{r plotReducedDim.4h, echo=FALSE}
+set.seed(1794)
+sce.4h <- runTSNE(sce.4h, perplexity = round(min(table(sce.4h$Treatment) / 2)))
+# same
+tmpGG <- data.frame(
+  reducedDim(sce.4h, "TSNE"),
+  Cluster = sce.4h$quickCluster.4h,
+  Treatment = sce.4h$Treatment
+)
+ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
+  geom_point() +
+  theme_bw() +
+  labs(x="Dimension 1",y="Dimension 2",title="4h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"])
+```
+
+```{r reducedDimension_pdf.4h, include=FALSE}
+ggsave(file.path(outdir, "tSNE_clusters_only4h_shape.pdf"), width = 6, height = 4, useDingbats=FALSE)
+gg <- ggplot(tmpGG, aes(X1, X2, colour = Cluster)) +
+  geom_point() +
+  stat_ellipse(type = "norm", linetype = 2, size=0.4) +
+  labs(x="Dimension 1",y="Dimension 2",title="4h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"]) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+ggsave(file.path(outdir, "tSNE_clusters_only4h.pdf"), gg, width = 5, height = 4, useDingbats=FALSE)
+```
+
+## 6h
+
+```{r plotReducedDim.6h, echo=FALSE}
+set.seed(1794)
+sce.6h <- runTSNE(sce.6h, perplexity = round(min(table(sce.6h$Treatment) / 2)))
+# same
+tmpGG <- data.frame(
+  reducedDim(sce.6h, "TSNE"),
+  Cluster = sce.6h$quickCluster.6h,
+  Treatment = sce.6h$Treatment
+)
+ggplot(tmpGG, aes(X1, X2, shape = Treatment, colour = Cluster)) +
+  geom_point() +
+  theme_bw() +
+  labs(x="Dimension 1",y="Dimension 2",title="6h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"])
+```
+
+```{r reducedDimension_pdf.6h, include=FALSE}
+ggsave(file.path(outdir, "tSNE_clusters_only6h_shape.pdf"), width = 6, height = 4, useDingbats=FALSE)
+gg <- ggplot(tmpGG, aes(X1, X2, colour = Cluster)) +
+  geom_point() +
+  stat_ellipse(type = "norm", linetype = 2, size=0.4) +
+  labs(x="Dimension 1",y="Dimension 2",title="6h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"]) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+ggsave(file.path(outdir, "tSNE_clusters_only6h.pdf"), gg, width = 5, height = 4, useDingbats=FALSE)
+```
+
+# Time point diffusion maps {.tabset}
+
+## 2h
+
+```{r plotReducedDim.2h, echo=FALSE}
+set.seed(1794)
+sce.2h <- runDiffusionMap(sce.2h)
+# same
+tmpGG <- data.frame(
+  reducedDim(sce.2h, "DiffusionMap"),
+  Cluster = sce.2h$quickCluster.2h,
+  Treatment = sce.2h$Treatment
+)
+gg <- ggplot(tmpGG, aes(DC1, DC2, shape = Treatment, colour = Cluster)) +
+  geom_point() +
+  theme_bw() +
+  labs(x="Dimension 1",y="Dimension 2",title="2h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"])
+ggsave(file.path(outdir, "diffusionMap_clusters_only2h_shape.pdf"), width = 6, height = 4, useDingbats=FALSE)
+gg
+```
+
+```{r reducedDimension_pdf.2h, include=FALSE}
+gg <- ggplot(tmpGG, aes(DC1, DC2, colour = Cluster)) +
+  geom_point() +
+  # stat_ellipse(type = "norm", linetype = 2, size=0.4, level = 0.70) +
+  labs(x="Dimension 1",y="Dimension 2",title="2h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"]) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+ggsave(file.path(outdir, "diffusionMap_clusters_only2h.pdf"), gg, width = 5, height = 4, useDingbats=FALSE)
+```
+
+## 4h
+
+```{r plotReducedDim.4h, echo=FALSE}
+set.seed(1794)
+sce.4h <- runDiffusionMap(sce.4h)
+# same
+tmpGG <- data.frame(
+  reducedDim(sce.4h, "DiffusionMap"),
+  Cluster = sce.4h$quickCluster.4h,
+  Treatment = sce.4h$Treatment
+)
+gg <- ggplot(tmpGG, aes(DC1, DC2, shape = Treatment, colour = Cluster)) +
+  geom_point() +
+  theme_bw() +
+  labs(x="Dimension 1",y="Dimension 2",title="4h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"])
+ggsave(file.path(outdir, "diffusionMap_clusters_only4h_shape.pdf"), width = 6, height = 4, useDingbats=FALSE)
+gg
+```
+
+```{r reducedDimension_pdf.4h, include=FALSE}
+gg <- ggplot(tmpGG, aes(DC1, DC2, colour = Cluster)) +
+  geom_point() +
+  # stat_ellipse(type = "norm", linetype = 2, size=0.4, level = 0.70) +
+  labs(x="Dimension 1",y="Dimension 2",title="4h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"]) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+ggsave(file.path(outdir, "diffusionMap_clusters_only4h.pdf"), gg, width = 5, height = 4, useDingbats=FALSE)
+```
+
+## 6h
+
+```{r plotReducedDim.6h, echo=FALSE}
+set.seed(1794)
+sce.6h <- runDiffusionMap(sce.6h)
+# same
+tmpGG <- data.frame(
+  reducedDim(sce.6h, "DiffusionMap"),
+  Cluster = sce.6h$quickCluster.6h,
+  Treatment = sce.6h$Treatment
+)
+gg <- ggplot(tmpGG, aes(DC1, DC2, shape = Treatment, colour = Cluster)) +
+  geom_point() +
+  theme_bw() +
+  labs(x="Dimension 1",y="Dimension 2",title="6h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"])
+ggsave(file.path(outdir, "diffusionMap_clusters_only6h_shape.pdf"), width = 6, height = 4, useDingbats=FALSE)
+gg
+```
+
+```{r reducedDimension_pdf.6h, include=FALSE}
+gg <- ggplot(tmpGG, aes(DC1, DC2, colour = Cluster)) +
+  geom_point() +
+  # stat_ellipse(type = "norm", linetype = 2, size=0.4, level = 0.70) +
+  labs(x="Dimension 1",y="Dimension 2",title="6h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"]) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+ggsave(file.path(outdir, "diffusionMap_clusters_only6h.pdf"), gg, width = 5, height = 4, useDingbats=FALSE)
+```
