@@ -27,7 +27,7 @@ col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
 names(col.time) <- levels(sce.endo$Time)[1:3]
 names(col.infection) <- levels(sce.endo$Infection)
 names(col.status) <- levels(sce.endo$Status)
-outdir <- "_009b_heatmap_out"; dir.create(outdir, showWarnings = FALSE)
+outdir <- "_009c_heatmap_out"; dir.create(outdir, showWarnings = FALSE)
 scde.res <- readRDS("rds/scde_group.rds")
 convert.z.score <- function(x, one.sided = NULL) {
     z <- x$Z
@@ -308,7 +308,7 @@ dev.off()
 With gene labels
 
 ```{r}
-GOIs <- c("MARCH1", "CLECL1", "NIT1", "NIT2", "LRR1", "VPS8", "TXNRD1", "TFRC", "USP1", "TRIAP1", "CLASP1", "RNF139", "MVB12A", "CLEC16A", "BLOC1S3", "USPL1", "DNAJC13")
+GOIs <- c("MARCH1", "CLECL1", "NIT1", "NIT2", "LRR1", "VPS8", "TXNRD1", "TFRC", "USP1", "TRIAP1", "CLASP1", "RNF139", "MVB12A", "CLEC16A", "BLOC1S3", "USPL1", "DNAJC13" , "STXBP1")
 stopifnot(all(GOIs %in% rowData(sce.endo)[["gene_name"]]))
 GOIs <- data.frame(
     gene_name = GOIs,
