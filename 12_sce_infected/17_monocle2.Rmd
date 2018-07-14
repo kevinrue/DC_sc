@@ -13,8 +13,9 @@ knitr::opts_chunk$set(echo = TRUE)
 
 ```{r}
 require(monocle)
-require(Biobase)
+require(cowplot)
 sce.endo <- readRDS("rds/sce.endo_clusters.rds")
+outdir <- "17_out"; dir.create(outdir, showWarnings = FALSE)
 ```
 
 
@@ -48,37 +49,125 @@ HSMM <- estimateSizeFactors(HSMM)
 HSMM <- estimateDispersions(HSMM)
 ```
 
-# Define ordering genes
+# Ordering based on genes that differ between clusters
 
-To decide which genes we will use to define a cell's progress through the bacterial challenge,
-we compare the challenged cells collected at the beginning of the time course to those at the end and find the differentially expressed gene:
-
-```{r, eval=FALSE}
-cells_challenged <- colnames(sce.endo)[sce.endo$Infection != "Mock"]
-HSMM_challenged <- newCellDataSet(
-    as(assay(sce.endo[, cells_challenged], "counts"), "sparseMatrix"),
-    phenoData = AnnotatedDataFrame(as.data.frame(colData(sce.endo[, cells_challenged]))),
-    featureData = AnnotatedDataFrame(as.data.frame(fd)),
-    lowerDetectionLimit=0.5,
-    expressionFamily=negbinomial.size()
-)
-HSMM_challenged <- detectGenes(HSMM_challenged, min_expr = 5)
-HSMM_challenged <- HSMM_challenged[fData(HSMM_challenged)$num_cells_expressed > 10, ]
-HSMM_challenged <- estimateSizeFactors(HSMM_challenged)
-HSMM_challenged <- estimateDispersions(HSMM_challenged)
-```
-
-```{r, eval=FALSE}
-diff_test_res <- differentialGeneTest(HSMM_challenged, fullModelFormulaStr = "~Time")
-ordering_genes <- row.names (subset(diff_test_res, qval < 0.01))
-```
-
-
-# Genes that vary over pseudotime
-
-Find differentially expressed genes:
+To use dpFeature, we first select superset of feature genes as genes expressed in at least 5% of all the cells.
 
 ```{r}
-diff_test_res <- differentialGeneTest(HSMM, fullModelFormulaStr = "~sm.ns(Pseudotime)")
+HSMM_dpFeature <- detectGenes(HSMM, min_expr = 0.1)
+fData(HSMM_dpFeature)$use_for_ordering <-
+    fData(HSMM_dpFeature)$num_cells_expressed > 0.05 * ncol(HSMM_dpFeature)
 ```
 
+Then we will perform a PCA analysis to identify the variance explained by each PC (principal component). We can look at a scree plot and determine how many pca dimensions are wanted based on whether or not there is a significant gap between that component and the component after it. By selecting only the high loading PCs, we effectively only focus on the more interesting biological variations.
+
+```{r}
+plot_pc_variance_explained(HSMM_dpFeature, return_all = F)
+```
+
+We will then run reduceDimension with t-SNE as the reduction method on those top PCs and project them further down to two dimensions.
+
+```{r}
+HSMM_dpFeature <- reduceDimension(HSMM_dpFeature,
+                              max_components = 2,
+                              norm_method = 'log',
+                              num_dim = 10,
+                              reduction_method = 'tSNE',
+                              verbose = T)
+```
+
+Then we can run density peak clustering to identify the clusters on the 2-D t-SNE space. 
+
+```{r}
+HSMM_dpFeature <- clusterCells(HSMM_dpFeature, verbose = F)
+```
+
+After the clustering, we can check the clustering results.
+
+```{r}
+p1 <- plot_cell_clusters(HSMM_dpFeature, color_by = "as.factor(Cluster)")
+p2 <- plot_cell_clusters(HSMM_dpFeature, color_by = "Time")
+p3 <- plot_cell_clusters(HSMM_dpFeature, color_by = "Status")
+p4 <- plot_cell_clusters(HSMM_dpFeature, color_by = "Infection")
+plot_grid(p1, p2, p3, p4)
+```
+
+We also provide the decision plot for users to check the Ρ, Δ for each cell and decide the threshold for defining the cell clusters.
+
+```{r}
+plot_rho_delta(HSMM_dpFeature, rho_threshold = 3, delta_threshold = 5)
+```
+
+We could then re-run clustering based on the user defined threshold. To facilitate the computation, we can set (skip_rho_sigma = T) which enables us to skip the calculation of the Ρ, Σ.
+
+```{r}
+HSMM_dpFeature <- clusterCells(HSMM_dpFeature,
+                 rho_threshold = 3,
+                 delta_threshold = 5,
+                 skip_rho_sigma = T,
+                 verbose = F)
+```
+
+We can check the final clustering results as following:
+
+```{r}
+p1 <- plot_cell_clusters(HSMM_dpFeature, color_by = "as.factor(Cluster)")
+p2 <- plot_cell_clusters(HSMM_dpFeature, color_by = "Time")
+p3 <- plot_cell_clusters(HSMM_dpFeature, color_by = "Status")
+p4 <- plot_cell_clusters(HSMM_dpFeature, color_by = "Infection")
+plot_grid(p1, p2, p3, p4)
+```
+
+After we confirm the clustering makes sense, we can then perform differential gene expression test as a way to extract the genes that distinguish them.
+
+```{r}
+HSMM_expressed_genes <-  row.names(subset(fData(HSMM_dpFeature), num_cells_expressed >= 10))
+clustering_DEG_genes <-
+    differentialGeneTest(HSMM_dpFeature[HSMM_expressed_genes,],
+          fullModelFormulaStr = '~Cluster',
+          cores = 2)
+```
+
+We will then select the top 1000 significant genes as the ordering genes.
+
+```{r}
+HSMM_ordering_genes <-
+    row.names(clustering_DEG_genes)[order(clustering_DEG_genes$qval)][1:1000]
+
+HSMM_dpFeature <-
+    setOrderingFilter(HSMM_dpFeature,
+        ordering_genes = HSMM_ordering_genes)
+
+HSMM_dpFeature <-
+    reduceDimension(HSMM_dpFeature, method = 'DDRTree')
+
+HSMM_dpFeature <-
+    orderCells(HSMM_dpFeature)
+
+HSMM_dpFeature <-
+    orderCells(HSMM_dpFeature, root_state = GM_state(HSMM_dpFeature))
+
+plot_cell_trajectory(HSMM_dpFeature, color_by = "State")
+```
+
+"State" is just Monocle's term for the segment of the tree. The function below is handy for identifying the State which contains most of the cells from time zero
+
+```{r}
+GM_state <- function(cds){
+  if (length(unique(pData(cds)$State)) > 1){
+    T0_counts <- table(pData(cds)$State, pData(cds)$Time)[,"2h"]
+    return(as.numeric(names(T0_counts)[which
+          (T0_counts == max(T0_counts))]))
+  } else {
+    return (1)
+  }
+}
+HSMM_dpFeature <-
+    orderCells(HSMM_dpFeature, root_state = GM_state(HSMM_dpFeature))
+p1 <- plot_cell_trajectory(HSMM_dpFeature, color_by = "State")
+p2 <- plot_cell_trajectory(HSMM_dpFeature, color_by = "Time")
+p3 <- plot_cell_trajectory(HSMM_dpFeature, color_by = "Status")
+p4 <- plot_cell_trajectory(HSMM_dpFeature, color_by = "Infection")
+gg <- plot_grid(p1, p2, p3, p4)
+ggsave(file.path(outdir, "trajectory_state_colData.pdf"), gg, width = 10, height = 8)
+```
