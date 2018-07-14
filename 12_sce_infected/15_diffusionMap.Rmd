@@ -1,0 +1,128 @@
+---
+title: "Diffusion maps"
+author: "Kevin Rue-Albrecht"
+date: "08/07/2018"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(cache = TRUE)
+stopifnot(
+    require(scater)
+)
+sce.endo <- readRDS("rds/sce.endo_clusters.rds")
+o.ifm.2h <- readRDS("rds/o.ifm.2h.rds")
+o.ifm.4h <- readRDS("rds/o.ifm.4h.rds")
+o.ifm.6h <- readRDS("rds/o.ifm.6h.rds")
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+col.treatment <- RColorBrewer::brewer.pal(9, "Paired")[c(9,3,4,1,2)]
+names(col.time) <- levels(sce.endo$Time)[1:3]
+names(col.infection) <- levels(sce.endo$Infection)
+names(col.status) <- levels(sce.endo$Status)
+names(col.treatment) <- levels(sce.endo$Treatment)
+outdir <- "15_out"; dir.create(outdir, showWarnings = FALSE)
+```
+
+# All cells
+
+```{r}
+set.seed(1989)
+sce.endo <- runDiffusionMap(sce.endo)
+```
+
+```{r}
+dmData <- data.frame(
+    reducedDim(sce.endo, "DiffusionMap"),
+    colData(sce.endo)[,1:10]
+)
+gg <- ggplot(dmData, aes(DC1, DC2, color=Treatment, shape=Time)) +
+    geom_point(size=2, alpha=0.6) +
+    scale_color_manual(values = col.treatment) +
+    theme_bw() +
+    theme(panel.grid.minor = element_blank())
+gg
+ggsave(file.path(outdir, "DiffusionMap_all.pdf"), gg, width = 6, height = 4, useDingbats = TRUE)
+```
+
+# Only STM-D23580
+
+```{r}
+sce.d23 <- sce.endo[, sce.endo$Infection == "STM-D23580"]
+```
+
+```{r}
+set.seed(1989)
+sce.d23 <- runDiffusionMap(sce.d23)
+```
+
+```{r}
+dmData <- data.frame(
+    reducedDim(sce.d23, "DiffusionMap"),
+    colData(sce.d23)[,1:10]
+)
+gg <- ggplot(dmData, aes(DC1, DC2, color=Status, shape=Time)) +
+    geom_point(size=2, alpha=0.6) +
+    scale_color_manual(values = col.status) +
+    labs(title = "STM-D23580") +
+    theme_bw() +
+    theme(panel.grid.minor = element_blank())
+gg
+ggsave(file.path(outdir, "DiffusionMap_D23580.pdf"), gg, width = 6, height = 4, useDingbats = TRUE)
+```
+
+# Only STM-LT2
+
+```{r}
+sce.lt2 <- sce.endo[, sce.endo$Infection == "STM-LT2"]
+```
+
+```{r}
+set.seed(1989)
+sce.lt2 <- runDiffusionMap(sce.lt2)
+```
+
+```{r}
+dmData <- data.frame(
+    reducedDim(sce.lt2, "DiffusionMap"),
+    colData(sce.lt2)[,1:10]
+)
+gg <- ggplot(dmData, aes(DC1, DC2, color=Status, shape=Time)) +
+    geom_point(size=2, alpha=0.6) +
+    scale_color_manual(values = col.status) +
+    labs(title = "STM-LT2") +
+    theme_bw() +
+    theme(panel.grid.minor = element_blank())
+gg
+ggsave(file.path(outdir, "DiffusionMap_LT2.pdf"), gg, width = 6, height = 4, useDingbats = TRUE)
+```
+
+# Only Uninfected
+
+```{r}
+sce.mock <- sce.endo[, sce.endo$Infection == "Mock"]
+```
+
+```{r}
+set.seed(1989)
+sce.mock <- runDiffusionMap(sce.mock)
+```
+
+```{r}
+dmData <- data.frame(
+    reducedDim(sce.mock, "DiffusionMap"),
+    colData(sce.mock)[,1:10]
+)
+gg <- ggplot(dmData, aes(DC1, DC2, color=Time, shape=Time)) +
+    geom_point(size=2, alpha=0.6) +
+    scale_color_manual(values = col.time) +
+    labs(title = "Uninfected") +
+    theme_bw() +
+    theme(panel.grid.minor = element_blank())
+gg
+ggsave(file.path(outdir, "DiffusionMap_Uninfected.pdf"), gg, width = 6, height = 4, useDingbats = TRUE)
+```
+
