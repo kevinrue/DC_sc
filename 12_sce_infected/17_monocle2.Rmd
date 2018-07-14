@@ -1,0 +1,84 @@
+---
+title: "Monocle 2 analysis"
+author: "Kevin Rue-Albrecht"
+date: "14/07/2018"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+require(monocle)
+require(Biobase)
+sce.endo <- readRDS("rds/sce.endo_clusters.rds")
+```
+
+
+Example code published:
+
+- Stevant, I., Neirijnck, Y., Borel, C., Escoffier, J., Smith, L. B., Antonarakis, S. E., . . . Nef, S. (2018). Deciphering Cell Lineage Specification during Male Sex Determination with Single-Cell RNA Sequencing. Cell Rep, 22(6), 1589-1599. doi:10.1016/j.celrep.2018.01.043
+
+```{r, eval=FALSE}
+source("~/git/scRNAseq-XY/script/170824_functions.R")
+"~/git/scRNAseq-XY/script/170824_data_analysis.R"
+```
+
+# Prepare the data set
+
+Prepare for Monocle:
+
+```{r}
+fd <- rowData(sce.endo)
+fd$gene_short_name <- fd$gene_name
+# Create a CellDataSet from the relative expression levels
+HSMM <- newCellDataSet(
+    as(assay(sce.endo, "counts"), "sparseMatrix"),
+    phenoData = AnnotatedDataFrame(as.data.frame(colData(sce.endo))),
+    featureData = AnnotatedDataFrame(as.data.frame(fd)),
+    lowerDetectionLimit=0.5,
+    expressionFamily=negbinomial.size()
+)
+HSMM <- detectGenes(HSMM, min_expr = 5)
+HSMM <- HSMM[fData(HSMM)$num_cells_expressed > 10, ]
+HSMM <- estimateSizeFactors(HSMM)
+HSMM <- estimateDispersions(HSMM)
+```
+
+# Define ordering genes
+
+To decide which genes we will use to define a cell's progress through the bacterial challenge,
+we compare the challenged cells collected at the beginning of the time course to those at the end and find the differentially expressed gene:
+
+```{r, eval=FALSE}
+cells_challenged <- colnames(sce.endo)[sce.endo$Infection != "Mock"]
+HSMM_challenged <- newCellDataSet(
+    as(assay(sce.endo[, cells_challenged], "counts"), "sparseMatrix"),
+    phenoData = AnnotatedDataFrame(as.data.frame(colData(sce.endo[, cells_challenged]))),
+    featureData = AnnotatedDataFrame(as.data.frame(fd)),
+    lowerDetectionLimit=0.5,
+    expressionFamily=negbinomial.size()
+)
+HSMM_challenged <- detectGenes(HSMM_challenged, min_expr = 5)
+HSMM_challenged <- HSMM_challenged[fData(HSMM_challenged)$num_cells_expressed > 10, ]
+HSMM_challenged <- estimateSizeFactors(HSMM_challenged)
+HSMM_challenged <- estimateDispersions(HSMM_challenged)
+```
+
+```{r, eval=FALSE}
+diff_test_res <- differentialGeneTest(HSMM_challenged, fullModelFormulaStr = "~Time")
+ordering_genes <- row.names (subset(diff_test_res, qval < 0.01))
+```
+
+
+# Genes that vary over pseudotime
+
+Find differentially expressed genes:
+
+```{r}
+diff_test_res <- differentialGeneTest(HSMM, fullModelFormulaStr = "~sm.ns(Pseudotime)")
+```
+
