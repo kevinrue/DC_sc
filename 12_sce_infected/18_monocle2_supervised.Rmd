@@ -1,0 +1,110 @@
+---
+title: "Monocle 2 analysis"
+author: "Kevin Rue-Albrecht"
+date: "14/07/2018"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r}
+require(monocle)
+require(cowplot)
+sce.endo <- readRDS("rds/sce.endo_clusters.rds")
+outdir <- "18_out"; dir.create(outdir, showWarnings = FALSE)
+```
+
+# Prepare the data set
+
+Prepare the full data set for Monocle:
+
+```{r}
+fd <- rowData(sce.endo)
+fd$gene_short_name <- fd$gene_name
+# Create a CellDataSet from the relative expression levels
+HSMM <- newCellDataSet(
+    as(assay(sce.endo, "counts"), "sparseMatrix"),
+    phenoData = AnnotatedDataFrame(as.data.frame(colData(sce.endo))),
+    featureData = AnnotatedDataFrame(as.data.frame(fd)),
+    lowerDetectionLimit=0.5,
+    expressionFamily=negbinomial.size()
+)
+HSMM <- detectGenes(HSMM, min_expr = 5)
+HSMM <- HSMM[fData(HSMM)$num_cells_expressed > 10, ]
+HSMM <- estimateSizeFactors(HSMM)
+HSMM <- estimateDispersions(HSMM)
+```
+
+# Trajectory step 1: choose genes that define a cell's progress
+
+## Ordering based on genes that differ between 2h and 6h in challenged cells
+
+Prepare a data subset for Monocle:
+
+```{r}
+cells_for_contrast <- colnames(sce.endo)[
+    sce.endo$Infection %in% c("STM-LT2", "STM-D23580") &
+        sce.endo$Time %in% c("2h", "6h")
+]
+fd <- rowData(sce.endo)
+fd$gene_short_name <- fd$gene_name
+# Create a CellDataSet from the relative expression levels
+HSMM_challenged <- newCellDataSet(
+    as(assay(sce.endo[, cells_for_contrast], "counts"), "sparseMatrix"),
+    phenoData = AnnotatedDataFrame(as.data.frame(
+        droplevels(colData(sce.endo[, cells_for_contrast]))
+        )),
+    featureData = AnnotatedDataFrame(as.data.frame(fd)),
+    lowerDetectionLimit=0.5,
+    expressionFamily=negbinomial.size()
+)
+HSMM_challenged <- detectGenes(HSMM_challenged, min_expr = 5)
+HSMM_challenged <- HSMM_challenged[fData(HSMM_challenged)$num_cells_expressed > 10, ]
+HSMM_challenged <- estimateSizeFactors(HSMM_challenged)
+HSMM_challenged <- estimateDispersions(HSMM_challenged)
+```
+
+Find all genes that are differentially expressed between the start and the end of the infection time course in challenged cells:
+
+```{r}
+diff_test_res <- differentialGeneTest(HSMM_challenged, fullModelFormulaStr = "~Time")
+ordering_genes <- row.names (subset(diff_test_res, qval < 0.001)) # more stringent
+length(ordering_genes)
+```
+
+Once we have a list of gene ids to be used for ordering, we need to set them in the _main_ HSMM object, because the next several functions will depend on them.
+
+```{r}
+HSMM <- setOrderingFilter(HSMM, ordering_genes)
+plot_ordering_genes(HSMM)
+```
+
+# Trajectory step 2: reduce data dimensionality
+
+```{r}
+HSMM <- reduceDimension(HSMM, max_components = 2, method = 'DDRTree')
+```
+
+# Trajectory step 3: order cells along the trajectory
+
+Now that the space is reduced, it's time to order the cells using the orderCells function as shown below.
+
+```{r}
+HSMM <- orderCells(HSMM)
+```
+
+Once the cells are ordered, we can visualize the trajectory in the reduced dimensional space.
+
+```{r}
+p1 <- plot_cell_trajectory(HSMM, color_by = "State")
+p2 <- plot_cell_trajectory(HSMM, color_by = "Time")
+p3 <- plot_cell_trajectory(HSMM, color_by = "Infection")
+p4 <- plot_cell_trajectory(HSMM, color_by = "Status")
+gg <- plot_grid(p1, p2, p3, p4)
+ggsave(file.path(outdir, "trajectory_state_colData.pdf"), gg, width = 10, height = 8)
+```
+
