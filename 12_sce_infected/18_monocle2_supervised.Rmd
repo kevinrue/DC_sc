@@ -14,8 +14,21 @@ knitr::opts_chunk$set(echo = TRUE)
 ```{r}
 require(monocle)
 require(cowplot)
+require(circlize)
+require(RColorBrewer)
+require(cba)
+require(ComplexHeatmap)
 sce.endo <- readRDS("rds/sce.endo_clusters.rds")
 outdir <- "18_out"; dir.create(outdir, showWarnings = FALSE)
+```
+
+```{r}
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce.endo$Time)[1:3]
+names(col.infection) <- levels(sce.endo$Infection)
+names(col.status) <- levels(sce.endo$Status)
 ```
 
 # Prepare the data set
@@ -106,5 +119,106 @@ p3 <- plot_cell_trajectory(HSMM, color_by = "Infection")
 p4 <- plot_cell_trajectory(HSMM, color_by = "Status")
 gg <- plot_grid(p1, p2, p3, p4)
 ggsave(file.path(outdir, "trajectory_state_colData.pdf"), gg, width = 10, height = 8)
+```
+
+# Identify genes that vary over pseudotime
+
+```{r}
+diff_test_res <- differentialGeneTest(HSMM, fullModelFormulaStr = "~sm.ns(Pseudotime)")
+table(diff_test_res$qval < 0.001)
+```
+
+# Heat map of gene expression over pseudotime
+
+```{r}
+orderedCells <- colnames(HSMM)[order(HSMM$Pseudotime)]
+orderGeneTable <- diff_test_res[order(diff_test_res$qval), ]
+topGenes <- head(orderGeneTable, 100)
+heatmapMatrix <- as.matrix(log2(exprs(HSMM[topGenes$gene_id, orderedCells]) + 1))
+rownames(heatmapMatrix) <- topGenes$gene_name
+# Color maps
+ht_scale <- colorRamp2(
+    breaks = seq(0, quantile(heatmapMatrix, 0.95), length.out = 9),
+    colors = rev(brewer.pal(9, "RdBu"))
+)
+pseudotime_scale <- colorRamp2(
+    breaks = seq(0, max(HSMM$Pseudotime), length.out = 5),
+    colors = brewer.pal(5, "BuGn")
+)
+ha <- HeatmapAnnotation(
+    p1 = anno_points(pData(HSMM)[orderedCells, "Pseudotime"], axis = FALSE),
+    annotation_height = c(rep(2, 4), 10),
+    pData(HSMM)[orderedCells, c("Pseudotime", "Time", "Infection", "Status")],
+    col = list(
+        Pseudotime = pseudotime_scale,
+        Time = col.time,
+        Infection = col.infection,
+        Status = col.status
+    )
+)
+# Heat map
+hm <- Heatmap(
+    matrix = heatmapMatrix, col=ht_scale,
+    top_annotation = ha,
+    cluster_columns = FALSE,
+    show_column_names = FALSE,
+    show_row_names = TRUE,
+    # cluster_rows = geneClust,
+    # split = 3,
+    top_annotation_height = unit(4, "cm"),
+    row_names_gp = gpar(fontsize=8))
+pdf(file.path(outdir, "heatmap_top100_pseudotime_originalRows.pdf"), height = 15, width = 30)
+draw(hm)
+dev.off()
+```
+
+```{r}
+# Cluster
+geneDist <- dist(heatmapMatrix, method = "euclidean")
+geneClust <- hclust(geneDist)
+oo <- order.optimal(geneDist, geneClust$merge)
+any(geneClust$merge != oo$merge)
+geneClust$merge <- oo$merge
+any(geneClust$order != oo$order)
+geneClust$order <- oo$order
+# Draw heat map
+hm <- Heatmap(
+    matrix = heatmapMatrix, col=ht_scale,
+    top_annotation = ha,
+    cluster_columns = FALSE,
+    show_column_names = FALSE,
+    show_row_names = TRUE,
+    cluster_rows = geneClust,
+    # split = 3,
+    top_annotation_height = unit(4, "cm"),
+    row_names_gp = gpar(fontsize=8))
+pdf(file.path(outdir, "heatmap_top100_pseudotime_optimalRows_euclidean.pdf"), height = 15, width = 30, useDingbats = TRUE)
+draw(hm)
+dev.off()
+```
+
+```{r}
+# Cluster
+geneDist <- dist(heatmapMatrix, method = "minkowski")
+geneClust <- hclust(geneDist)
+oo <- order.optimal(geneDist, geneClust$merge)
+any(geneClust$merge != oo$merge)
+geneClust$merge <- oo$merge
+any(geneClust$order != oo$order)
+geneClust$order <- oo$order
+# Draw heat map
+hm <- Heatmap(
+    matrix = heatmapMatrix, col=ht_scale,
+    top_annotation = ha,
+    cluster_columns = FALSE,
+    show_column_names = FALSE,
+    show_row_names = TRUE,
+    cluster_rows = geneClust,
+    # split = 3,
+    # rect_gp = gpar(lwd=0.1, color="black"),
+    row_names_gp = gpar(fontsize=8))
+pdf(file.path(outdir, "heatmap_top100_pseudotime_optimalRows_minkowski.pdf"), height = 15, width = 30)
+draw(hm)
+dev.off()
 ```
 
