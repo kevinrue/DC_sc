@@ -62,3 +62,5 @@ img/
 # Jay Hinton STM RNA-seq
 11_Hinton_STM/
 InsertDC/
+# Custom input folders
+_*_in
