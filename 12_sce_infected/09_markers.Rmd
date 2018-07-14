@@ -27,7 +27,7 @@ stopifnot(
     require(goseq),
     require(scde),
     require(circlize),
-    requireNamespace("circlize")
+    require(cba)
 )
 sce.endo <- readRDS("rds/sce.endo_clusters.rds")
 o.ifm.2h <- readRDS("rds/o.ifm.2h.rds")
@@ -690,6 +690,16 @@ for (contrastName in c2h){
     scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
     scde.table <- scde.table[order(scde.table$p.value),]
     scde.markers <- head(rownames(scde.table), 30)
+    #
+    markersMatrix <- assay(sce.ifm.2h, "logcounts")[scde.markers,]
+    markersMatrix <- t(scale(t(markersMatrix)))
+    markersDist <- dist(markersMatrix)
+    markersClust <- hclust(markersDist)
+    co <- order.optimal(markersDist, markersClust$merge)
+    markersClust$merge <- co$merge
+    markersClust$order <- co$order
+    scde.markers <- scde.markers[markersClust$order]
+    #
     markers_2h_p <- c(markers_2h_p, scde.markers)
     markers_2h_p.cluster <-
         c(markers_2h_p.cluster, rep(clusterId, length(scde.markers)))
@@ -708,6 +718,16 @@ for (contrastName in c4h){
     scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
     scde.table <- scde.table[order(scde.table$p.value),]
     scde.markers <- head(rownames(scde.table), 30)
+    #
+    markersMatrix <- assay(sce.ifm.4h, "logcounts")[scde.markers,]
+    markersMatrix <- t(scale(t(markersMatrix)))
+    markersDist <- dist(markersMatrix)
+    markersClust <- hclust(markersDist)
+    co <- order.optimal(markersDist, markersClust$merge)
+    markersClust$merge <- co$merge
+    markersClust$order <- co$order
+    scde.markers <- scde.markers[markersClust$order]
+    #
     markers_4h_p <- c(markers_4h_p, scde.markers)
     markers_4h_p.cluster <-
         c(markers_4h_p.cluster, rep(clusterId, length(scde.markers)))
@@ -726,6 +746,16 @@ for (contrastName in c6h){
     scde.table <- subset(scde.table, mle > 0 & p.value < 0.01)
     scde.table <- scde.table[order(scde.table$p.value),]
     scde.markers <- head(rownames(scde.table), 30)
+    #
+    markersMatrix <- assay(sce.ifm.6h, "logcounts")[scde.markers,]
+    markersMatrix <- t(scale(t(markersMatrix)))
+    markersDist <- dist(markersMatrix)
+    markersClust <- hclust(markersDist)
+    co <- order.optimal(markersDist, markersClust$merge)
+    markersClust$merge <- co$merge
+    markersClust$order <- co$order
+    scde.markers <- scde.markers[markersClust$order]
+    #
     markers_6h_p <- c(markers_6h_p, scde.markers)
     markers_6h_p.cluster <-
         c(markers_6h_p.cluster, rep(clusterId, length(scde.markers)))
@@ -875,7 +905,7 @@ for (clusterId in levels(sce.ifm.2h$quickCluster.2h)){
         show_heatmap_legend =
             clusterId == levels(sce.ifm.2h$quickCluster.2h)[1],
         show_row_names = clusterId == tail(levels(sce.ifm.2h$quickCluster.2h), 1),
-        cluster_rows = TRUE,
+        cluster_rows = FALSE,
         show_column_names = FALSE, show_column_dend = FALSE,
         row_names_side = "right",
         top_annotation = ha_tmp,
@@ -1033,7 +1063,7 @@ for (clusterId in levels(sce.ifm.4h$quickCluster.4h)){
         show_heatmap_legend =
             clusterId == levels(sce.ifm.4h$quickCluster.4h)[1],
         show_row_names = clusterId == tail(levels(sce.ifm.4h$quickCluster.4h), 1),
-        cluster_rows = TRUE,
+        cluster_rows = FALSE,
         show_column_names = FALSE, show_column_dend = FALSE,
         row_names_side = "right",
         top_annotation = ha_tmp,
@@ -1137,7 +1167,7 @@ for (clusterId in levels(sce.ifm.6h$quickCluster.6h)){
         show_heatmap_legend =
             clusterId == levels(sce.ifm.6h$quickCluster.6h)[1],
         show_row_names = clusterId == tail(levels(sce.ifm.6h$quickCluster.6h), 1),
-        cluster_rows = TRUE,
+        cluster_rows = FALSE,
         show_column_names = FALSE, show_column_dend = FALSE,
         row_names_side = "right",
         top_annotation = ha_tmp,
