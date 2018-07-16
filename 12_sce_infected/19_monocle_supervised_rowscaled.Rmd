@@ -230,39 +230,40 @@ for (groupname in names(geneGroups)) {
 }
 ```
 
-
 ```{r}
-require(biomaRt)
-mart <- useMart(biomart = "ENSEMBL_MART_ENSEMBL", dataset = "hsapiens_gene_ensembl")
-map <- getBM(c("external_gene_name", "go_id"), mart=mart)
+require(org.Hs.eg.db)
+columns(org.Hs.eg.db)
+keytypes(org.Hs.eg.db)
 ```
-
 
 ```{r}
 require(goseq)
 geneLengths <- width(sce.endo)
 names(geneLengths) <- rownames(sce.endo)
 for (groupName in names(geneGroups)) {
-    genes <- (rownames(heatmapMatrix) %in% geneGroups[[groupName]])
-    names(genes) <- rownames(heatmapMatrix)
+    genes <- (rownames(sce.endo) %in% geneGroups[[groupName]])
+    names(genes) <- rownames(sce.endo)
     pwf <- nullp(genes, bias.data = geneLengths[names(genes)])
     pvals <- goseq(pwf, 'hg38', 'ensGene')
-    pvals$geneInGO <- ""
-    pvals$geneDE <- ""
-    significantGO <- subset(pvals, over_represented_pvalue < 0.001, "category", drop=TRUE)
-    message("significantGO: ", length(significantGO))
-    for (go_id in head(significantGO, 100)) {
-        message("go_id: ", go_id)
-        out <- getBM(c("ensembl_gene_id", "external_gene_name", "go_id"), filters = "go", values = go_id, mart=mart)
-        genesInGO <- unique(out$ensembl_gene_id)
-        message("genesInGO: ", length(genesInGO))
-        genesDE <- unique(intersect(genesInGO, names(genes)[genes]))
-        geneNamesDE <- unique(subset(out, ensembl_gene_id %in% genesDE, "external_gene_name", drop=TRUE))
-        message("genesDE: ", length(genesDE))
-        indexGO <- match(go_id, pvals$category)
-        pvals$geneInGO[indexGO] <- paste(unique(out$external_gene_name), collapse = ",")
-        pvals$geneDE[indexGO] <- paste(geneNamesDE, collapse = ",")
+    pvals$BH <- p.adjust(pvals$over_represented_pvalue, "BH")
+    pvals$bonferroni <- p.adjust(pvals$over_represented_pvalue, "bonferroni")
+    GOtoAnnotate <- subset(pvals, bonferroni < 0.05, "category", drop=TRUE)
+    message("bonferroni < 0.05: ", length(GOtoAnnotate))
+    # Add gene names
+    rownames(pvals) <- pvals$category
+    pvals$Genes <- ""
+    message("To do:", nrow(GOtoAnnotate))
+    for (tmp_go in GOtoAnnotate) {
+        message("Processing: ", match(tmp_go, pvals$category))
+        message("pvalue: ", pvals[tmp_go, "over_represented_pvalue"])
+        message("numDEInCat: ", pvals[tmp_go, "numDEInCat"])
+        GO1geneInfo <- select(x = org.Hs.eg.db, keys = tmp_go, columns = c("SYMBOL", "ENSEMBL"), keytype = "GOALL")
+        GO1geneInfoDE <- subset(GO1geneInfo, ENSEMBL %in% geneGroups[[groupName]])
+        tmpSymbolsDE <- unique(GO1geneInfoDE$SYMBOL)
+        message("Found in org.Hs.eg.db: ", length(tmpSymbolsDE))
+        pvals[tmp_go, "Genes"] <- paste(tmpSymbolsDE, collapse = ",")
     }
+    #
     csvName <- sprintf("GO_001_k%i_group%s_count%i.csv", k_mean, groupName, sum(genes))
     write.csv(pvals, file.path(outdir, csvName))
 }
