@@ -132,6 +132,209 @@ table(diff_test_res$qval < 0.001)
 
 ```{r}
 orderedCells <- colnames(HSMM)[order(HSMM$Pseudotime)]
+deGenes <- subset(diff_test_res, qval < 0.001, "gene_id", drop=TRUE)
+# assayNames(sce.endo)
+heatmapMatrix <- as.matrix(assay(sce.endo[deGenes, orderedCells], "logcounts"))
+# Clustering
+distGenes <- dist(heatmapMatrix)
+clustGenes <- hclust(distGenes)
+# Gene clusters
+# K-means scree plot ----
+# k_values <- seq(1,15,1)
+# itermax <- 1E3
+# 
+# KmeanOut <- file.path(
+#   outdir,
+#   "kmean",
+#   paste("iter", itermax, sep = "_")
+# )
+# dir.create(KmeanOut, recursive = TRUE)
+# 
+# wss <- c()
+# for (test_k in k_values){
+#     message("k: ", test_k)
+#     k.genes <- kmeans(heatmapMatrix, centers = test_k, iter.max = itermax)
+#     wss <- c(wss, sum(k.genes$withinss))
+# }
+# names(wss) <- k_values
+# pdf(
+#   file.path(KmeanOut, sprintf(
+#     "kmeans_scree.pdf",
+#     clusterOn,
+#     itermax
+#   )),
+#   width = 10, height = 5
+# )
+# plot(names(wss), wss, type="b", xlab="Number of Clusters",ylab="Within groups sum of squares")
+# dev.off()
+geneClusters <- cutree(clustGenes, k = 6)
+# Color maps
+ht_scale <- colorRamp2(
+    breaks = seq(0, quantile(heatmapMatrix, 0.95), length.out = 9),
+    colors = rev(brewer.pal(9, "RdBu"))
+)
+pseudotime_scale <- colorRamp2(
+    breaks = seq(0, max(HSMM$Pseudotime), length.out = 5),
+    colors = brewer.pal(5, "BuGn")
+)
+ha <- HeatmapAnnotation(
+    # p1 = anno_points(pData(HSMM)[orderedCells, "Pseudotime"], axis = FALSE),
+    # annotation_height = c(rep(2, 4), 10),
+    pData(HSMM)[orderedCells, c("Pseudotime", "Time", "Infection", "Status")],
+    col = list(
+        Pseudotime = pseudotime_scale,
+        Time = col.time,
+        Infection = col.infection,
+        Status = col.status
+    )
+)
+# Heat map
+for (k_mean in c(6)) {
+    hm <- Heatmap(
+        matrix = heatmapMatrix, col=ht_scale,
+        top_annotation = ha,
+        cluster_columns = FALSE,
+        show_column_names = FALSE,
+        show_row_names = FALSE,
+        cluster_rows = clustGenes,
+        split = k_mean,
+        top_annotation_height = unit(4, "cm"),
+        gap = unit(0.25, "cm"),
+        row_names_gp = gpar(fontsize=8))
+    pdfName <- sprintf("heatmap_pseudotime_DEpseudotime_001_k%i.pdf", k_mean)
+    pdf(file.path(outdir, pdfName), height = 15, width = 30)
+    draw(hm)
+    dev.off()
+}
+```
+
+```{r}
+orderedCells <- colnames(HSMM)[order(HSMM$Pseudotime)]
+deGenes <- subset(diff_test_res, qval < 0.001, "gene_id", drop=TRUE)
+# assayNames(sce.endo)
+heatmapMatrix <- as.matrix(assay(sce.endo[deGenes, orderedCells], "logcounts"))
+# Clustering
+distGenes <- dist(heatmapMatrix)
+clustGenes <- hclust(distGenes)
+heatmapMatrix <- heatmapMatrix#[clustGenes$order, ]
+# Gene clusters
+geneClusters <- cutree(clustGenes, k = 7)
+# Color maps
+ht_scale <- colorRamp2(
+    breaks = seq(0, quantile(heatmapMatrix, 0.95), length.out = 9),
+    colors = rev(brewer.pal(9, "RdBu"))
+)
+pseudotime_scale <- colorRamp2(
+    breaks = seq(0, max(HSMM$Pseudotime), length.out = 5),
+    colors = brewer.pal(5, "BuGn")
+)
+ha <- HeatmapAnnotation(
+    # p1 = anno_points(pData(HSMM)[orderedCells, "Pseudotime"], axis = FALSE),
+    # annotation_height = c(rep(2, 4), 10),
+    pData(HSMM)[orderedCells, c("Pseudotime", "Time", "Infection", "Status")],
+    col = list(
+        Pseudotime = pseudotime_scale,
+        Time = col.time,
+        Infection = col.infection,
+        Status = col.status
+    )
+)
+# Heat map
+for (k_mean in c(7)) {
+    hm <- Heatmap(
+        matrix = heatmapMatrix, col=ht_scale,
+        top_annotation = ha,
+        cluster_columns = FALSE,
+        show_column_names = FALSE,
+        show_row_names = FALSE,
+        cluster_rows = TRUE,
+        split = geneClusters,
+        top_annotation_height = unit(4, "cm"),
+        gap = unit(0.25, "cm"),
+        row_names_gp = gpar(fontsize=8))
+    pdfName <- sprintf("heatmap_pseudotime_DEpseudotime_001_k%i_manualCluster.pdf", k_mean)
+    pdf(file.path(outdir, pdfName), height = 15, width = 30)
+    draw(hm)
+    dev.off()
+}
+```
+
+```{r}
+orderedCells <- colnames(HSMM)[order(HSMM$Pseudotime)]
+deGenes <- subset(diff_test_res, qval < 0.001, "gene_id", drop=TRUE)
+# assayNames(sce.endo)
+heatmapMatrix <- as.matrix(assay(sce.endo[deGenes, orderedCells], "logcounts"))
+# Clustering
+require(MKmisc)
+distGenes <- corDist(heatmapMatrix, "spearman")
+clustGenes <- hclust(distGenes)
+heatmapMatrix <- heatmapMatrix#[clustGenes$order, ]
+# Gene clusters
+geneClusters <- cutree(clustGenes, k = 7)
+# Color maps
+ht_scale <- colorRamp2(
+    breaks = seq(0, quantile(heatmapMatrix, 0.95), length.out = 9),
+    colors = rev(brewer.pal(9, "RdBu"))
+)
+pseudotime_scale <- colorRamp2(
+    breaks = seq(0, max(HSMM$Pseudotime), length.out = 5),
+    colors = brewer.pal(5, "BuGn")
+)
+ha <- HeatmapAnnotation(
+    # p1 = anno_points(pData(HSMM)[orderedCells, "Pseudotime"], axis = FALSE),
+    # annotation_height = c(rep(2, 4), 10),
+    pData(HSMM)[orderedCells, c("Pseudotime", "Time", "Infection", "Status")],
+    col = list(
+        Pseudotime = pseudotime_scale,
+        Time = col.time,
+        Infection = col.infection,
+        Status = col.status
+    )
+)
+# Heat map
+for (k_mean in c(7)) {
+    hm <- Heatmap(
+        matrix = heatmapMatrix, col=ht_scale,
+        top_annotation = ha,
+        cluster_columns = FALSE,
+        show_column_names = FALSE,
+        show_row_names = FALSE,
+        cluster_rows = TRUE,
+        split = geneClusters,
+        top_annotation_height = unit(4, "cm"),
+        gap = unit(0.25, "cm"),
+        row_names_gp = gpar(fontsize=8))
+    pdfName <- sprintf("heatmap_pseudotime_DEpseudotime_001_k%i_spearman.pdf", k_mean)
+    pdf(file.path(outdir, pdfName), height = 15, width = 30)
+    draw(hm)
+    dev.off()
+}
+```
+
+Gene ontology of gene clusters
+
+```{r}
+geneGroups <- split(names(geneClusters), geneClusters)
+lengths(geneGroups)
+```
+
+```{r}
+require(goseq)
+geneLengths <- width(sce.endo)
+names(geneLengths) <- rownames(sce.endo)
+for (groupName in names(geneGroups)) {
+    genes <- (rownames(heatmapMatrix) %in% geneGroups[[groupName]])
+    names(genes) <- rownames(heatmapMatrix)
+    pwf <- nullp(genes, bias.data = geneLengths[names(genes)])
+    pvals <- goseq(pwf, 'hg38', 'ensGene')
+    csvName <- sprintf("GO_001_k%i_group%s_count%i.csv", k_mean, groupName, sum(genes))
+    write.csv(pvals, file.path(outdir, csvName))
+}
+```
+
+
+
+```{r}
 orderGeneTable <- diff_test_res[order(diff_test_res$qval), ]
 topGenes <- head(orderGeneTable, 100)
 heatmapMatrix <- as.matrix(log2(exprs(HSMM[topGenes$gene_id, orderedCells]) + 1))
