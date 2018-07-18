@@ -19,7 +19,7 @@ require(RColorBrewer)
 require(cba)
 require(ComplexHeatmap)
 sce.endo <- readRDS("rds/sce.endo_clusters.rds")
-outdir <- "19_out"; dir.create(outdir, showWarnings = FALSE)
+outdir <- "19b_out"; dir.create(outdir, showWarnings = FALSE)
 ```
 
 ```{r}
@@ -247,17 +247,16 @@ for (groupName in names(geneGroups)) {
     pvals <- goseq(pwf, 'hg38', 'ensGene')
     pvals$BH <- p.adjust(pvals$over_represented_pvalue, "BH")
     pvals$bonferroni <- p.adjust(pvals$over_represented_pvalue, "bonferroni")
-    GOtoAnnotate <- subset(pvals, bonferroni < 0.05, "category", drop=TRUE)
-    message("bonferroni < 0.05: ", length(GOtoAnnotate))
-    # Add gene names
     rownames(pvals) <- pvals$category
     pvals$Genes <- ""
-    message("To do:", nrow(GOtoAnnotate))
+    GOtoAnnotate <- subset(pvals, BH < 0.1, "category", drop=TRUE)
+    message("Annotating BH < 0.05: ", length(GOtoAnnotate))
     for (tmp_go in GOtoAnnotate) {
         message("Processing: ", match(tmp_go, pvals$category))
-        message("pvalue: ", pvals[tmp_go, "over_represented_pvalue"])
         message("numDEInCat: ", pvals[tmp_go, "numDEInCat"])
-        GO1geneInfo <- select(x = org.Hs.eg.db, keys = tmp_go, columns = c("SYMBOL", "ENSEMBL"), keytype = "GOALL")
+        GO1geneInfo <- suppressMessages(
+                select(org.Hs.eg.db, tmp_go, c("SYMBOL", "ENSEMBL"), "GOALL")
+            )
         GO1geneInfoDE <- subset(GO1geneInfo, ENSEMBL %in% geneGroups[[groupName]])
         tmpSymbolsDE <- unique(GO1geneInfoDE$SYMBOL)
         message("Found in org.Hs.eg.db: ", length(tmpSymbolsDE))
