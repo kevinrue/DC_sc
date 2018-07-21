@@ -1,0 +1,395 @@
+---
+title: "Infected vs. Bystander"
+author: "Kevin Rue-Albrecht"
+date: "21/07/2018"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r require, include=FALSE}
+require(venn)
+require(circlize)
+require(RColorBrewer)
+require(ComplexHeatmap)
+require(cba)
+outDir <- "21_out"; dir.create(outDir)
+```
+
+
+## Load up the SCE object
+
+```{r}
+sce <- readRDS("rds/sce.endo_clusters.rds")
+```
+
+## Set up the color maps
+
+Heat map
+
+```{r}
+blueredColorRamp2 <- colorRamp2(
+    breaks = seq(-3, 3, length.out = 9),
+    colors = rev(brewer.pal(9, "RdBu")))
+```
+
+Metadata
+
+```{r}
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce$Time)
+names(col.infection) <- levels(sce$Infection)
+names(col.status) <- levels(sce$Status)
+```
+
+
+
+## Proces each time point separately
+
+### 2h
+
+```{r}
+csv_files <- list(
+    LT2 = "07_SCDE_out/SCDE_2h_STM-LT2_Infected-2h_STM-LT2_Exposed.csv",
+    D23580 = "07_SCDE_out/SCDE_2h_STM-D23580_Infected-2h_STM-D23580_Exposed.csv"
+)
+```
+
+Load up the SCDE tables
+
+```{r}
+scde_tables <- lapply(csv_files, function(x){read.csv(x, row.names = 1)})
+```
+
+Identify the DE genes
+
+```{r}
+de_ids <- lapply(scde_tables, function(x){rownames(subset(x, p.value < 0.01))})
+de_union <- unique(union(de_ids$LT2, de_ids$D23580))
+de_both <- intersect(de_ids$LT2, de_ids$D23580)
+de_lt2 <- setdiff(de_ids$LT2, de_ids$D23580)
+de_d23 <- setdiff(de_ids$D23580, de_ids$LT2)
+venn(de_ids)
+```
+
+Identify blocks of DE genes
+
+```{r}
+de_groups <- factor(rep(NA, length(de_union)), c("Both", "STM-LT2", "STM-D23580"))
+names(de_groups) <- de_union
+de_groups[de_both] <- "Both"
+de_groups[de_lt2] <- "STM-LT2"
+de_groups[de_d23] <- "STM-D23580"
+```
+
+Prepare the heat maps
+
+```{r}
+matrix_all <- assay(sce[de_union, sce$Time == "2h" & sce$Infection != "Mock"], "logcounts")
+matrix_all <- t(scale(t(matrix_all)))
+#
+rowDist <- dist(matrix_all)
+rowClust <- hclust(rowDist, method = "ward.D2")
+row.oo <- order.optimal(rowDist, rowClust$merge)
+rowClust$merge <- row.oo$merge
+rowClust$order <- row.oo$order
+#
+matrix_all <- matrix_all[rowClust$order, ]
+de_groups <- de_groups[rownames(matrix_all)]
+```
+
+```{r, fig.height=6}
+# subset matrices
+matrix_lt2 <- matrix_all[, rownames(subset(colData(sce[, colnames(matrix_all)]), Time == "2h" & Infection == "STM-LT2"))]
+matrix_d23 <- matrix_all[, rownames(subset(colData(sce[, colnames(matrix_all)]), Time == "2h" & Infection == "STM-D23580"))]
+# optimise column order #
+lt2_colDist <- dist(t(matrix_lt2))
+lt2_colClust <- hclust(lt2_colDist, method = "ward.D2")
+lt2.oo <- order.optimal(lt2_colDist, lt2_colClust$merge)
+lt2_colClust$merge <- lt2.oo$merge
+lt2_colClust$order <- lt2.oo$order
+#
+d23_colDist <- dist(t(matrix_d23))
+d23_colClust <- hclust(d23_colDist, method = "ward.D2")
+d23.oo <- order.optimal(d23_colDist, d23_colClust$merge)
+d23_colClust$merge <- d23.oo$merge
+d23_colClust$order <- d23.oo$order
+# heatmap annotations
+ha_lt2 <- HeatmapAnnotation(
+    df = colData(sce)[colnames(matrix_lt2), c("Infection", "Status"), drop=FALSE],
+    col = list(
+        Infection=col.infection,
+        Status=col.status)
+    )
+ha_d23 <- HeatmapAnnotation(
+    df = colData(sce)[colnames(matrix_d23), c("Infection", "Status"), drop=FALSE],
+    col = list(
+        Infection=col.infection,
+        Status=col.status)
+    )
+# label genes
+geneLabels <- c(
+    "TIMM21",
+    "MARCH8", "CCL24", "RAB29",
+    "IFITM3"
+    )
+stopifnot(all(geneLabels %in% rowData(sce)[, "gene_name"]))
+geneIds <- with(rowData(sce), gene_id[match(geneLabels, gene_name)])
+geneIdx <- match(geneIds, rownames(matrix_lt2))
+stopifnot(!any(is.na(geneIdx)))
+#
+ra <- rowAnnotation(link = row_anno_link(at = geneIdx, labels = geneLabels),
+    width = unit(0, "cm") + max_text_width(labels))
+#
+hm_lt2 <- Heatmap(
+    matrix=matrix_lt2, col=blueredColorRamp2, name="Z-score",
+    top_annotation = ha_lt2,
+    cluster_columns = lt2_colClust, cluster_rows = FALSE,
+    split = de_groups,
+    gap = unit(5, "mm"),
+    show_row_names = FALSE, show_column_names = FALSE)
+hm_d23 <- Heatmap(
+    matrix=matrix_d23, col=blueredColorRamp2, name="none",
+    top_annotation = ha_d23,
+    cluster_columns = d23_colClust, cluster_rows = FALSE,
+    split = de_groups,
+    show_row_names = FALSE, show_column_names = FALSE)
+hm <- hm_lt2 + hm_d23 + ra
+pdf(file.path(outDir, "Heatmap_2h.pdf"), height = 12, width = 10)
+draw(hm)
+dev.off()
+```
+
+### 4h
+
+```{r}
+csv_files <- list(
+    LT2 = "07_SCDE_out/SCDE_4h_STM-LT2_Infected-4h_STM-LT2_Exposed.csv",
+    D23580 = "07_SCDE_out/SCDE_4h_STM-D23580_Infected-4h_STM-D23580_Exposed.csv"
+)
+```
+
+Load up the SCDE tables
+
+```{r}
+scde_tables <- lapply(csv_files, function(x){read.csv(x, row.names = 1)})
+```
+
+Identify the DE genes
+
+```{r}
+de_ids <- lapply(scde_tables, function(x){rownames(subset(x, p.value < 0.01))})
+de_union <- unique(union(de_ids$LT2, de_ids$D23580))
+de_both <- intersect(de_ids$LT2, de_ids$D23580)
+de_lt2 <- setdiff(de_ids$LT2, de_ids$D23580)
+de_d23 <- setdiff(de_ids$D23580, de_ids$LT2)
+venn(de_ids)
+```
+
+Identify blocks of DE genes
+
+```{r}
+de_groups <- factor(rep(NA, length(de_union)), c("Both", "STM-LT2", "STM-D23580"))
+names(de_groups) <- de_union
+de_groups[de_both] <- "Both"
+de_groups[de_lt2] <- "STM-LT2"
+de_groups[de_d23] <- "STM-D23580"
+```
+
+Prepare the heat maps
+
+```{r}
+matrix_all <- assay(sce[de_union, sce$Time == "4h" & sce$Infection != "Mock"], "logcounts")
+matrix_all <- t(scale(t(matrix_all)))
+#
+rowDist <- dist(matrix_all)
+rowClust <- hclust(rowDist, method = "ward.D2")
+row.oo <- order.optimal(rowDist, rowClust$merge)
+rowClust$merge <- row.oo$merge
+rowClust$order <- row.oo$order
+#
+matrix_all <- matrix_all[rowClust$order, ]
+de_groups <- de_groups[rownames(matrix_all)]
+```
+
+```{r, fig.height=6}
+# subset matrices
+matrix_lt2 <- matrix_all[, rownames(subset(colData(sce[, colnames(matrix_all)]), Time == "4h" & Infection == "STM-LT2"))]
+matrix_d23 <- matrix_all[, rownames(subset(colData(sce[, colnames(matrix_all)]), Time == "4h" & Infection == "STM-D23580"))]
+# optimise column order #
+lt2_colDist <- dist(t(matrix_lt2))
+lt2_colClust <- hclust(lt2_colDist, method = "ward.D2")
+lt2.oo <- order.optimal(lt2_colDist, lt2_colClust$merge)
+lt2_colClust$merge <- lt2.oo$merge
+lt2_colClust$order <- lt2.oo$order
+#
+d23_colDist <- dist(t(matrix_d23))
+d23_colClust <- hclust(d23_colDist, method = "ward.D2")
+d23.oo <- order.optimal(d23_colDist, d23_colClust$merge)
+d23_colClust$merge <- d23.oo$merge
+d23_colClust$order <- d23.oo$order
+# heatmap annotations
+ha_lt2 <- HeatmapAnnotation(
+    df = colData(sce)[colnames(matrix_lt2), c("Infection", "Status"), drop=FALSE],
+    col = list(
+        Infection=col.infection,
+        Status=col.status)
+    )
+ha_d23 <- HeatmapAnnotation(
+    df = colData(sce)[colnames(matrix_d23), c("Infection", "Status"), drop=FALSE],
+    col = list(
+        Infection=col.infection,
+        Status=col.status)
+    )
+# label genes
+geneLabels <- c(
+    "APOE", "APOC1", "CD40", "CTSL", "IL1A", "LRP1", "LTB", "PLAT",
+    "CCL1", "CCL7", "EBI3",
+    "CD83", "TLR8",
+    "RIPK3", "VPS25")
+stopifnot(all(geneLabels %in% rowData(sce)[, "gene_name"]))
+geneIds <- with(rowData(sce), gene_id[match(geneLabels, gene_name)])
+geneIdx <- match(geneIds, rownames(matrix_lt2))
+stopifnot(!any(is.na(geneIdx)))
+#
+ra <- rowAnnotation(link = row_anno_link(at = geneIdx, labels = geneLabels),
+    width = unit(0, "cm") + max_text_width(labels))
+#
+hm_lt2 <- Heatmap(
+    matrix=matrix_lt2, col=blueredColorRamp2, name="Z-score",
+    top_annotation = ha_lt2,
+    cluster_columns = lt2_colClust, cluster_rows = FALSE,
+    split = de_groups,
+    gap = unit(5, "mm"),
+    show_row_names = FALSE, show_column_names = FALSE)
+hm_d23 <- Heatmap(
+    matrix=matrix_d23, col=blueredColorRamp2, name="none",
+    top_annotation = ha_d23,
+    cluster_columns = d23_colClust, cluster_rows = FALSE,
+    split = de_groups,
+    show_row_names = FALSE, show_column_names = FALSE)
+hm <- hm_lt2 + hm_d23 + ra
+pdf(file.path(outDir, "Heatmap_4h.pdf"), height = 12, width = 10)
+draw(hm)
+dev.off()
+```
+
+### 6h
+
+```{r}
+csv_files <- list(
+    LT2 = "07_SCDE_out/SCDE_6h_STM-LT2_Infected-6h_STM-LT2_Exposed.csv",
+    D23580 = "07_SCDE_out/SCDE_6h_STM-D23580_Infected-6h_STM-D23580_Exposed.csv"
+)
+```
+
+Load up the SCDE tables
+
+```{r}
+scde_tables <- lapply(csv_files, function(x){read.csv(x, row.names = 1)})
+```
+
+Identify the DE genes
+
+```{r}
+de_ids <- lapply(scde_tables, function(x){rownames(subset(x, p.value < 0.01))})
+de_union <- unique(union(de_ids$LT2, de_ids$D23580))
+de_both <- intersect(de_ids$LT2, de_ids$D23580)
+de_lt2 <- setdiff(de_ids$LT2, de_ids$D23580)
+de_d23 <- setdiff(de_ids$D23580, de_ids$LT2)
+venn(de_ids)
+```
+
+Identify blocks of DE genes
+
+```{r}
+de_groups <- factor(rep(NA, length(de_union)), c("Both", "STM-LT2", "STM-D23580"))
+names(de_groups) <- de_union
+de_groups[de_both] <- "Both"
+de_groups[de_lt2] <- "STM-LT2"
+de_groups[de_d23] <- "STM-D23580"
+```
+
+Prepare the heat maps
+
+```{r}
+matrix_all <- assay(sce[de_union, sce$Time == "6h" & sce$Infection != "Mock"], "logcounts")
+matrix_all <- t(scale(t(matrix_all)))
+#
+rowDist <- dist(matrix_all)
+rowClust <- hclust(rowDist, method = "ward.D2")
+row.oo <- order.optimal(rowDist, rowClust$merge)
+rowClust$merge <- row.oo$merge
+rowClust$order <- row.oo$order
+#
+matrix_all <- matrix_all[rowClust$order, ]
+de_groups <- de_groups[rownames(matrix_all)]
+```
+
+```{r, fig.height=6}
+# subset matrices
+matrix_lt2 <- matrix_all[, rownames(subset(colData(sce[, colnames(matrix_all)]), Time == "6h" & Infection == "STM-LT2"))]
+matrix_d23 <- matrix_all[, rownames(subset(colData(sce[, colnames(matrix_all)]), Time == "6h" & Infection == "STM-D23580"))]
+# optimise column order #
+lt2_colDist <- dist(t(matrix_lt2))
+lt2_colClust <- hclust(lt2_colDist, method = "ward.D2")
+lt2.oo <- order.optimal(lt2_colDist, lt2_colClust$merge)
+lt2_colClust$merge <- lt2.oo$merge
+lt2_colClust$order <- lt2.oo$order
+#
+d23_colDist <- dist(t(matrix_d23))
+d23_colClust <- hclust(d23_colDist, method = "ward.D2")
+d23.oo <- order.optimal(d23_colDist, d23_colClust$merge)
+d23_colClust$merge <- d23.oo$merge
+d23_colClust$order <- d23.oo$order
+# heatmap annotations
+ha_lt2 <- HeatmapAnnotation(
+    df = colData(sce)[colnames(matrix_lt2), c("Infection", "Status"), drop=FALSE],
+    col = list(
+        Infection=col.infection,
+        Status=col.status)
+    )
+ha_d23 <- HeatmapAnnotation(
+    df = colData(sce)[colnames(matrix_d23), c("Infection", "Status"), drop=FALSE],
+    col = list(
+        Infection=col.infection,
+        Status=col.status)
+    )
+# label genes
+geneLabels <- c(
+    "CTSC", "CTSL", "CTSB", "C1QA",
+    "DEFB1", "HLA-DOA", "NFKB1", "TLR2", "TNFAIP3",
+    "APOE", "IRF1", "CLECL1", "MAFB",
+    "CIITA", "STAT5B")
+stopifnot(all(geneLabels %in% rowData(sce)[, "gene_name"]))
+geneIds <- with(rowData(sce), gene_id[match(geneLabels, gene_name)])
+geneIdx <- match(geneIds, rownames(matrix_lt2))
+stopifnot(!any(is.na(geneIdx)))
+#
+ra <- rowAnnotation(link = row_anno_link(at = geneIdx, labels = geneLabels),
+    width = unit(0, "cm") + max_text_width(labels))
+#
+hm_lt2 <- Heatmap(
+    matrix=matrix_lt2, col=blueredColorRamp2, name="Z-score",
+    top_annotation = ha_lt2,
+    cluster_columns = lt2_colClust, cluster_rows = FALSE,
+    split = de_groups,
+    gap = unit(5, "mm"),
+    show_row_names = FALSE, show_column_names = FALSE)
+hm_d23 <- Heatmap(
+    matrix=matrix_d23, col=blueredColorRamp2, name="none",
+    top_annotation = ha_d23,
+    cluster_columns = d23_colClust, cluster_rows = FALSE,
+    split = de_groups,
+    show_row_names = FALSE, show_column_names = FALSE)
+hm <- hm_lt2 + hm_d23 + ra
+pdf(file.path(outDir, "Heatmap_6h.pdf"), height = 12, width = 10)
+draw(hm)
+dev.off()
+```

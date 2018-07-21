@@ -1,0 +1,151 @@
+---
+title: "Infected vs. Bystander"
+author: "Kevin Rue-Albrecht"
+date: "21/07/2018"
+output: pdf_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+```
+
+```{r require, include=FALSE}
+require(venn)
+require(circlize)
+require(RColorBrewer)
+require(ComplexHeatmap)
+require(cba)
+```
+
+
+## Load up the SCE object
+
+```{r}
+sce <- readRDS("rds/sce.endo_clusters.rds")
+```
+
+## Set up the color maps
+
+Heat map
+
+```{r}
+blueredColorRamp2 <- colorRamp2(
+    breaks = seq(-3, 3, length.out = 9),
+    colors = rev(brewer.pal(9, "RdBu")))
+```
+
+Metadata
+
+```{r}
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+names(col.time) <- levels(sce$Time)
+names(col.infection) <- levels(sce$Infection)
+names(col.status) <- levels(sce$Status)
+```
+
+## Proces each time point separately
+
+### 2h
+
+```{r}
+csv_files <- list(
+    LT2 = "07_SCDE_out/SCDE_2h_STM-LT2_Infected-2h_STM-LT2_Exposed.csv",
+    D23580 = "07_SCDE_out/SCDE_2h_STM-D23580_Infected-2h_STM-D23580_Exposed.csv"
+)
+```
+
+Load up the SCDE tables
+
+```{r}
+scde_tables <- lapply(csv_files, function(x){read.csv(x, row.names = 1)})
+```
+
+Identify the DE genes
+
+```{r}
+de_ids <- lapply(scde_tables, function(x){rownames(subset(x, p.value < 0.01))})
+de_union <- unique(union(de_ids$LT2, de_ids$D23580))
+de_both <- intersect(de_ids$LT2, de_ids$D23580)
+de_lt2 <- setdiff(de_ids$LT2, de_ids$D23580)
+de_d23 <- setdiff(de_ids$D23580, de_ids$LT2)
+venn(de_ids)
+```
+
+Identify blocks of DE genes
+
+```{r}
+de_groups <- factor(rep(NA, length(de_union)), c("Both", "STM-LT2", "STM-D23580"))
+names(de_groups) <- de_union
+de_groups[de_both] <- "Both"
+de_groups[de_lt2] <- "STM-LT2"
+de_groups[de_d23] <- "STM-D23580"
+```
+
+Prepare the heat maps
+
+```{r}
+matrix_all <- assay(sce[de_union, sce$Time == "2h" & sce$Infection != "Mock"], "logcounts")
+matrix_all <- t(scale(t(matrix_all)))
+#
+ha <- HeatmapAnnotation(
+    df = colData(sce)[colnames(matrix_all), c("Status"), drop=FALSE], col = list(Status=col.status)
+    )
+#
+# hm <- Heatmap(
+#     matrix=matrix_all, col=blueredColorRamp2,
+#     top_annotation = ha,
+#     split = de_groups,
+#     show_row_names = FALSE, show_column_names = FALSE)
+# draw(hm)
+```
+
+```{r}
+matrix_infected <- matrix_all[, rownames(subset(colData(sce[, colnames(matrix_all)]), Time == "2h" & Status == "Infected"))]
+matrix_exposed <- matrix_all[, rownames(subset(colData(sce[, colnames(matrix_all)]), Time == "2h" & Status == "Exposed"))]
+# optimise column order #
+infectedcolDist <- dist(t(matrix_infected))
+infectedcolClust <- hclust(infectedcolDist, method = "ward.D2")
+infected_oo <- order.optimal(infectedcolDist, infectedcolClust$merge)
+infectedcolClust$merge <- infected_oo$merge
+infectedcolClust$order <- infected_oo$order
+#
+exposed_colDist <- dist(t(matrix_exposed))
+exposed_colClust <- hclust(exposed_colDist, method = "ward.D2")
+exposed_oo <- order.optimal(exposed_colDist, exposed_colClust$merge)
+exposed_colClust$merge <- exposed_oo$merge
+exposed_colClust$order <- exposed_oo$order
+#
+ha_infected <- HeatmapAnnotation(
+    df = colData(sce)[colnames(matrix_infected), c("Status", "Infection"), drop=FALSE],
+    col = list(
+        Infection=col.infection,
+        Status=col.status)
+    )
+ha_exposed <- HeatmapAnnotation(
+    df = colData(sce)[colnames(matrix_exposed), c("Status", "Infection"), drop=FALSE],
+    col = list(
+        Infection=col.infection,
+        Status=col.status)
+    )
+#
+hm_infected <- Heatmap(
+    matrix=matrix_infected, col=blueredColorRamp2, name="Z-score",
+    top_annotation = ha_infected,
+    cluster_columns = infectedcolClust,
+    split = de_groups,
+    show_row_names = FALSE, show_column_names = FALSE)
+hm_exposed <- Heatmap(
+    matrix=matrix_exposed, col=blueredColorRamp2, name="none",
+    top_annotation = ha_exposed,
+    cluster_columns = exposed_colClust,
+    split = de_groups,
+    show_heatmap_legend = FALSE,
+    show_row_names = FALSE, show_column_names = FALSE)
+hm <- hm_infected + hm_exposed
+draw(hm)
+```
+
