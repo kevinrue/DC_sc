@@ -70,6 +70,8 @@ ha6 <- HeatmapAnnotation(
 
 # Gene set 1
 
+## Order by Time, Treatment, and MARCH1
+
 Fetch the matrix of log-counts for the genes of interest:
 
 ```{r}
@@ -81,9 +83,10 @@ sce.target <- sce.order[match(
 rownames(sce.target) <- target.genes
 matrix_all <- assay(sce.target, "logcounts")
 matrix_scaled <- t(scale(t(matrix_all)))
-matrix_2h <- matrix_scaled[,sce.target$Time == "2h"]
-matrix_4h <- matrix_scaled[,sce.target$Time == "4h"]
-matrix_6h <- matrix_scaled[,sce.target$Time == "6h"]
+sce.target <- sce.target[, order(sce.target$Time, sce.target$Treatment, matrix_scaled["MARCH1", ])]
+matrix_2h <- matrix_scaled[, rownames(subset(colData(sce.target), Time == "2h"))]
+matrix_4h <- matrix_scaled[, rownames(subset(colData(sce.target), Time == "4h"))]
+matrix_6h <- matrix_scaled[, rownames(subset(colData(sce.target), Time == "6h"))]
 ```
 
 Draw the heat maps:
@@ -124,7 +127,70 @@ ht6 <- Heatmap(
   ),
   cluster_columns = FALSE, cluster_rows = FALSE,
   show_column_names = FALSE)
-pdf(file.path(dirOut, "MARCH1_IL10_CD83.pdf"), width = 12, height = 3)
+pdf(file.path(dirOut, "MARCH1_IL10_CD83_orderedMARCH1_byTimeTreatment.pdf"), width = 12, height = 3)
+draw(ht2 + ht4 + ht6)
+dev.off()
+```
+
+## Order by MARCH1
+
+Fetch the matrix of log-counts for the genes of interest:
+
+```{r}
+target.genes <- c("MARCH1", "CD83", "IL10")
+sce.target <- sce.order[match(
+  target.genes,
+  rowData(sce.order)[,"gene_name"]
+),]
+rownames(sce.target) <- target.genes
+matrix_all <- assay(sce.target, "logcounts")
+matrix_scaled <- t(scale(t(matrix_all)))
+# Order by Time, Treatment, and MARCH1
+sce.target <- sce.target[, order(sce.target$Time, sce.target$Treatment, matrix_scaled["MARCH1", ])]
+matrix_2h <- matrix_scaled[, rownames(subset(colData(sce.target), Time == "2h"))]
+matrix_4h <- matrix_scaled[, rownames(subset(colData(sce.target), Time == "4h"))]
+matrix_6h <- matrix_scaled[, rownames(subset(colData(sce.target), Time == "6h"))]
+```
+
+Draw the heat maps:
+
+```{r}
+ht2 <- Heatmap(
+  matrix = matrix_2h,
+  col = ht_scale,
+  # name = "2h", column_title = "2h",
+  top_annotation = HeatmapAnnotation(
+    df = data.frame(subset(colData(sce.target), Time == "2h")[,c("Infection","Status")]),
+    name = "colData",
+    col = list(Infection = col.infection, Status = col.status)
+  ),
+  cluster_columns = FALSE, cluster_rows = FALSE,
+  show_heatmap_legend = FALSE,
+  show_column_names = FALSE, show_row_names = FALSE)
+ht4 <- Heatmap(
+  matrix = matrix_4h,
+  col = ht_scale,
+  # name = "4h", column_title = "4h",
+  top_annotation = HeatmapAnnotation(
+    df = data.frame(subset(colData(sce.target), Time == "4h")[,c("Infection","Status")]),
+    name = "colData",
+    col = list(Infection = col.infection, Status = col.status)
+  ),
+  cluster_columns = FALSE, cluster_rows = FALSE,
+  show_heatmap_legend = FALSE,
+  show_column_names = FALSE, show_row_names = FALSE)
+ht6 <- Heatmap(
+  matrix = matrix_6h,
+  col = ht_scale,
+  # name = "logcounts", column_title = "6h",
+  top_annotation = HeatmapAnnotation(
+    df = data.frame(subset(colData(sce.target), Time == "6h")[,c("Infection","Status")]),
+    name = "colData",
+    col = list(Infection = col.infection, Status = col.status)
+  ),
+  cluster_columns = FALSE, cluster_rows = FALSE,
+  show_column_names = FALSE)
+pdf(file.path(dirOut, "MARCH1_IL10_CD83_orderedMARCH1_byTimeTreatment.pdf"), width = 12, height = 3)
 draw(ht2 + ht4 + ht6)
 dev.off()
 ```
