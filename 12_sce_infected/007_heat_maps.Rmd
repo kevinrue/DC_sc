@@ -67,7 +67,7 @@ rownames(heat_data) <- gene_names
 Heatmap(matrix = t(scale(t(heat_data))), top_annotation = ha)
 ```
 
-# MARCH1, CD83 and IL10 at 6h p.i. across time points
+# MARCH1, CD83 and IL10 across time points
 
 ```{r}
 sce.norm <- sce.norm[,order(sce.norm$Group)]
@@ -75,6 +75,7 @@ gene_names <- c("MARCH1","CD83","IL10")
 gene_ids <- with(rowData(sce.norm), gene_id[match(gene_names, gene_name)])
 heat_data <- t(scale(t(assay(sce.norm, "vsd")[gene_ids,])))
 rownames(heat_data) <- gene_names
+sce.norm <- sce.norm[, with(colData(sce.norm), order(Group, heat_data["MARCH1", ]))]
 #
 samples_2h <- rownames(subset(colData(sce.norm), Time == "2h"))
 samples_4h <- rownames(subset(colData(sce.norm), Time == "4h"))
