@@ -146,7 +146,7 @@ rownames(sce.target) <- target.genes
 matrix_all <- assay(sce.target, "logcounts")
 matrix_scaled <- t(scale(t(matrix_all)))
 # Order by Time, Treatment, and MARCH1
-sce.target <- sce.target[, order(sce.target$Time, sce.target$Treatment, matrix_scaled["MARCH1", ])]
+sce.target <- sce.target[, order(matrix_scaled["MARCH1", ])]
 matrix_2h <- matrix_scaled[, rownames(subset(colData(sce.target), Time == "2h"))]
 matrix_4h <- matrix_scaled[, rownames(subset(colData(sce.target), Time == "4h"))]
 matrix_6h <- matrix_scaled[, rownames(subset(colData(sce.target), Time == "6h"))]
@@ -190,7 +190,7 @@ ht6 <- Heatmap(
   ),
   cluster_columns = FALSE, cluster_rows = FALSE,
   show_column_names = FALSE)
-pdf(file.path(dirOut, "MARCH1_IL10_CD83_orderedMARCH1_byTimeTreatment.pdf"), width = 12, height = 3)
+pdf(file.path(dirOut, "MARCH1_IL10_CD83_orderedMARCH1.pdf"), width = 12, height = 3)
 draw(ht2 + ht4 + ht6)
 dev.off()
 ```
