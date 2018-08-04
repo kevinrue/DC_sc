@@ -324,6 +324,24 @@ ggsave(
   height = pdfHeight, width = pdfWidth)
 ```
 
+## CHST13
+
+```{r CHST13, echo=FALSE, fig.height=7}
+geneName <- "CHST13"
+plotByNameFacetTime(geneName)
+```
+
+```{r CHST13_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameSubset(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "2h", "uninfected-infected")),
+  plotByNameSubset(geneName, time = "2h", status = c("Uninfected", "Infected")),
+  height = pdfHeight, width = pdfWidth)
+```
+
 ## CLASP1
 
 ```{r CLASP1, echo=FALSE, fig.height=7}
@@ -371,6 +389,10 @@ plotByNameFacetTime(geneName)
 ggsave(
   file.path(outdir, sprintf(pdfName, geneName, "6h")),
   plotByNameSubset(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-infected")),
+  plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Infected")),
   height = pdfHeight, width = pdfWidth)
 ```
 
@@ -694,6 +716,27 @@ ggsave(
   height = pdfHeight, width = pdfWidth)
 ```
 
+## JAK2
+
+```{r JAK2, echo=FALSE, fig.height=7}
+geneName <- "JAK2"
+plotByNameFacetTime(geneName)
+```
+
+```{r JAK2_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "all")),
+  height = 10, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameSubset(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-infected")),
+  plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Infected")),
+  height = pdfHeight, width = pdfWidth)
+```
+
 ## KLHL2
 
 ```{r KLHL2, echo=FALSE, fig.height=7}
@@ -742,7 +785,7 @@ ggsave(
   plotByNameSubset(geneName, "6h"),
   height = pdfHeight, width = pdfWidth)
 ggsave(
-  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-violet")),
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-infected")),
   plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Infected")),
   height = pdfHeight, width = pdfWidth)
 ```
@@ -914,6 +957,24 @@ ggsave(
   height = pdfHeight, width = pdfWidth)
 ```
 
+## TRIM13
+
+```{r TRIM13, echo=FALSE, fig.height=7}
+geneName <- "TRIM13"
+plotByNameFacetTime(geneName)
+```
+
+```{r TRIM13_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameSubset(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "2h", "uninfected-infected")),
+  plotByNameSubset(geneName, time = "2h", status = c("Uninfected", "Infected")),
+  height = pdfHeight, width = pdfWidth)
+```
+
 ## TRIM27
 
 ```{r TRIM27, echo=FALSE, fig.height=7}
@@ -1011,6 +1072,29 @@ ggsave(
   plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Infected")),
   height = pdfHeight, width = pdfWidth)
 ```
+
+## VPS25
+
+```{r VPS25, echo=FALSE, fig.height=7}
+geneName <- "VPS25"
+plotByNameFacetTime(geneName)
+```
+
+```{r VPS25_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "all")),
+  height = 10, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "6h")),
+  plotByNameSubset(geneName, "6h"),
+  height = pdfHeight, width = pdfWidth)
+ggsave(
+  file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "4h", "uninfected-infected")),
+  plotByNameSubset(geneName, time = "4h", status = c("Uninfected", "Infected")),
+  height = pdfHeight, width = pdfWidth)
+```
+
+## Violin strip
 
 ```{r GOInames_6h, include=FALSE}
 GOInames <- c(
