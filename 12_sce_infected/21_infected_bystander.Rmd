@@ -20,6 +20,7 @@ require(cba)
 outDir <- "21_out"; dir.create(outDir)
 ```
 
+This notebook examines the genes differentially expressed between infected and bystander MoDCs in either or both STM-LT2 and STM-D23580 infection models.
 
 ## Load up the SCE object
 
@@ -47,8 +48,6 @@ names(col.time) <- levels(sce$Time)
 names(col.infection) <- levels(sce$Infection)
 names(col.status) <- levels(sce$Status)
 ```
-
-
 
 ## Proces each time point separately
 
@@ -86,6 +85,19 @@ names(de_groups) <- de_union
 de_groups[de_both] <- "Both"
 de_groups[de_lt2] <- "STM-LT2"
 de_groups[de_d23] <- "STM-D23580"
+```
+
+Export the combined DE information (for both LT2 and D23580)
+
+```{r}
+tableExport <- merge(
+    x = scde_tables$LT2, y = scde_tables$D23580, by=0, suffixes = c(".LT2",".D23580")
+)
+tableExport$Group <- c("None", "STM-LT2", "STM-D23580", "Both")[
+    1 + (tableExport$p.value.LT2 < 0.01) + 2*(tableExport$p.value.D23580 < 0.01)
+]
+tableExport <- subset(tableExport, Group != "None")
+write.csv(tableExport, file.path(outDir, "Groups_2h.csv"))
 ```
 
 Prepare the heat maps
@@ -202,6 +214,19 @@ de_groups[de_lt2] <- "STM-LT2"
 de_groups[de_d23] <- "STM-D23580"
 ```
 
+Export the combined DE information (for both LT2 and D23580)
+
+```{r}
+tableExport <- merge(
+    x = scde_tables$LT2, y = scde_tables$D23580, by=0, suffixes = c(".LT2",".D23580")
+)
+tableExport$Group <- c("None", "STM-LT2", "STM-D23580", "Both")[
+    1 + (tableExport$p.value.LT2 < 0.01) + 2*(tableExport$p.value.D23580 < 0.01)
+]
+tableExport <- subset(tableExport, Group != "None")
+write.csv(tableExport, file.path(outDir, "Groups_4h.csv"))
+```
+
 Prepare the heat maps
 
 ```{r}
@@ -314,6 +339,19 @@ names(de_groups) <- de_union
 de_groups[de_both] <- "Both"
 de_groups[de_lt2] <- "STM-LT2"
 de_groups[de_d23] <- "STM-D23580"
+```
+
+Export the combined DE information (for both LT2 and D23580)
+
+```{r}
+tableExport <- merge(
+    x = scde_tables$LT2, y = scde_tables$D23580, by=0, suffixes = c(".LT2",".D23580")
+)
+tableExport$Group <- c("None", "STM-LT2", "STM-D23580", "Both")[
+    1 + (tableExport$p.value.LT2 < 0.01) + 2*(tableExport$p.value.D23580 < 0.01)
+]
+tableExport <- subset(tableExport, Group != "None")
+write.csv(tableExport, file.path(outDir, "Groups_6h.csv"))
 ```
 
 Prepare the heat maps
