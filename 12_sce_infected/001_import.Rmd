@@ -62,7 +62,6 @@ pheno$Treatment <- with(pheno, factor(
 pheno$Group <- with(pheno, factor(
   droplevels(interaction(pheno$Time, pheno$Treatment, sep = "_"))
 ))
-# factor
 ```
 
 # QC metrics {#QC}
