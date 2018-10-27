@@ -1,0 +1,28 @@
+---
+title: "Annotate DESeq2"
+author: "Kevin Rue-Albrecht"
+date: "07/10/2018"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE)
+outDir <- "008_out"; dir.create(outDir)
+sce.endo <- readRDS("rds/sce.endo_clusters.rds")
+```
+
+```{r}
+inFolder <- "005_out"
+inFiles <- list.files(inFolder, "^DESeq2_.*\\.csv")
+for (inFile in inFiles) {
+    inTable <- read.csv(file.path(inFolder, inFile), row.names = 1)
+    inTable <- cbind(
+        gene_name = with(rowData(sce.endo), gene_name[match(rownames(inTable), gene_id)]),
+        inTable
+        )
+    inTable <- inTable[order(inTable$padj), ]
+    write.csv(inTable, file.path(outDir, inFile))
+}
+```
