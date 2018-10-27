@@ -8,16 +8,6 @@ stopifnot(suppressPackageStartupMessages({
 
 sce <- readRDS("sce.rds")
 
-# Show the count matrix
-assayNames(sce)
-assay(sce, "counts")
-
-# Show the gene metadata
-rowData(sce)
-
-# Show the cell metadata
-colData(sce)
-
 # Preconfigure the initial state of the app ----
 
 colDataArgs <- colDataPlotDefaults(sce, 1)
