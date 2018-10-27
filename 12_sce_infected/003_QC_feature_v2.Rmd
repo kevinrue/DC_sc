@@ -103,7 +103,7 @@ genesOver10CPM <- with(
 
 Let us now retain for further analysis:
 
-* endogenous features detected above **10** CPM in
+* endogenous features detected above **10** average CPM in
   at least **1** experimental group of cells
 
 ```{r detectedFeatures}
