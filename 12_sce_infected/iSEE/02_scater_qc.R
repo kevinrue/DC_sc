@@ -82,9 +82,9 @@ sampAssayArgs$XAxis <- "Sample name"
 sampAssayArgs$XAxisSampName <- 2
 
 sampAssayArgs$BrushData[[1]] <- list(
-      xmin = 14, xmax = 17, ymin = 14, ymax = 17, mapping = list(x = "X", y = "Y"),
-      log = list(x = NULL, y = NULL), direction = "xy",
-      brushId = "sampAssayPlot1_Brush", outputId = "sampAssayPlot1")
+    xmin = 14, xmax = 17, ymin = 14, ymax = 17, mapping = list(x = "X", y = "Y"),
+    log = list(x = NULL, y = NULL), direction = "xy",
+    brushId = "sampAssayPlot1_Brush", outputId = "sampAssayPlot1")
 
 initialPanels <- DataFrame(
     Name=c(
@@ -105,9 +105,8 @@ annot.fun <- annotateEnsembl(sce, orgdb=org.Hs.eg.db, keytype="ENSEMBL", rowdata
 
 app <- iSEE(
     se = sce,
-    colDataArgs = colDataArgs, colStatArgs = colStatArgs,
-    rowDataArgs = rowDataArgs, rowStatArgs = rowStatArgs,
-    sampAssayArgs = sampAssayArgs, annotFun = annot.fun,
+    colDataArgs = colDataArgs, colStatArgs = colStatArgs, rowDataArgs = rowDataArgs, rowStatArgs = rowStatArgs, sampAssayArgs = sampAssayArgs,
+    annotFun = annot.fun,
     initialPanels = initialPanels, appTitle = "Aulicino & Rue-Albrecht et al., 2018, Nat. Comm.")
 
 # Launch iSEE! ----
