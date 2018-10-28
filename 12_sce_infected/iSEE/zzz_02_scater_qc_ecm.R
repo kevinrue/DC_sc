@@ -89,12 +89,9 @@ sampAssayArgs$BrushData[[1]] <- list(
 
 initialPanels <- DataFrame(
     Name=c(
-        "Column data plot 1",
-        "Column statistics table 1",
-        "Row data plot 1",
-        "Row statistics table 1",
-        "Sample assay plot 1"),
-    Width=c(4, 8, 4, 8, 8)
+        "Reduced dimension plot 1"
+    ),
+    Width=c()
 )
 
 # gene_biotype has 46 unique values (including NA)
