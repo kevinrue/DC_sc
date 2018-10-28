@@ -2,6 +2,7 @@
 stopifnot(suppressPackageStartupMessages({
     require(SingleCellExperiment)
     require(scater)
+    require(org.Hs.eg.db)
     require(iSEE)
 }))
 
@@ -46,7 +47,7 @@ colDataArgs$BrushData[[1]] <- list(
 
 colStatArgs <- colStatTableDefaults(sce, 1)
 
-# colStatArgs$SelectByPlot <- "Column data plot 1"
+colStatArgs$SelectByPlot <- "Column data plot 1"
 colStatArgs$SelectBoxOpen <- TRUE
 
 rowDataArgs <- rowDataPlotDefaults(sce, 1)
@@ -69,15 +70,21 @@ rowDataArgs$BrushData[[1]] <- list(
 
 rowStatArgs <- rowStatTableDefaults(sce, 1)
 rowStatArgs$SelectByPlot <- "Row data plot 1"
+# rowStatArgs$SelectByPlot <- "Sample assay plot 1"
 
 sampAssayArgs <- sampAssayPlotDefaults(sce, 1)
 
 sampAssayArgs$Assay <- "logcounts"
 
-sampAssayArgs$YAxisSampeName <- 1
+sampAssayArgs$YAxisSampName <- 1
 
 sampAssayArgs$XAxis <- "Sample name"
 sampAssayArgs$XAxisSampName <- 2
+
+sampAssayArgs$BrushData[[1]] <- list(
+      xmin = 14, xmax = 17, ymin = 14, ymax = 17, mapping = list(x = "X", y = "Y"),
+      log = list(x = NULL, y = NULL), direction = "xy",
+      brushId = "sampAssayPlot1_Brush", outputId = "sampAssayPlot1")
 
 initialPanels <- DataFrame(
     Name=c(
@@ -86,18 +93,21 @@ initialPanels <- DataFrame(
         "Row data plot 1",
         "Row statistics table 1",
         "Sample assay plot 1"),
-    Width=c(4, 8, 4, 8, 7)
+    Width=c(4, 8, 4, 8, 8)
 )
 
 # gene_biotype has 46 unique values (including NA)
 # however, it should be treated as a categorical covariate
 options(iSEE.maxlevels=50)
 
+# Setting up the annotation function.
+annot.fun <- annotateEnsembl(sce, orgdb=org.Hs.eg.db, keytype="ENSEMBL", rowdata_col="gene_id")
+
 app <- iSEE(
     se = sce,
     colDataArgs = colDataArgs, colStatArgs = colStatArgs,
     rowDataArgs = rowDataArgs, rowStatArgs = rowStatArgs,
-    sampAssayArgs = sampAssayArgs,
+    sampAssayArgs = sampAssayArgs, annotFun = annot.fun,
     initialPanels = initialPanels, appTitle = "Aulicino & Rue-Albrecht et al., 2018, Nat. Comm.")
 
 # Launch iSEE! ----
