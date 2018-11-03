@@ -1,29 +1,39 @@
 
 stopifnot(suppressPackageStartupMessages({
     require(SingleCellExperiment)
-    require(scater)
     require(org.Hs.eg.db)
     require(iSEE)
 }))
 
-# Load the (barely) preprocessed object ----
+if (FALSE) {
+    require(scater)
+    require(HDF5Array)
+    # Load the (barely) preprocessed object ----
 
-sce <- readRDS("sce.rds")
+    sce <- readRDS("sce.rds")
 
-# Add log-transformed counts ----
+    # Add log-transformed counts ----
 
-sce <- normalize(sce)
+    sce <- normalize(sce)
 
-# Compute scater QC metrics ----
+    h5file <- "sce.h5"
+    assay(sce, "logcounts") <- writeHDF5Array(assay(sce, "logcounts"), h5file, "logcounts", chunkdim = c(100, 100), verbose=TRUE)
 
-sce <- calculateQCMetrics(object = sce,
-    feature_controls = list(
-        ERCC=which(rowData(sce)$source == "ERCC"),
-        MT=which(seqnames(rowRanges(sce)) == "MT")),
-    cell_controls = list(
-        Blank=which(sce$Status == "Blank"),
-        Bulk=which(sce$Status == "Bulk")
-    ))
+    # Compute scater QC metrics ----
+
+    sce <- calculateQCMetrics(object = sce,
+        feature_controls = list(
+            ERCC=which(rowData(sce)$source == "ERCC"),
+            MT=which(seqnames(rowRanges(sce)) == "MT")),
+        cell_controls = list(
+            Blank=which(sce$Status == "Blank"),
+            Bulk=which(sce$Status == "Bulk")
+        ))
+
+    saveRDS(sce, "sce.02.rds")
+}
+
+sce <- readRDS("sce.02.rds")
 
 # Preconfigure the initial state of the app ----
 
