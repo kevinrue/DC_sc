@@ -8,50 +8,57 @@ stopifnot(suppressPackageStartupMessages({
     require(iSEE)
 }))
 
-# Load the (barely) preprocessed object ----
+if (FALSE) {
+    # Load the (barely) preprocessed object ----
 
-sce <- readRDS("sce.rds")
+    sce <- readRDS("sce.rds")
 
-# Filter to the good cells ----
+    # Filter to the good cells ----
 
-goodCellNames <- scan(file = "good_cells.txt", what = "character")
-sce <- sce[, goodCellNames]
+    goodCellNames <- scan(file = "good_cells.txt", what = "character")
+    sce <- sce[, goodCellNames]
 
-# Clean up empty factor levels
-colData(sce) <- droplevels(colData(sce))
+    # Clean up empty factor levels
+    colData(sce) <- droplevels(colData(sce))
 
-# Normalize ----
+    # Normalize ----
 
-# Compute broad cluster membership
-sce$quickCluster <- quickCluster(sce, min.size=min(table(sce$Group)))
-table(sce$quickCluster)
+    # Compute broad cluster membership
+    sce$quickCluster <- quickCluster(sce, min.size=min(table(sce$Group)))
+    table(sce$quickCluster)
 
-# Compute sum factors using cell pools within broad cluster
-sce <- computeSumFactors(sce, sizes = c(10, 15), clusters = sce$quickCluster)
+    # Compute sum factors using cell pools within broad cluster
+    sce <- computeSumFactors(sce, sizes = c(10, 15), clusters = sce$quickCluster)
 
-# Normalize using the size factors computed above
-sce <- normalize(sce)
+    # Normalize using the size factors computed above
+    sce <- normalize(sce)
 
-# Compute dimensionality reduction results ----
+    # Compute dimensionality reduction results ----
+    sce <- runPCA(object = sce,
+        ntop = 500,
+        ncomponents = 10,
+        feature_set = which(rowData(sce)$source != "ERCC"))
 
-sce <- runPCA(object = sce,
-    ntop = 500,
-    ncomponents = 10,
-    feature_set = which(rowData(sce)$source != "ERCC"))
+    set.seed(1794)
+    sce <- runTSNE(object = sce,
+        ntop = 500,
+        ncomponents = 2,
+        pca = TRUE, initial_dims = 50,
+        feature_set = which(rowData(sce)$source != "ERCC"),
+        perplexity = round(mean(table(sce$Group)) / 2) # = 11
+        )
 
-sce <- runTSNE(object = sce,
-    ntop = 500,
-    ncomponents = 2,
-    pca = TRUE, initial_dims = 50,
-    feature_set = which(rowData(sce)$source != "ERCC"),
-    perplexity = round(mean(table(sce$Group)) / 2) # = 11
-    )
+    set.seed(1794)
+    sce <- runDiffusionMap(object = sce,
+        ntop = 500,
+        ncomponents = 2,
+        feature_set = which(rowData(sce)$source != "ERCC")
+        )
 
-sce <- runDiffusionMap(object = sce,
-    ntop = 500,
-    ncomponents = 2,
-    feature_set = which(rowData(sce)$source != "ERCC")
-    )
+    saveRDS(sce, "sce.03.rds")
+}
+
+sce <- readRDS("sce.03.rds")
 
 # Preconfigure the initial state of the app ----
 
