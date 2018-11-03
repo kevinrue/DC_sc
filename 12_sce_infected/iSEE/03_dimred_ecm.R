@@ -8,10 +8,17 @@ stopifnot(suppressPackageStartupMessages({
     require(iSEE)
 }))
 
-if (FALSE) {
+doPreprocess <- FALSE
+useHDF5 <- TRUE
+
+if (doPreprocess) {
     # Load the (barely) preprocessed object ----
 
-    sce <- readRDS("sce.rds")
+    if (useHDF5) {
+        sce <- readRDS("sce.h5.rds")
+    } else {
+        sce <- readRDS("sce.rds")
+    }
 
     # Filter to the good cells ----
 
@@ -55,10 +62,18 @@ if (FALSE) {
         feature_set = which(rowData(sce)$source != "ERCC")
         )
 
-    saveRDS(sce, "sce.03.rds")
+    if (useHDF5) {
+        saveRDS(sce, "sce.03.h5.rds")
+    } else {
+        saveRDS(sce, "sce.03.rds")
+    }
 }
 
-sce <- readRDS("sce.03.rds")
+if (useHDF5) {
+    sce <- readRDS("sce.03.h5.rds")
+} else {
+    sce <- readRDS("sce.03.rds")
+}
 
 # Preconfigure the initial state of the app ----
 
