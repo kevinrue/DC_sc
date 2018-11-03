@@ -8,58 +8,13 @@ stopifnot(suppressPackageStartupMessages({
     require(iSEE)
 }))
 
-if (FALSE) {
-    # Load the (barely) preprocessed object ----
+useHDF5 <- TRUE
 
-    sce <- readRDS("sce.rds")
-
-    # Filter to the good cells ----
-
-    goodCellNames <- scan(file = "good_cells.txt", what = "character")
-    sce <- sce[, goodCellNames]
-
-    # Clean up empty factor levels
-    colData(sce) <- droplevels(colData(sce))
-
-    # Normalize ----
-
-    # Compute broad cluster membership
-    sce$quickCluster <- quickCluster(sce, min.size=min(table(sce$Group)))
-    table(sce$quickCluster)
-
-    # Compute sum factors using cell pools within broad cluster
-    sce <- computeSumFactors(sce, sizes = c(10, 15), clusters = sce$quickCluster)
-
-    # Normalize using the size factors computed above
-    sce <- normalize(sce)
-
-    # Compute dimensionality reduction results ----
-
-    sce <- runPCA(object = sce,
-        ntop = 500,
-        ncomponents = 10,
-        feature_set = which(rowData(sce)$source != "ERCC"))
-
-    set.seed(1794)
-    sce <- runTSNE(object = sce,
-        ntop = 500,
-        ncomponents = 2,
-        pca = TRUE, initial_dims = 50,
-        feature_set = which(rowData(sce)$source != "ERCC"),
-        perplexity = round(mean(table(sce$Group)) / 2) # = 11
-        )
-
-    set.seed(1794)
-    sce <- runDiffusionMap(object = sce,
-        ntop = 500,
-        ncomponents = 2,
-        feature_set = which(rowData(sce)$source != "ERCC")
-        )
-
-    saveRDS(sce, "sce.04.rds")
+if (useHDF5) {
+    sce <- readRDS("sce.03.h5.rds")
+} else {
+    sce <- readRDS("sce.03.rds")
 }
-
-sce <- readRDS("sce.04.rds")
 
 # Preconfigure the initial state of the app ----
 
@@ -84,6 +39,8 @@ redDimArgs$LassoData[[1]] <- list(
         2.67210026530675, 0.96470530146804, 20.4237156818852, 12.4695358942074, 11.2911388886255,
         15.1209291567667, 22.4859104416536, 24.5481052014219, 23.2224085701423, 20.4237156818852
         ), .Dim = c(8L, 2L)))
+
+# Define custom functions ----
 
 EMPTY_PLOT <- function() {
     ggplot() +
@@ -132,14 +89,58 @@ customDataArgs <- customDataPlotDefaults(sce, 1)
 customDataArgs$Function <- "CUSTOM_MULTI"
 customDataArgs$Arguments <- "colour_by Treatment\nsize_by Infection\nscale_features TRUE"
 customDataArgs$ColumnSource <- "Reduced dimension plot 1"
+customDataArgs$DataBoxOpen <- TRUE
 customDataArgs$SelectBoxOpen <- TRUE
+
+CUSTOM_LFC <- function(se, rows, columns) {
+    if (is.null(columns)) {
+        return(data.frame(
+            gene_name=character(0),
+            logFC=numeric(0)
+            ))
+    }
+
+    if (!identical(caching$columns, columns)) {
+        caching$columns <- columns
+        in.subset <- rowMeans(logcounts(sce)[, columns])
+        out.subset <- rowMeans(logcounts(sce)[, setdiff(colnames(sce), columns)])
+        caching$logFC <- setNames(in.subset - out.subset, rownames(sce))
+    }
+
+    lfc <- caching$logFC
+    if (!is.null(rows)) {
+        out <- data.frame(
+            gene_name=rowData(se)[, "gene_name"][rows],
+            logFC=lfc[rows],
+            row.names=rows)
+    } else {
+        out <- data.frame(
+            gene_name=rowData(se)[, "gene_name"],
+            logFC=lfc,
+            row.names=rownames(se))
+    }
+    out <- out[order(out$logFC, decreasing=TRUE), , drop=FALSE]
+    out
+}
+
+# Set up a cache for selected columns (i.e., samples) and log fold-change values.
+# The function uses this cache to avoid recomputing the log fold-change values if only the row selection changes (i.e., features),
+# as in that case the function only needs to change which results are displayed.
+caching <- new.env()
+
+customStatArgs <- customStatTableDefaults(sce, 1)
+customStatArgs$Function <- "CUSTOM_LFC"
+customStatArgs$ColumnSource <- "Reduced dimension plot 1"
+customStatArgs$SelectBoxOpen <- TRUE
+
 
 initialPanels <- DataFrame(
     Name=c(
         "Reduced dimension plot 1",
-        "Custom data plot 1"
+        "Custom data plot 1",
+        "Custom statistics table 1"
     ),
-    Width=c(4, 8)
+    Width=c(4, 8, 12)
 )
 
 # gene_biotype has 46 unique values (including NA)
@@ -180,10 +181,12 @@ ecm <- ExperimentColorMap(
 
 app <- iSEE(
     se = sce,
-    redDimArgs = redDimArgs, colDataArgs = colDataArgs, customDataArgs = customDataArgs,
+    redDimArgs = redDimArgs, colDataArgs = colDataArgs,
+    customDataArgs = customDataArgs, customStatArgs = customStatArgs,
     annotFun = annot.fun,
     initialPanels = initialPanels, colormap = ecm,
     customDataFun=list(CUSTOM_MULTI=CUSTOM_MULTI),
+    customStatFun=list(CUSTOM_LFC=CUSTOM_LFC),
     appTitle = "Aulicino & Rue-Albrecht et al., 2018, Nat. Comm.")
 
 # Launch iSEE! ----
