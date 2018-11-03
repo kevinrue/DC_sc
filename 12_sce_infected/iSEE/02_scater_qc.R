@@ -1,13 +1,13 @@
 
 stopifnot(suppressPackageStartupMessages({
     require(SingleCellExperiment)
+    require(scater)
+    require(HDF5Array)
     require(org.Hs.eg.db)
     require(iSEE)
 }))
 
 if (FALSE) {
-    require(scater)
-    require(HDF5Array)
     # Load the (barely) preprocessed object ----
 
     sce <- readRDS("sce.rds")
