@@ -22,4 +22,4 @@ colData(sce)
 
 app <- iSEE(sce)
 
-shiny::runApp(app)
+shiny::runApp(app, launch.browser = TRUE)
