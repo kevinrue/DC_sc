@@ -6,7 +6,13 @@ stopifnot(suppressPackageStartupMessages({
 
 # Load the (barely) preprocessed object ----
 
-sce <- readRDS("sce.rds")
+useHDF5 <- TRUE
+
+if (useHDF5) {
+    sce <- readRDS("sce.h5.rds")
+} else {
+    sce <- readRDS("sce.rds")
+}
 
 # Preconfigure the initial state of the app ----
 
@@ -32,12 +38,24 @@ rowDataArgs$BrushData[[1]] <- list(
       log = list(x = NULL, y = NULL), direction = "xy",
       brushId = "rowDataPlot1_Brush", outputId = "rowDataPlot1")
 
+rowStatArgs <- rowStatTableDefaults(sce, 1)
+rowStatArgs$SelectByPlot <- "Sample assay plot 1"
+
 sampAssayArgs <- sampAssayPlotDefaults(sce, 1)
 
-sampAssayArgs$YAxisSampeName <- 1
+sampAssayArgs$YAxisSampName <- 1
 
 sampAssayArgs$XAxis <- "Sample name"
 sampAssayArgs$XAxisSampName <- 2
+
+sampAssayArgs$SelectByPlot <- "Row data plot 1"
+sampAssayArgs$SelectBoxOpen <- TRUE
+
+sampAssayArgs$BrushData[[1]] <- list(
+    xmin = 15393, xmax = 60034, ymin = 8759, ymax = 122569,
+    mapping = list(x = "X", y = "Y"),
+    log = list(x = NULL, y = NULL), direction = "xy", brushId = "sampAssayPlot1_Brush",
+    outputId = "sampAssayPlot1")
 
 heatMapArgs <- heatMapPlotDefaults(sce, 1)
 
@@ -65,7 +83,7 @@ options(iSEE.maxlevels=50)
 
 app <- iSEE(
     se = sce,
-    colDataArgs = colDataArgs, rowDataArgs = rowDataArgs, sampAssayArgs = sampAssayArgs, heatMapArgs = heatMapArgs,
+    colDataArgs = colDataArgs, rowDataArgs = rowDataArgs, rowStatArgs = rowStatArgs, sampAssayArgs = sampAssayArgs, heatMapArgs = heatMapArgs,
     initialPanels = initialPanels, appTitle = "Aulicino & Rue-Albrecht et al., 2018, Nat. Comm.")
 
 # Launch iSEE! ----
