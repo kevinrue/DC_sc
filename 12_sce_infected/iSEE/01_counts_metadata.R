@@ -6,7 +6,13 @@ stopifnot(suppressPackageStartupMessages({
 
 # Load the (barely) preprocessed object ----
 
-sce <- readRDS("sce.rds")
+useHDF5 <- TRUE
+
+if (useHDF5) {
+    sce <- readRDS("sce.h5.rds")
+} else {
+    sce <- readRDS("sce.rds")
+}
 
 # Show the count matrix
 assayNames(sce)
