@@ -7,17 +7,26 @@ stopifnot(suppressPackageStartupMessages({
     require(iSEE)
 }))
 
-if (FALSE) {
+doPreprocess <- FALSE
+useHDF5 <- TRUE
+
+if (doPreprocess) {
     # Load the (barely) preprocessed object ----
 
-    sce <- readRDS("sce.rds")
+    if (useHDF5) {
+        sce <- readRDS("sce.h5.rds")
+    } else {
+        sce <- readRDS("sce.rds")
+    }
 
     # Add log-transformed counts ----
 
     sce <- normalize(sce)
 
-    h5file <- "sce.h5"
-    assay(sce, "logcounts") <- writeHDF5Array(assay(sce, "logcounts"), h5file, "logcounts", chunkdim = c(100, 100), verbose=TRUE)
+    if (useHDF5) {
+        h5file <- "sce.h5"
+        assay(sce, "logcounts") <- writeHDF5Array(assay(sce, "logcounts"), h5file, "logcounts", chunkdim = c(100, 100), verbose=TRUE)
+    }
 
     # Compute scater QC metrics ----
 
@@ -30,10 +39,19 @@ if (FALSE) {
             Bulk=which(sce$Status == "Bulk")
         ))
 
-    saveRDS(sce, "sce.02.rds")
+    if (useHDF5) {
+        saveRDS(sce, "sce.02.h5.rds")
+    } else {
+        saveRDS(sce, "sce.02.rds")
+    }
+
 }
 
-sce <- readRDS("sce.02.rds")
+if (useHDF5) {
+    sce <- readRDS("sce.02.h5.rds")
+} else {
+    sce <- readRDS("sce.02.rds")
+}
 
 # Preconfigure the initial state of the app ----
 
