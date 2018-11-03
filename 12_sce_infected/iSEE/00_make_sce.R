@@ -49,6 +49,10 @@ sce <- SingleCellExperiment(
     colData=cellMetadataTable,
     rowRanges=gtfInfo)
 
+# Save the "regular" object
+saveRDS(file="sce.rds", sce)
+
+# Save the object using HDF5
 h5file <- "sce.h5"
 assay(sce, "counts") <- writeHDF5Array(assay(sce, "counts"), h5file, "counts", chunkdim = c(100, 100), verbose=TRUE)
-saveRDS(file="sce.rds", sce)
+saveRDS(file="sce.h5.rds", sce)
