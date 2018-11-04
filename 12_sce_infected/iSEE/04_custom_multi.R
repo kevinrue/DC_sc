@@ -181,8 +181,7 @@ ecm <- ExperimentColorMap(
 
 app <- iSEE(
     se = sce,
-    redDimArgs = redDimArgs, colDataArgs = colDataArgs,
-    customDataArgs = customDataArgs, customStatArgs = customStatArgs,
+    redDimArgs = redDimArgs, customDataArgs = customDataArgs, customStatArgs = customStatArgs,
     annotFun = annot.fun,
     initialPanels = initialPanels, colormap = ecm,
     customDataFun=list(CUSTOM_MULTI=CUSTOM_MULTI),
