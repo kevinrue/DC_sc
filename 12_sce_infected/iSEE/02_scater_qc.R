@@ -1,4 +1,4 @@
-
+options(iSEE.maxlevels=50)
 stopifnot(suppressPackageStartupMessages({
     require(SingleCellExperiment)
     require(scater)
