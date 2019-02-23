@@ -166,7 +166,7 @@ colormapStatus <- function(n) {
 }
 
 colormapTime <- function(n) {
-    x <- brewer.pal(9, "Set3")[c(2, 7, 8, 9)]
+    x <- brewer.pal(9, "Set1")[c(2, 7, 8, 9)]
     names(x) <- c("2h", "4h", "6h", "Blank")
     x
 }
