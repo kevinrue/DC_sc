@@ -1,0 +1,113 @@
+---
+title: "Heatmap"
+author: "Kevin Rue-Albrecht"
+date: "14/07/2019"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+require(ComplexHeatmap)
+```
+
+## Workflow
+
+```{r}
+sce <- readRDS("rds/sce.pass.rds")
+sce
+```
+
+## Genes of interst (names)
+
+```{r}
+query_gene_names <- c("TFRC", "BMP2", "BMP6", "HAMP", "FTH1", "SLC11A2", "FTL", "HMOX1", "SLC40A1", "HFE")
+query_gene_table <- subset(rowData(sce), gene_name %in% query_gene_names, c("gene_id", "gene_name"))
+stopifnot(identical(
+    setdiff(query_gene_names, query_gene_table$gene_name),
+    character(0)
+))
+query_gene_table
+```
+
+## Remove spike in features
+
+```{r}
+sce <- sce[!isSpike(sce), ]
+sce
+```
+
+## Post-process metadata for pretty plotting
+
+```{r}
+sce$GroupVertical <- factor(gsub("_", "\n", sce$Group), gsub("_", "\n", levels(sce$Group)))
+```
+
+## Compute CPM on the endogenous features
+
+```{r}
+spikeNames(sce)
+assay(sce, "CPM") <- calculateCPM(sce, use_size_factors=FALSE)
+sce
+```
+
+## Extract matrix and plot (z-score)
+
+```{r, fig.width=10, fig.height=6}
+exprs_values <- assay(sce[query_gene_table$gene_id, ], "CPM")
+rownames(exprs_values) <- query_gene_table$gene_name
+allZeros <- rowSums(exprs_values != 0) == 0
+rownames(exprs_values)[allZeros]
+exprs_values <- exprs_values[!allZeros, ]
+exprs_values <- log2(exprs_values+1)
+exprs_values <- t(scale(t(exprs_values)))
+```
+
+```{r}
+# Heatmap(matrix = exprs_values)
+ta <- HeatmapAnnotation(
+    df = colData(sce)[, c("Infection", "Status"), drop=FALSE],
+    col = list(
+        Infection = c("Mock"="#CAB2D6", "STM-LT2"="#33A02C", "STM-D23580"="#1F78B4"),
+        Status = c("Uninfected"="#CAB2D6", "Exposed"="#A6CEE3", "Infected"="#FDBF6F")
+    )
+)
+png(filename = "20190714_heatmap_out/heatmap_zscore.png", width = 20, height = 12, units = "in", res = 300)
+Heatmap(
+    matrix = exprs_values,
+    top_annotation = ta,
+    column_split = sce$GroupVertical,
+    cluster_column_slices = FALSE,
+    show_column_names = FALSE)
+dev.off()
+```
+
+## Extract matrix and plot (log-CPM)
+
+```{r, fig.width=10, fig.height=6}
+exprs_values <- assay(sce[query_gene_table$gene_id, ], "CPM")
+rownames(exprs_values) <- query_gene_table$gene_name
+allZeros <- rowSums(exprs_values != 0) == 0
+rownames(exprs_values)[allZeros]
+exprs_values <- exprs_values[!allZeros, ]
+exprs_values <- log2(exprs_values+1)
+```
+
+```{r}
+# Heatmap(matrix = exprs_values)
+ta <- HeatmapAnnotation(
+    df = colData(sce)[, c("Infection", "Status"), drop=FALSE],
+    col = list(
+        Infection = c("Mock"="#CAB2D6", "STM-LT2"="#33A02C", "STM-D23580"="#1F78B4"),
+        Status = c("Uninfected"="#CAB2D6", "Exposed"="#A6CEE3", "Infected"="#FDBF6F")
+    )
+)
+png(filename = "20190714_heatmap_out/heatmap_logCPM.png", width = 20, height = 12, units = "in", res = 300)
+Heatmap(
+    matrix = exprs_values,
+    top_annotation = ta,
+    column_split = sce$GroupVertical,
+    cluster_column_slices = FALSE,
+    show_column_names = FALSE)
+dev.off()
+```
+
