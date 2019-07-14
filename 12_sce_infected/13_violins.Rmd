@@ -249,6 +249,19 @@ ggsave(
   height = pdfHeight, width = pdfWidth)
 ```
 
+## BMP6
+
+```{r BMP6, echo=FALSE, fig.height=7}
+geneName <- "BMP6"
+plotByNameFacetTime(geneName)
+```
+
+```{r BMP6_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "all")),
+  height = 10, width = pdfWidth)
+```
+
 ## CASP3
 
 ```{r CASP3, echo=FALSE, fig.height=7}
@@ -548,6 +561,45 @@ ggsave(
   file.path(outdir, sprintf(pdfName, geneName, "6h")),
   plotByNameSubset(geneName, "6h"),
   height = pdfHeight, width = pdfWidth)
+```
+
+## FTL
+
+```{r FTL, echo=FALSE, fig.height=7}
+geneName <- "FTL"
+plotByNameFacetTime(geneName)
+```
+
+```{r FTL_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "all")),
+  height = 10, width = pdfWidth)
+```
+
+## FTH1
+
+```{r FTH1, echo=FALSE, fig.height=7}
+geneName <- "FTH1"
+plotByNameFacetTime(geneName)
+```
+
+```{r FTH1_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "all")),
+  height = 10, width = pdfWidth)
+```
+
+## HMOX1
+
+```{r HMOX1, echo=FALSE, fig.height=7}
+geneName <- "HMOX1"
+plotByNameFacetTime(geneName)
+```
+
+```{r HMOX1_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "all")),
+  height = 10, width = pdfWidth)
 ```
 
 ## IKBKB
@@ -858,6 +910,19 @@ ggsave(
   file.path(outdir, sprintf("%s_%s_%s.pdf", geneName, "6h", "uninfected-infected")),
   plotByNameSubset(geneName, time = "6h", status = c("Uninfected", "Infected")),
   height = pdfHeight, width = pdfWidth)
+```
+
+## SLC11A2
+
+```{r SLC11A2, echo=FALSE, fig.height=7}
+geneName <- "SLC11A2"
+plotByNameFacetTime(geneName)
+```
+
+```{r SLC11A2_pdf, include=FALSE}
+ggsave(
+  file.path(outdir, sprintf(pdfName, geneName, "all")),
+  height = 10, width = pdfWidth)
 ```
 
 ## STXBP1
