@@ -1,0 +1,130 @@
+---
+title: "Untitled"
+author: "Kevin Rue-Albrecht"
+date: "16/12/2019"
+output: html_document
+editor_options: 
+  chunk_output_type: console
+---
+
+```{r}
+require(ggplot2)
+require(scater)
+require(cowplot)
+source("000_ExperimentColorMap.R")
+outdir <- "16b_chinese_email_out"; dir.create(outdir, showWarnings = FALSE)
+```
+
+```{r}
+sce.endo <- readRDS("rds/20180707_sce.endo_clusters.rds")
+colnames(colData(sce.endo))
+```
+
+```{r}
+sce.2h <- sce.endo[,sce.endo$Time == '2h']
+sce.4h <- sce.endo[,sce.endo$Time == '4h']
+sce.6h <- sce.endo[,sce.endo$Time == '6h']
+```
+
+# Time point diffusion maps {.tabset}
+
+```{r}
+table_out <- data.frame(
+  cell_id = colnames(sce.endo),
+  stringsAsFactors = FALSE
+)
+```
+
+## 2h
+
+```{r reducedDimension_pdf.2h, include=FALSE}
+set.seed(1794)
+sce.2h <- runDiffusionMap(sce.2h)
+# same
+tmpGG <- data.frame(
+  reducedDim(sce.2h, "DiffusionMap"),
+  Cluster = sce.2h$quickCluster.2h
+)
+tmpGG$DC1 <- -tmpGG$DC1
+gg <- ggplot(tmpGG, aes(DC1, DC2, colour = Cluster)) +
+  geom_point() +
+  # stat_ellipse(type = "norm", linetype = 2, size=0.4, level = 0.70) +
+  labs(x="Dimension 1",y="Dimension 2",title="2h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"]) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+# ggsave(file.path(outdir, "diffusionMap_clusters_only2h.pdf"), gg, width = 5, height = 4, useDingbats=FALSE)
+gg
+```
+
+```{r}
+colnames(tmpGG) <- paste0(colnames(tmpGG), "_2h")
+table_out <- cbind(table_out, tmpGG[table_out$cell_id, , drop=FALSE])
+```
+
+## 4h
+
+```{r reducedDimension_pdf.4h, include=FALSE}
+set.seed(1794)
+sce.4h <- runDiffusionMap(sce.4h)
+# same
+tmpGG <- data.frame(
+  reducedDim(sce.4h, "DiffusionMap"),
+  Cluster = sce.4h$quickCluster.4h
+)
+tmpGG$DC1 <- -tmpGG$DC1
+gg <- ggplot(tmpGG, aes(DC1, DC2, colour = Cluster)) +
+  geom_point() +
+  # stat_ellipse(type = "norm", linetype = 2, size=0.4, level = 0.70) +
+  labs(x="Dimension 1",y="Dimension 2",title="4h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"]) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+# ggsave(file.path(outdir, "diffusionMap_clusters_only4h.pdf"), gg, width = 5, height = 4, useDingbats=FALSE)
+gg
+```
+
+```{r}
+colnames(tmpGG) <- paste0(colnames(tmpGG), "_4h")
+table_out <- cbind(table_out, tmpGG[table_out$cell_id, , drop=FALSE])
+```
+
+## 6h
+
+```{r reducedDimension_pdf.6h, include=FALSE}
+set.seed(1794)
+sce.6h <- runDiffusionMap(sce.6h)
+# same
+tmpGG <- data.frame(
+  reducedDim(sce.6h, "DiffusionMap"),
+  Cluster = sce.6h$quickCluster.6h
+)
+tmpGG$DC1 <- -tmpGG$DC1
+gg <- ggplot(tmpGG, aes(DC1, DC2, colour = Cluster)) +
+  geom_point() +
+  # stat_ellipse(type = "norm", linetype = 2, size=0.4, level = 0.70) +
+  labs(x="Dimension 1",y="Dimension 2",title="6h") +
+  scale_color_manual(
+      values = colDataColorMap(ecm, "quickCluster")(),
+      na.value = colDataColorMap(ecm, "quickCluster")()["NA"]) +
+  theme_bw() +
+  theme(panel.grid.minor = element_blank())
+# ggsave(file.path(outdir, "diffusionMap_clusters_only6h.pdf"), gg, width = 5, height = 4, useDingbats=FALSE)
+gg
+```
+
+```{r}
+colnames(tmpGG) <- paste0(colnames(tmpGG), "_6h")
+table_out <- cbind(table_out, tmpGG[table_out$cell_id, , drop=FALSE])
+```
+
+# Export table
+
+```{r}
+table_out$cell_index <- gsub("Cell_", "", table_out$cell_id)
+write.csv(table_out, file.path(outdir, "Fig2a_data.csv"), row.names = FALSE)
+```
