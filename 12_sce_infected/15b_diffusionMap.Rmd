@@ -1,0 +1,48 @@
+
+```{r setup, include=FALSE}
+stopifnot(
+    require(scater)
+)
+sce.endo <- readRDS("rds/sce.endo_clusters.rds")
+o.ifm.2h <- readRDS("rds/o.ifm.2h.rds")
+o.ifm.4h <- readRDS("rds/o.ifm.4h.rds")
+o.ifm.6h <- readRDS("rds/o.ifm.6h.rds")
+col.time <- brewer.pal(9, "Set3")[c(2,7:8)]
+col.infection <- brewer.pal(12, "Paired")[c(9,4,2)]
+col.status <- brewer.pal(12, "Paired")[c(9,1,7)]
+col.treatment <- RColorBrewer::brewer.pal(9, "Paired")[c(9,3,4,1,2)]
+names(col.time) <- levels(sce.endo$Time)[1:3]
+names(col.infection) <- levels(sce.endo$Infection)
+names(col.status) <- levels(sce.endo$Status)
+names(col.treatment) <- levels(sce.endo$Treatment)
+outdir <- "15b_diffusionMap_out"; dir.create(outdir, showWarnings = FALSE)
+```
+
+# All cells
+
+```{r}
+set.seed(1989)
+sce.endo <- runDiffusionMap(sce.endo)
+```
+
+```{r}
+dmData <- data.frame(
+    reducedDim(sce.endo, "DiffusionMap"),
+    colData(sce.endo)[,1:10]
+)
+dmData$DC2 <- -dmData$DC2
+gg <- ggplot(dmData, aes(DC1, DC2, color=Treatment, shape=Time)) +
+    geom_point(size=2, alpha=0.6) +
+    scale_color_manual(values = col.treatment) +
+    theme_bw() +
+    theme(panel.grid.minor = element_blank())
+gg
+# ggsave(file.path(outdir, "DiffusionMap_all.pdf"), gg, width = 6, height = 4, useDingbats = TRUE)
+```
+
+# Export table
+
+```{r}
+dmData$cell_index <- gsub("Cell_", "", rownames(dmData))
+write.csv(dmData, file.path(outdir, "Fig1a_data.csv"), row.names = FALSE)
+```
